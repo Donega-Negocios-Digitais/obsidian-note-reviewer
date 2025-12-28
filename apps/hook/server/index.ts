@@ -8,7 +8,9 @@
  */
 
 import { $ } from "bun";
-import { join, dirname } from "path";
+
+// Embed the built HTML at compile time
+import indexHtml from "../dist/index.html" with { type: "text" };
 
 // Read hook event from stdin
 const eventJson = await Bun.stdin.text();
@@ -32,10 +34,6 @@ let resolveDecision: (result: { approved: boolean; feedback?: string }) => void;
 const decisionPromise = new Promise<{ approved: boolean; feedback?: string }>(
   (resolve) => { resolveDecision = resolve; }
 );
-
-// Resolve paths relative to this script
-const serverDir = dirname(import.meta.path);
-const distDir = join(serverDir, "..", "dist");
 
 const server = Bun.serve({
   port: 0, // Random available port - critical for multi-instance support
@@ -65,42 +63,12 @@ const server = Bun.serve({
       return Response.json({ ok: true });
     }
 
-    // Serve static files from dist/
-    let filePath = url.pathname;
-    if (filePath === "/" || filePath === "") {
-      filePath = "/index.html";
-    }
-
-    const file = Bun.file(join(distDir, filePath));
-    if (await file.exists()) {
-      const contentType = getContentType(filePath);
-      return new Response(file, {
-        headers: contentType ? { "Content-Type": contentType } : {}
-      });
-    }
-
-    // Fallback to index.html for SPA routing
-    const indexFile = Bun.file(join(distDir, "index.html"));
-    if (await indexFile.exists()) {
-      return new Response(indexFile, {
-        headers: { "Content-Type": "text/html" }
-      });
-    }
-
-    return new Response("Not found", { status: 404 });
+    // Serve embedded HTML for all other routes (SPA)
+    return new Response(indexHtml, {
+      headers: { "Content-Type": "text/html" }
+    });
   },
 });
-
-function getContentType(path: string): string | null {
-  if (path.endsWith(".html")) return "text/html";
-  if (path.endsWith(".js")) return "application/javascript";
-  if (path.endsWith(".css")) return "text/css";
-  if (path.endsWith(".json")) return "application/json";
-  if (path.endsWith(".svg")) return "image/svg+xml";
-  if (path.endsWith(".png")) return "image/png";
-  if (path.endsWith(".ico")) return "image/x-icon";
-  return null;
-}
 
 // Log to stderr so it doesn't interfere with hook stdout
 console.error(`Plannotator server running on http://localhost:${server.port}`);
