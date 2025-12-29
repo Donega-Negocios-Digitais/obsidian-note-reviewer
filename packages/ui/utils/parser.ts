@@ -114,6 +114,34 @@ export const parseMarkdownToBlocks = (markdown: string): Block[] => {
       continue;
     }
 
+    // Tables (lines starting and containing |)
+    if (trimmed.startsWith('|') || (trimmed.includes('|') && trimmed.match(/^\|?.+\|.+\|?$/))) {
+      flush();
+      const tableStartLine = currentLineNum;
+      const tableLines: string[] = [line];
+
+      // Collect all consecutive table lines
+      while (i + 1 < lines.length) {
+        const nextLine = lines[i + 1].trim();
+        // Continue if line has table structure (contains | and looks like table content)
+        if (nextLine.startsWith('|') || (nextLine.includes('|') && nextLine.match(/^\|?.+\|.+\|?$/))) {
+          i++;
+          tableLines.push(lines[i]);
+        } else {
+          break;
+        }
+      }
+
+      blocks.push({
+        id: `block-${currentId++}`,
+        type: 'table',
+        content: tableLines.join('\n'),
+        order: currentId,
+        startLine: tableStartLine
+      });
+      continue;
+    }
+
     // Empty lines separate paragraphs
     if (trimmed === '') {
       flush();

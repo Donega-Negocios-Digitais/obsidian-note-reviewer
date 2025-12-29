@@ -32,7 +32,7 @@ export interface Annotation {
 
 export interface Block {
   id: string;
-  type: 'paragraph' | 'heading' | 'blockquote' | 'list-item' | 'code' | 'hr';
+  type: 'paragraph' | 'heading' | 'blockquote' | 'list-item' | 'code' | 'hr' | 'table';
   content: string; // Plain text content
   level?: number; // For headings (1-6)
   language?: string; // For code blocks (e.g., 'rust', 'typescript')
