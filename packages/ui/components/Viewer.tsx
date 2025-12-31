@@ -1,11 +1,10 @@
-import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
+﻿import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import Highlighter from 'web-highlighter';
 import hljs from 'highlight.js';
 import 'highlight.js/styles/github-dark.css';
 import { Block, Annotation, AnnotationType, EditorMode } from '../types';
 import { Toolbar } from './Toolbar';
-import { TaterSpriteSitting } from './TaterSpriteSitting';
 import { getIdentity } from '../utils/identity';
 
 interface ViewerProps {
@@ -16,7 +15,6 @@ interface ViewerProps {
   onSelectAnnotation: (id: string | null) => void;
   selectedAnnotationId: string | null;
   mode: EditorMode;
-  taterMode: boolean;
 }
 
 export interface ViewerHandle {
@@ -32,8 +30,7 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(({
   onAddAnnotation,
   onSelectAnnotation,
   selectedAnnotationId,
-  mode,
-  taterMode
+  mode
 }, ref) => {
   const [copied, setCopied] = useState(false);
 
@@ -476,7 +473,7 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(({
 
   return (
     <div className="relative z-50 w-full max-w-3xl">
-      {taterMode && <TaterSpriteSitting />}
+      
       <article
         ref={containerRef}
         className="w-full max-w-3xl bg-card border border-border/50 rounded-xl shadow-xl p-5 md:p-10 lg:p-14 relative"
@@ -485,21 +482,21 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(({
         <button
           onClick={handleCopyPlan}
           className="absolute top-3 right-3 md:top-5 md:right-5 flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted rounded-md transition-colors"
-          title={copied ? 'Copied!' : 'Copy plan'}
+          title={copied ? 'Copiado!' : 'Copiar nota'}
         >
           {copied ? (
             <>
               <svg className="w-3.5 h-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
-              Copied!
+              Copiado!
             </>
           ) : (
             <>
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
               </svg>
-              Copy plan
+              Copiar nota
             </>
           )}
         </button>
@@ -672,7 +669,21 @@ const parseTableContent = (content: string): { headers: string[]; rows: string[]
 };
 
 const BlockRenderer: React.FC<{ block: Block }> = ({ block }) => {
-  switch (block.type) {
+  switch (block.type) {    case 'frontmatter':
+      return (
+        <div
+          className="mb-6 p-4 bg-muted/30 border border-border/30 rounded-lg"
+          data-block-id={block.id}
+        >
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2 font-semibold">
+            Frontmatter YAML
+          </div>
+          <pre className="text-xs font-mono text-foreground/80 whitespace-pre-wrap">
+            {block.content}
+          </pre>
+        </div>
+      );
+
     case 'heading':
       const Tag = `h${block.level || 1}` as keyof JSX.IntrinsicElements;
       const styles = {
@@ -696,7 +707,7 @@ const BlockRenderer: React.FC<{ block: Block }> = ({ block }) => {
     case 'list-item':
       return (
         <div className="flex gap-3 my-1.5" data-block-id={block.id}>
-          <span className="text-primary/60 select-none">•</span>
+          <span className="text-primary/60 select-none">â€¢</span>
           <span className="text-foreground/90 text-sm leading-relaxed"><InlineMarkdown text={block.content} /></span>
         </div>
       );
@@ -804,7 +815,7 @@ const CodeBlock: React.FC<CodeBlockProps> = ({ block, onHover, onLeave, isHovere
       <button
         onClick={handleCopy}
         className="absolute top-2 right-2 p-1.5 rounded-md bg-muted/80 hover:bg-muted text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity z-10"
-        title={copied ? 'Copied!' : 'Copy code'}
+        title={copied ? 'Copiado!' : 'Copiar cÃ³digo'}
       >
         {copied ? (
           <svg className="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

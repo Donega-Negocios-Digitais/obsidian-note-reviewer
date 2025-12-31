@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Annotation, AnnotationType, Block } from '../types';
 import { isCurrentUser } from '../utils/identity';
 
@@ -43,7 +43,7 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
       <div className="p-3 border-b border-border/50">
         <div className="flex items-center justify-between">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Annotations
+            Anotacoes
           </h2>
           <span className="text-[10px] font-mono bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
             {annotations.length}
@@ -61,7 +61,7 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
               </svg>
             </div>
             <p className="text-xs text-muted-foreground">
-              Select text to add annotations
+              Selecione texto para adicionar anotacoes
             </p>
           </div>
         ) : (
@@ -89,14 +89,14 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
-                Copied
+                Copiado
               </>
             ) : (
               <>
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                 </svg>
-                Quick Share
+                Compartilhar
               </>
             )}
           </button>
@@ -130,7 +130,7 @@ const AnnotationCard: React.FC<{
 }> = ({ annotation, isSelected, onSelect, onDelete }) => {
   const typeConfig = {
     [AnnotationType.DELETION]: {
-      label: 'Delete',
+      label: 'Excluir',
       color: 'text-destructive',
       bg: 'bg-destructive/10',
       icon: (
@@ -140,7 +140,7 @@ const AnnotationCard: React.FC<{
       )
     },
     [AnnotationType.INSERTION]: {
-      label: 'Insert',
+      label: 'Inserir',
       color: 'text-secondary',
       bg: 'bg-secondary/10',
       icon: (
@@ -150,7 +150,7 @@ const AnnotationCard: React.FC<{
       )
     },
     [AnnotationType.REPLACEMENT]: {
-      label: 'Replace',
+      label: 'Substituir',
       color: 'text-primary',
       bg: 'bg-primary/10',
       icon: (
@@ -160,7 +160,7 @@ const AnnotationCard: React.FC<{
       )
     },
     [AnnotationType.COMMENT]: {
-      label: 'Comment',
+      label: 'Comentario',
       color: 'text-accent',
       bg: 'bg-accent/10',
       icon: (
@@ -190,7 +190,7 @@ const AnnotationCard: React.FC<{
           <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
           </svg>
-          <span className="truncate">{annotation.author}{isCurrentUser(annotation.author) && ' (me)'}</span>
+          <span className="truncate">{annotation.author}{isCurrentUser(annotation.author) && ' (eu)'}</span>
         </div>
       )}
 

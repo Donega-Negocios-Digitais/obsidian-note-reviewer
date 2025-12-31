@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Plannotator Ephemeral Server
  *
  * Spawned by ExitPlanMode hook to serve Plannotator UI and handle approve/deny decisions.
@@ -61,7 +61,29 @@ const server = Bun.serve({
         resolveDecision({ approved: false, feedback: "Plan rejected by user" });
       }
       return Response.json({ ok: true });
+    }    // API: Save note to vault
+    if (url.pathname === "/api/save" && req.method === "POST") {
+      try {
+        const body = await req.json() as { content: string; path: string };
+        const fs = await import("fs/promises");
+        const pathModule = await import("path");
+
+        // Ensure directory exists
+        const dir = pathModule.dirname(body.path);
+        await fs.mkdir(dir, { recursive: true });
+
+        // Save file
+        await fs.writeFile(body.path, body.content, "utf-8");
+
+        return Response.json({ ok: true, message: "Nota salva com sucesso" });
+      } catch (error) {
+        return Response.json(
+          { ok: false, error: error instanceof Error ? error.message : "Erro ao salvar nota" },
+          { status: 500 }
+        );
+      }
     }
+
 
     // Serve embedded HTML for all other routes (SPA)
     return new Response(indexHtml, {

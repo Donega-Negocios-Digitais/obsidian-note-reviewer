@@ -1,14 +1,12 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { EditorMode } from '../types';
-import { TaterSpritePullup } from './TaterSpritePullup';
 
 interface ModeSwitcherProps {
   mode: EditorMode;
   onChange: (mode: EditorMode) => void;
-  taterMode?: boolean;
 }
 
-export const ModeSwitcher: React.FC<ModeSwitcherProps> = ({ mode, onChange, taterMode }) => {
+export const ModeSwitcher: React.FC<ModeSwitcherProps> = ({ mode, onChange }) => {
   const [showHelp, setShowHelp] = useState(false);
 
   return (
@@ -26,7 +24,7 @@ export const ModeSwitcher: React.FC<ModeSwitcherProps> = ({ mode, onChange, tate
             <path d="M9 6v12"/>
           </svg>
         }
-        label="Selection"
+        label="SeleÃ§Ã£o"
       />
       <ModeButton
         active={mode === 'redline'}
@@ -46,7 +44,7 @@ export const ModeSwitcher: React.FC<ModeSwitcherProps> = ({ mode, onChange, tate
       onClick={() => setShowHelp(true)}
       className="ml-2 text-[10px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"
     >
-      how does this work?
+      como funciona?
     </button>
 
     {/* Help Video Dialog */}
@@ -59,9 +57,9 @@ export const ModeSwitcher: React.FC<ModeSwitcherProps> = ({ mode, onChange, tate
           className="bg-card border border-border rounded-xl w-full max-w-2xl shadow-2xl relative"
           onClick={e => e.stopPropagation()}
         >
-          {taterMode && <TaterSpritePullup />}
+          
           <div className="flex items-center justify-between p-4 border-b border-border">
-            <h3 className="font-semibold text-sm">How Plannotator Works</h3>
+            <h3 className="font-semibold text-sm">Como o Plannotator Funciona</h3>
             <button
               onClick={() => setShowHelp(false)}
               className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
@@ -76,7 +74,7 @@ export const ModeSwitcher: React.FC<ModeSwitcherProps> = ({ mode, onChange, tate
               width="100%"
               height="100%"
               src="https://www.youtube.com/embed/a_AT7cEN_9I?autoplay=1"
-              title="How Plannotator Works"
+              title="Como o Plannotator Funciona"
               frameBorder="0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen

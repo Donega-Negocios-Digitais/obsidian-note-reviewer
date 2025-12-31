@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 
 interface DecisionBarProps {
   onApprove: () => Promise<void>;
@@ -63,19 +63,19 @@ export const DecisionBar: React.FC<DecisionBarProps> = ({
           {/* Message */}
           <div className="space-y-2">
             <h2 className="text-xl font-semibold text-foreground">
-              {submitted === 'approved' ? 'Plan Approved' : 'Feedback Sent'}
+              {submitted === 'approved' ? 'Nota Aprovada' : 'Alteracoes Solicitadas'}
             </h2>
             <p className="text-muted-foreground">
               {submitted === 'approved'
-                ? 'Claude will proceed with the implementation.'
-                : 'Claude will revise the plan based on your annotations.'}
+                ? 'A nota sera salva no Obsidian.'
+                : 'Claude ira revisar a nota com base nas suas anotacoes.'}
             </p>
           </div>
 
           {/* Instruction */}
           <div className="pt-4 border-t border-border">
             <p className="text-sm text-muted-foreground">
-              Return to your <span className="text-foreground font-medium">Claude Code terminal</span> to continue.
+              Retorne ao <span className="text-foreground font-medium">terminal do Claude Code</span> para continuar.
             </p>
           </div>
         </div>
@@ -89,7 +89,7 @@ export const DecisionBar: React.FC<DecisionBarProps> = ({
         {/* Status info */}
         <div className="flex-1 text-sm text-muted-foreground">
           {annotationCount > 0 ? (
-            <span>{annotationCount} annotation{annotationCount !== 1 ? 's' : ''} to send as feedback</span>
+            <span>{annotationCount} {annotationCount !== 1 ? 'anotacoes' : 'anotacao'} para enviar como feedback</span>
           ) : (
             <span>Review the plan, then approve or request changes</span>
           )}
@@ -108,7 +108,7 @@ export const DecisionBar: React.FC<DecisionBarProps> = ({
               }
             `}
           >
-            {isSubmitting ? 'Sending...' : 'Request Changes'}
+            {isSubmitting ? 'Enviando...' : 'Solicitar Alteracoes'}
           </button>
 
           <button
@@ -122,7 +122,7 @@ export const DecisionBar: React.FC<DecisionBarProps> = ({
               }
             `}
           >
-            {isSubmitting ? 'Approving...' : 'Approve Plan'}
+            {isSubmitting ? 'Aprovando...' : 'Aprovar Nota'}
           </button>
         </div>
       </div>

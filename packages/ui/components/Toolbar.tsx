@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { AnnotationType } from '../types';
 import { createPortal } from 'react-dom';
 
@@ -93,7 +93,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ highlightElement, onAnnotate, 
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
             }
-            label="Delete"
+            label="Excluir"
             className="text-destructive hover:bg-destructive/10"
           />
           <ToolbarButton
@@ -103,7 +103,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ highlightElement, onAnnotate, 
                 <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
               </svg>
             }
-            label="Comment"
+            label="Comentar"
             className="text-accent hover:bg-accent/10"
           />
           <div className="w-px h-5 bg-border mx-0.5" />
@@ -114,7 +114,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ highlightElement, onAnnotate, 
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             }
-            label="Cancel"
+            label="Cancelar"
             className="text-muted-foreground hover:bg-muted"
           />
         </div>
@@ -123,8 +123,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({ highlightElement, onAnnotate, 
           <input
             ref={inputRef}
             type="text"
-            className="bg-transparent border-none outline-none text-sm w-44 placeholder:text-muted-foreground"
-            placeholder="Add a comment..."
+            className="bg-transparent border-none outline-none text-sm w-80 placeholder:text-muted-foreground"
+            placeholder="Adicione um comentario..."
             value={inputValue}
             onChange={e => setInputValue(e.target.value)}
             onKeyDown={e => e.key === 'Escape' && setStep('menu')}
@@ -133,9 +133,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ highlightElement, onAnnotate, 
             type="submit"
             disabled={!inputValue.trim()}
             className="px-2 py-1 text-xs font-medium rounded bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity"
-          >
-            Save
-          </button>
+          >Salvar</button>
           <button
             type="button"
             onClick={() => setStep('menu')}

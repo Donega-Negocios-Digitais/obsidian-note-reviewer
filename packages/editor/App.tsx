@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+﻿import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { parseMarkdownToBlocks, exportDiff } from '@plannotator/ui/utils/parser';
 import { Viewer, ViewerHandle } from '@plannotator/ui/components/Viewer';
 import { AnnotationPanel } from '@plannotator/ui/components/AnnotationPanel';
@@ -7,8 +7,6 @@ import { Annotation, Block, EditorMode } from '@plannotator/ui/types';
 import { ThemeProvider } from '@plannotator/ui/components/ThemeProvider';
 import { ModeToggle } from '@plannotator/ui/components/ModeToggle';
 import { ModeSwitcher } from '@plannotator/ui/components/ModeSwitcher';
-import { TaterSpriteRunning } from '@plannotator/ui/components/TaterSpriteRunning';
-import { TaterSpritePullup } from '@plannotator/ui/components/TaterSpritePullup';
 import { Settings } from '@plannotator/ui/components/Settings';
 import { useSharing } from '@plannotator/ui/hooks/useSharing';
 import { storage } from '@plannotator/ui/utils/storage';
@@ -221,10 +219,7 @@ const App: React.FC = () => {
   const [showFeedbackPrompt, setShowFeedbackPrompt] = useState(false);
   const [isPanelOpen, setIsPanelOpen] = useState(true);
   const [editorMode, setEditorMode] = useState<EditorMode>('selection');
-  const [taterMode, setTaterMode] = useState(() => {
-    const stored = storage.getItem('plannotator-tater-mode');
-    return stored === 'true';
-  });
+
   const [isApiMode, setIsApiMode] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -264,10 +259,6 @@ const App: React.FC = () => {
     }
   }, [pendingSharedAnnotations, clearPendingSharedAnnotations]);
 
-  const handleTaterModeChange = (enabled: boolean) => {
-    setTaterMode(enabled);
-    storage.setItem('plannotator-tater-mode', String(enabled));
-  };
 
   // Check if we're in API mode (served from Bun hook server)
   // Skip if we loaded from a shared URL
@@ -342,10 +333,7 @@ const App: React.FC = () => {
 
   return (
     <ThemeProvider defaultTheme="dark">
-      <div className="h-screen flex flex-col bg-background overflow-hidden">
-        {/* Tater sprites */}
-        {taterMode && <TaterSpriteRunning />}
-        {/* Minimal Header */}
+      <div className="h-screen flex flex-col bg-background overflow-hidden">        {/* Minimal Header */}
         <header className="h-12 flex items-center justify-between px-2 md:px-4 border-b border-border/50 bg-card/50 backdrop-blur-xl z-50">
           <div className="flex items-center gap-2 md:gap-3">
             <a
@@ -376,12 +364,12 @@ const App: React.FC = () => {
                       ? 'opacity-50 cursor-not-allowed bg-muted text-muted-foreground'
                       : 'bg-accent/15 text-accent hover:bg-accent/25 border border-accent/30'
                   }`}
-                  title="Provide Feedback"
+                  title="Solicitar Alteracoes"
                 >
                   <svg className="w-4 h-4 md:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                   </svg>
-                  <span className="hidden md:inline">{isSubmitting ? 'Sending...' : 'Provide Feedback'}</span>
+                  <span className="hidden md:inline">{isSubmitting ? 'Enviando...' : 'Solicitar Alteracoes'}</span>
                 </button>
 
                 <button
@@ -394,7 +382,7 @@ const App: React.FC = () => {
                   }`}
                 >
                   <span className="md:hidden">{isSubmitting ? '...' : 'OK'}</span>
-                  <span className="hidden md:inline">{isSubmitting ? 'Approving...' : 'Approve'}</span>
+                  <span className="hidden md:inline">{isSubmitting ? 'Aprovando...' : 'Aprovar'}</span>
                 </button>
 
                 <div className="w-px h-5 bg-border/50 mx-1 hidden md:block" />
@@ -402,7 +390,7 @@ const App: React.FC = () => {
             )}
 
             <ModeToggle />
-            <Settings taterMode={taterMode} onTaterModeChange={handleTaterModeChange} onIdentityChange={handleIdentityChange} />
+            <Settings onIdentityChange={handleIdentityChange} />
 
             <button
               onClick={() => setIsPanelOpen(!isPanelOpen)}
@@ -420,12 +408,12 @@ const App: React.FC = () => {
             <button
               onClick={() => setShowExport(true)}
               className="p-1.5 md:px-2.5 md:py-1 rounded-md text-xs font-medium bg-muted hover:bg-muted/80 transition-colors"
-              title="Export"
+              title="Exportar"
             >
               <svg className="w-4 h-4 md:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
               </svg>
-              <span className="hidden md:inline">Export</span>
+              <span className="hidden md:inline">Exportar</span>
             </button>
           </div>
         </header>
@@ -437,7 +425,7 @@ const App: React.FC = () => {
             <div className="min-h-full flex flex-col items-center p-3 md:p-8">
               {/* Mode Switcher */}
               <div className="w-full max-w-3xl mb-3 md:mb-4 flex justify-start">
-                <ModeSwitcher mode={editorMode} onChange={setEditorMode} taterMode={taterMode} />
+                <ModeSwitcher mode={editorMode} onChange={setEditorMode} />
               </div>
 
               <Viewer
@@ -449,7 +437,7 @@ const App: React.FC = () => {
                 onSelectAnnotation={setSelectedAnnotationId}
                 selectedAnnotationId={selectedAnnotationId}
                 mode={editorMode}
-                taterMode={taterMode}
+               
               />
             </div>
           </main>
@@ -474,7 +462,7 @@ const App: React.FC = () => {
           shareUrlSize={shareUrlSize}
           diffOutput={diffOutput}
           annotationCount={annotations.length}
-          taterSprite={taterMode ? <TaterSpritePullup /> : undefined}
+          
         />
 
         {/* Feedback prompt dialog */}
@@ -487,17 +475,17 @@ const App: React.FC = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
                   </svg>
                 </div>
-                <h3 className="font-semibold">Add Annotations First</h3>
+                <h3 className="font-semibold">Adicione Anotacoes</h3>
               </div>
               <p className="text-sm text-muted-foreground mb-6">
-                To provide feedback, select text in the plan and add annotations. Claude will use your annotations to revise the plan.
+                Para solicitar alteracoes, selecione texto na nota e adicione anotacoes.
               </p>
               <div className="flex justify-end">
                 <button
                   onClick={() => setShowFeedbackPrompt(false)}
                   className="px-4 py-2 rounded-md text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
                 >
-                  Got it
+                  Entendi
                 </button>
               </div>
             </div>
@@ -526,18 +514,18 @@ const App: React.FC = () => {
 
               <div className="space-y-2">
                 <h2 className="text-xl font-semibold text-foreground">
-                  {submitted === 'approved' ? 'Plan Approved' : 'Feedback Sent'}
+                  {submitted === 'approved' ? 'Nota Aprovada' : 'Alteracoes Solicitadas'}
                 </h2>
                 <p className="text-muted-foreground">
                   {submitted === 'approved'
-                    ? 'Claude will proceed with the implementation.'
-                    : 'Claude will revise the plan based on your annotations.'}
+                    ? 'A nota sera salva no Obsidian.'
+                    : 'Claude ira revisar a nota com base nas suas anotacoes.'}
                 </p>
               </div>
 
               <div className="pt-4 border-t border-border">
                 <p className="text-sm text-muted-foreground">
-                  Return to your <span className="text-foreground font-medium">Claude Code terminal</span> to continue.
+                  Retorne ao <span className="text-foreground font-medium">terminal do Claude Code</span> para continuar.
                 </p>
               </div>
             </div>
