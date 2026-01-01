@@ -168,6 +168,18 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
             {annotations.length}
           </span>
         </div>
+
+        {/* Filter Buttons Row */}
+        <div className="flex items-center gap-1 mt-2">
+          {Object.values(AnnotationType).map(type => (
+            <FilterButton
+              key={type}
+              type={type}
+              isActive={visibleTypes.has(type)}
+              onClick={() => toggleTypeVisibility(type)}
+            />
+          ))}
+        </div>
       </div>
 
       {/* List */}
