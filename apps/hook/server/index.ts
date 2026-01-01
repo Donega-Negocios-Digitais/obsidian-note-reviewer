@@ -14,7 +14,30 @@
  */
 
 import { $ } from "bun";
-import { validatePath } from "./pathValidation";
+import { validatePath, validatePathWithAllowedDirs } from "./pathValidation";
+
+// Parse ALLOWED_SAVE_PATHS environment variable for vault restriction (defense-in-depth)
+// Format: comma-separated list of allowed directories, e.g., "/path/to/vault,/another/vault"
+function parseAllowedSavePaths(): string[] {
+  const envValue = process.env.ALLOWED_SAVE_PATHS;
+  if (!envValue || envValue.trim() === "") {
+    return [];
+  }
+  // Split by comma, trim whitespace, filter empty strings
+  return envValue
+    .split(",")
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0);
+}
+
+const allowedSavePaths = parseAllowedSavePaths();
+
+// Log configuration status at startup
+if (allowedSavePaths.length > 0) {
+  console.error(`[Server] [SECURITY] Allowed save paths configured: ${allowedSavePaths.join(", ")}`);
+} else {
+  console.error("[Server] [SECURITY] Warning: ALLOWED_SAVE_PATHS not configured. Files can be saved to any path. Set this environment variable for defense-in-depth.");
+}
 
 // Embed the built HTML at compile time
 import indexHtml from "../dist/index.html" with { type: "text" };
@@ -78,7 +101,11 @@ const server = Bun.serve({
         const body = await req.json() as { content: string; path: string };
 
         // Security: Validate path to prevent path traversal attacks (CWE-22)
-        const pathValidation = validatePath(body.path);
+        // If ALLOWED_SAVE_PATHS is configured, also validate path is within allowed directories
+        const pathValidation = allowedSavePaths.length > 0
+          ? validatePathWithAllowedDirs(body.path, allowedSavePaths)
+          : validatePath(body.path);
+
         if (!pathValidation.valid) {
           console.error(`[Server] [SECURITY] Path validation failed for path: ${pathValidation.error}`);
           return Response.json(
