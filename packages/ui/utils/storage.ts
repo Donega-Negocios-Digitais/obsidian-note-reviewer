@@ -230,3 +230,20 @@ export function getAllNoteTypeTemplates(): Record<string, string> {
   }
   return templates;
 }
+
+/**
+ * Settings export structure for backup and sharing
+ *
+ * Used for exporting/importing all user settings as JSON.
+ * Version field enables future compatibility handling.
+ */
+export interface SettingsExport {
+  /** Schema version for future compatibility */
+  version: number;
+  /** User's tater identity (e.g., "swift-falcon-tater") */
+  identity: string;
+  /** Note type paths mapping (tipo -> path) */
+  notePaths: Record<string, string>;
+  /** Note type templates mapping (tipo -> template path) */
+  noteTemplates: Record<string, string>;
+}
