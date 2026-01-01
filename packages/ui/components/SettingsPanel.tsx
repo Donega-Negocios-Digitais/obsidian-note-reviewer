@@ -6,7 +6,8 @@ import {
   getNoteTypeTemplate,
   setNoteTypeTemplate,
   getNotePath,
-  setNotePath
+  setNotePath,
+  exportAllSettings
 } from '../utils/storage';
 import {
   getNoteTypesByCategory,
@@ -112,6 +113,18 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     }
   };
 
+  const handleExportSettings = () => {
+    const settings = exportAllSettings();
+    const json = JSON.stringify(settings, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'note-reviewer-settings.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const noteTypes = getNoteTypesByCategory();
 
   const tabs: Array<{ id: CategoryTab; emoji: string; label: string }> = [
@@ -170,6 +183,16 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-semibold text-foreground">Configurações</h3>
           <div className="flex items-center gap-2">
+            <button
+              onClick={handleExportSettings}
+              className="px-2 py-1 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-md transition-colors flex items-center gap-1"
+              title="Exportar configurações"
+            >
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Exportar
+            </button>
             <button
               onClick={handleLoadDefaults}
               className="px-2 py-1 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-md transition-colors flex items-center gap-1"
