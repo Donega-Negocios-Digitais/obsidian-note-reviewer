@@ -3,23 +3,23 @@
   "spec": "004-add-more-keyboard-shortcuts-save-export-global-com",
   "state": "building",
   "subtasks": {
-    "completed": 1,
+    "completed": 4,
     "total": 9,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Add Keyboard Shortcuts to handleKeyDown",
+    "current": "Add Visual Keyboard Hints on Buttons",
     "id": null,
-    "total": 4
+    "total": 3
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 3,
+    "number": 6,
     "started_at": "2026-01-01T18:51:31.222958"
   },
-  "last_update": "2026-01-01T19:02:09.616559"
+  "last_update": "2026-01-01T19:16:22.285723"
 }
