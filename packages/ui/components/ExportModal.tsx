@@ -88,6 +88,26 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     URL.revokeObjectURL(url);
   };
 
+  const handleCopyJson = async () => {
+    try {
+      await navigator.clipboard.writeText(jsonOutput);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (e) {
+      console.error('Failed to copy:', e);
+    }
+  };
+
+  const handleDownloadJson = () => {
+    const blob = new Blob([jsonOutput], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'annotations.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
       <div
@@ -223,6 +243,24 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               className="px-3 py-1.5 rounded-md text-xs font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
             >
               Download .diff
+            </button>
+          </div>
+        )}
+
+        {/* Footer actions - only show for JSON tab */}
+        {activeTab === 'json' && (
+          <div className="p-4 border-t border-border flex justify-end gap-2">
+            <button
+              onClick={handleCopyJson}
+              className="px-3 py-1.5 rounded-md text-xs font-medium bg-muted hover:bg-muted/80 transition-colors"
+            >
+              {copied ? 'Copied!' : 'Copy'}
+            </button>
+            <button
+              onClick={handleDownloadJson}
+              className="px-3 py-1.5 rounded-md text-xs font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
+            >
+              Download .json
             </button>
           </div>
         )}
