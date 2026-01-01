@@ -376,6 +376,8 @@ const App: React.FC = () => {
   };
 
   const handleAddGlobalComment = (comment: string, author: string) => {
+    // Clear redo stack when new global comment is added (standard undo/redo behavior)
+    setRedoStack([]);
     const newAnnotation: Annotation = {
       id: `global-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       blockId: '', // Not tied to a specific block
