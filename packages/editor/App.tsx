@@ -297,13 +297,19 @@ const App: React.FC = () => {
         e.preventDefault();
         if (annotationHistory.length > 0) {
           const lastAnnotationId = annotationHistory[annotationHistory.length - 1];
-          // Remove annotation
-          setAnnotations(prev => prev.filter(a => a.id !== lastAnnotationId));
+          // Find and store annotation for redo, then remove
+          setAnnotations(prev => {
+            const annotationToUndo = prev.find(a => a.id === lastAnnotationId);
+            if (annotationToUndo) {
+              // Push to redo stack for Ctrl+Shift+Z
+              setRedoStack(redoPrev => [...redoPrev, annotationToUndo]);
+            }
+            return prev.filter(a => a.id !== lastAnnotationId);
+          });
           // Remove from history
           setAnnotationHistory(prev => prev.slice(0, -1));
           // Remove highlight from viewer
           viewerRef.current?.removeHighlight(lastAnnotationId);
-          console.log('↶ Anotação desfeita:', lastAnnotationId);
         }
       }
     };
