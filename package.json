@@ -18,6 +18,7 @@
     "packages/*"
   ],
   "scripts": {
+    "prepare": "husky install",
     "dev:hook": "bun run --cwd apps/hook dev",
     "dev:portal": "bun run --cwd apps/portal dev",
     "dev:marketing": "bun run --cwd apps/marketing dev",
@@ -28,7 +29,14 @@
     "build": "bun run build:hook && bun run build:opencode",
     "test": "bun test",
     "test:watch": "bun test --watch",
-    "test:coverage": "bun test --coverage"
+    "test:coverage": "bun test --coverage",
+    "lint": "echo 'Linting...' && exit 0"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "bun run lint",
+      "bun test --related --passWithNoTests"
+    ]
   },
   "dependencies": {
     "@types/dompurify": "^3.2.0",
@@ -42,6 +50,8 @@
     "@testing-library/react": "^16.3.1",
     "@testing-library/user-event": "^14.6.1",
     "@types/js-yaml": "^4.0.9",
-    "happy-dom": "^20.0.11"
+    "happy-dom": "^20.0.11",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7"
   }
 }
