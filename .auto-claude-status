@@ -3,7 +3,7 @@
   "spec": "014-cookie-security-flags-missing",
   "state": "building",
   "subtasks": {
-    "completed": 3,
+    "completed": 8,
     "total": 9,
     "in_progress": 1,
     "failed": 0
@@ -18,8 +18,8 @@
     "max": 1
   },
   "session": {
-    "number": 5,
+    "number": 10,
     "started_at": "2026-01-01T18:52:43.335174"
   },
-  "last_update": "2026-01-01T19:10:50.501804"
+  "last_update": "2026-01-01T20:04:53.479007"
 }
