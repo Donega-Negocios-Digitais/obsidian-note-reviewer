@@ -1,0 +1,25 @@
+{
+  "active": true,
+  "spec": "006-add-comprehensive-aria-labels-and-roles-for-access",
+  "state": "building",
+  "subtasks": {
+    "completed": 2,
+    "total": 17,
+    "in_progress": 1,
+    "failed": 0
+  },
+  "phase": {
+    "current": "Core UI Components - Buttons & Interactive Elements",
+    "id": null,
+    "total": 4
+  },
+  "workers": {
+    "active": 0,
+    "max": 1
+  },
+  "session": {
+    "number": 4,
+    "started_at": "2026-01-01T18:51:34.387182"
+  },
+  "last_update": "2026-01-01T19:18:44.262429"
+}
