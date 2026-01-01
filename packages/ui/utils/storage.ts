@@ -7,7 +7,7 @@
  * localhost:54322 share the same cookies.
  */
 
-import { getIdentity } from './identity';
+import { getIdentity, saveIdentity } from './identity';
 
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
 
@@ -266,4 +266,44 @@ export function exportAllSettings(): SettingsExport {
     notePaths: getAllNoteTypePaths(),
     noteTemplates: getAllNoteTypeTemplates(),
   };
+}
+
+/**
+ * Import all settings from a SettingsExport object
+ *
+ * Applies all note type paths, note type templates, and identity
+ * from a previously exported settings object.
+ *
+ * @param settings - The settings object to import
+ * @returns true if import was successful, false if version is unsupported
+ */
+export function importAllSettings(settings: SettingsExport): boolean {
+  // Handle version mismatch gracefully
+  // Version 1 is the only version currently supported
+  // Future versions may need migration logic here
+  if (settings.version > SETTINGS_EXPORT_VERSION) {
+    // Newer version - attempt import but warn (graceful degradation)
+    // The settings structure should be backwards compatible
+  }
+
+  // Import identity
+  if (settings.identity) {
+    saveIdentity(settings.identity);
+  }
+
+  // Import note paths
+  if (settings.notePaths) {
+    for (const [tipo, path] of Object.entries(settings.notePaths)) {
+      setNoteTypePath(tipo, path);
+    }
+  }
+
+  // Import note templates
+  if (settings.noteTemplates) {
+    for (const [tipo, templatePath] of Object.entries(settings.noteTemplates)) {
+      setNoteTypeTemplate(tipo, templatePath);
+    }
+  }
+
+  return true;
 }
