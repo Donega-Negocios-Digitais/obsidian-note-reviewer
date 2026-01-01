@@ -216,3 +216,76 @@ pre code.hljs {
   filter: brightness(1.2);
   cursor: pointer;
 }
+
+/* ============================================
+   CALLOUTS
+   ============================================ */
+
+.callout {
+  @apply my-4 rounded-lg border-l-4 overflow-hidden;
+  background-color: rgba(var(--callout-color-rgb, 100, 116, 139), 0.05);
+  border-left-color: var(--callout-color, #64748b);
+}
+
+.callout-title {
+  @apply flex items-center gap-2 px-4 py-3 font-medium;
+  background-color: rgba(var(--callout-color-rgb, 100, 116, 139), 0.1);
+}
+
+.callout.is-collapsible .callout-title {
+  @apply cursor-pointer select-none;
+}
+
+.callout.is-collapsible .callout-title:hover {
+  background-color: rgba(var(--callout-color-rgb, 100, 116, 139), 0.15);
+}
+
+.callout-icon {
+  @apply flex-shrink-0;
+  color: var(--callout-color, #64748b);
+}
+
+.callout-title-inner {
+  @apply flex-grow;
+}
+
+.callout-fold {
+  @apply flex-shrink-0 transition-transform duration-200;
+  color: var(--callout-color, #64748b);
+}
+
+.callout-fold.is-collapsed {
+  transform: rotate(-90deg);
+}
+
+.callout-content {
+  @apply px-4 py-3;
+}
+
+/* Tipos específicos com cores RGB para backgrounds */
+.callout-note { --callout-color-rgb: 59, 130, 246; }
+.callout-abstract { --callout-color-rgb: 6, 182, 212; }
+.callout-info { --callout-color-rgb: 59, 130, 246; }
+.callout-todo { --callout-color-rgb: 59, 130, 246; }
+.callout-tip { --callout-color-rgb: 6, 182, 212; }
+.callout-success { --callout-color-rgb: 34, 197, 94; }
+.callout-question { --callout-color-rgb: 245, 158, 11; }
+.callout-warning { --callout-color-rgb: 245, 158, 11; }
+.callout-failure { --callout-color-rgb: 239, 68, 68; }
+.callout-danger { --callout-color-rgb: 239, 68, 68; }
+.callout-bug { --callout-color-rgb: 239, 68, 68; }
+.callout-example { --callout-color-rgb: 139, 92, 246; }
+.callout-quote { --callout-color-rgb: 100, 116, 139; }
+
+/* Suporte a tema dark (já existe no projeto) */
+:root[data-theme="dark"] .callout {
+  background-color: rgba(var(--callout-color-rgb, 100, 116, 139), 0.1);
+}
+
+:root[data-theme="dark"] .callout-title {
+  background-color: rgba(var(--callout-color-rgb, 100, 116, 139), 0.15);
+}
+
+:root[data-theme="dark"] .callout.is-collapsible .callout-title:hover {
+  background-color: rgba(var(--callout-color-rgb, 100, 116, 139), 0.2);
+}

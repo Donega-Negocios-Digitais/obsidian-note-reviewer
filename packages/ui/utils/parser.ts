@@ -102,16 +102,52 @@ export const parseMarkdownToBlocks = (markdown: string): Block[] => {
       continue;
     }
 
-    // Blockquotes
+    // Callouts and Blockquotes
     if (trimmed.startsWith('>')) {
        flush();
-       blocks.push({
-         id: `block-${currentId++}`,
-         type: 'blockquote',
-         content: trimmed.replace(/^>\s*/, ''),
-         order: currentId,
-         startLine: currentLineNum
-       });
+       // Regex para detectar callout: > [!tipo]+/- Título opcional
+       const calloutMatch = trimmed.match(/^>\s*\[!([^\]]+)\]([+-])?\s*(.*)/);
+
+       if (calloutMatch) {
+         // É um callout!
+         const [_, calloutType, collapseIndicator, title] = calloutMatch;
+         const calloutStartLine = currentLineNum;
+
+         // Coletar todas as linhas do callout
+         const calloutLines: string[] = [];
+
+         // Continuar enquanto a próxima linha começar com >
+         while (i + 1 < lines.length) {
+           const nextLine = lines[i + 1].trim();
+           if (nextLine.startsWith('>')) {
+             i++;
+             calloutLines.push(nextLine.replace(/^>\s*/, ''));
+           } else {
+             break;
+           }
+         }
+
+         blocks.push({
+           id: `block-${currentId++}`,
+           type: 'callout',
+           content: calloutLines.join('\n'),
+           calloutType: calloutType.toLowerCase(),
+           calloutTitle: title || undefined,
+           isCollapsible: !!collapseIndicator,
+           defaultCollapsed: collapseIndicator === '-',
+           order: currentId,
+           startLine: calloutStartLine
+         });
+       } else {
+         // Blockquote normal (sem [!tipo])
+         blocks.push({
+           id: `block-${currentId++}`,
+           type: 'blockquote',
+           content: trimmed.replace(/^>\s*/, ''),
+           order: currentId,
+           startLine: currentLineNum
+         });
+       }
        continue;
     }
 

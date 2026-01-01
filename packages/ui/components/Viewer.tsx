@@ -6,6 +6,8 @@ import 'highlight.js/styles/github-dark.css';
 import { Block, Annotation, AnnotationType, EditorMode } from '../types';
 import { Toolbar } from './Toolbar';
 import { getIdentity } from '../utils/identity';
+import { getCalloutConfig } from '../utils/callouts';
+import * as LucideIcons from 'lucide-react';
 
 interface ViewerProps {
   blocks: Block[];
@@ -668,6 +670,76 @@ const parseTableContent = (content: string): { headers: string[]; rows: string[]
   return { headers, rows };
 };
 
+/**
+ * Helper to map Lucide icon names to components
+ */
+function getLucideIcon(iconName: string): React.ComponentType<{ size?: number; className?: string }> {
+  // Converter 'alert-triangle' → 'AlertTriangle'
+  const componentName = iconName
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join('');
+
+  const Icon = (LucideIcons as any)[componentName];
+  return Icon || LucideIcons.Pencil; // fallback
+}
+
+/**
+ * Renders a callout block with icon, title, and collapsible functionality
+ */
+const CalloutBlock: React.FC<{ block: Block }> = ({ block }) => {
+  const [isCollapsed, setIsCollapsed] = useState(
+    block.defaultCollapsed ?? false
+  );
+
+  const config = getCalloutConfig(block.calloutType || 'note');
+  const Icon = getLucideIcon(config.icon);
+  const ChevronDown = LucideIcons.ChevronDown;
+
+  const handleToggle = () => {
+    if (block.isCollapsible) {
+      setIsCollapsed(!isCollapsed);
+    }
+  };
+
+  return (
+    <div
+      className={`callout callout-${block.calloutType} ${block.isCollapsible ? 'is-collapsible' : ''} ${isCollapsed ? 'is-collapsed' : ''}`}
+      style={{
+        '--callout-color': config.color,
+        borderLeftColor: config.color,
+      } as React.CSSProperties}
+      data-block-id={block.id}
+    >
+      <div
+        className="callout-title"
+        onClick={handleToggle}
+        style={{ cursor: block.isCollapsible ? 'pointer' : 'default' }}
+      >
+        <div className="callout-icon" style={{ color: config.color }}>
+          <Icon size={16} />
+        </div>
+
+        <div className="callout-title-inner">
+          {block.calloutTitle || block.calloutType}
+        </div>
+
+        {block.isCollapsible && (
+          <div className={`callout-fold ${isCollapsed ? 'is-collapsed' : ''}`}>
+            <ChevronDown size={16} />
+          </div>
+        )}
+      </div>
+
+      {!isCollapsed && (
+        <div className="callout-content">
+          <InlineMarkdown text={block.content} />
+        </div>
+      )}
+    </div>
+  );
+};
+
 const BlockRenderer: React.FC<{
   block: Block;
   blocks: Block[];
@@ -697,6 +769,9 @@ const BlockRenderer: React.FC<{
       }[block.level || 1] || 'text-base font-semibold mb-2 mt-4';
 
       return <Tag className={styles} data-block-id={block.id}><InlineMarkdown text={block.content} /></Tag>;
+
+    case 'callout':
+      return <CalloutBlock block={block} />;
 
     case 'blockquote':
       return (

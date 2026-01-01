@@ -32,12 +32,17 @@ export interface Annotation {
 
 export interface Block {
   id: string;
-  type: 'frontmatter' | 'paragraph' | 'heading' | 'blockquote' | 'list-item' | 'code' | 'hr' | 'table';
+  type: 'frontmatter' | 'paragraph' | 'heading' | 'blockquote' | 'list-item' | 'code' | 'hr' | 'table' | 'callout';
   content: string; // Plain text content
   level?: number; // For headings (1-6)
   language?: string; // For code blocks (e.g., 'rust', 'typescript')
   order: number; // Sorting order
   startLine: number; // 1-based line number in source
+  // Callout-specific fields
+  calloutType?: string; // 'note', 'warning', 'custom', etc
+  calloutTitle?: string; // Título opcional
+  isCollapsible?: boolean; // true se tem + ou -
+  defaultCollapsed?: boolean; // true se tem -, false se tem +
 }
 
 export interface DiffResult {
