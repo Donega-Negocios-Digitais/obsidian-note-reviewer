@@ -683,7 +683,7 @@ const App: React.FC = () => {
           shareUrlSize={shareUrlSize}
           diffOutput={diffOutput}
           annotationCount={annotations.length}
-
+          annotations={annotations}
         />
 
         {/* Global Comment Input Modal */}
