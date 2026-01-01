@@ -14,9 +14,26 @@
  */
 
 import { $ } from "bun";
+import { getHookCSP } from "@obsidian-note-reviewer/security/csp";
 
 // Embed the built HTML at compile time
 import indexHtml from "../dist/index.html" with { type: "text" };
+
+// CSP header for all responses (not in development mode - this is the ephemeral server)
+const cspHeader = getHookCSP(false);
+
+/**
+ * Security headers applied to all responses
+ * CSP prevents XSS attacks even when handling user-generated content
+ */
+function getSecurityHeaders(): Record<string, string> {
+  return {
+    "Content-Security-Policy": cspHeader,
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+  };
+}
 
 // Read hook event from stdin
 const eventJson = await Bun.stdin.text();
@@ -51,13 +68,16 @@ const server = Bun.serve({
 
     // API: Get note content
     if (url.pathname === "/api/content" || url.pathname === "/api/plan") {
-      return Response.json({ content: noteContent, plan: noteContent });
+      return Response.json(
+        { content: noteContent, plan: noteContent },
+        { headers: getSecurityHeaders() }
+      );
     }
 
     // API: Approve note
     if (url.pathname === "/api/approve" && req.method === "POST") {
       resolveDecision({ approved: true });
-      return Response.json({ ok: true });
+      return Response.json({ ok: true }, { headers: getSecurityHeaders() });
     }
 
     // API: Deny with feedback
@@ -68,7 +88,7 @@ const server = Bun.serve({
       } catch {
         resolveDecision({ approved: false, feedback: "Plan rejected by user" });
       }
-      return Response.json({ ok: true });
+      return Response.json({ ok: true }, { headers: getSecurityHeaders() });
     }
 
     // API: Save note to vault
@@ -86,19 +106,25 @@ const server = Bun.serve({
         await fs.writeFile(body.path, body.content, "utf-8");
 
         console.log(`[Server] ✅ Nota salva: ${body.path}`);
-        return Response.json({ ok: true, message: "Nota salva com sucesso", path: body.path });
+        return Response.json(
+          { ok: true, message: "Nota salva com sucesso", path: body.path },
+          { headers: getSecurityHeaders() }
+        );
       } catch (error) {
         console.error(`[Server] ❌ Erro ao salvar:`, error);
         return Response.json(
           { ok: false, error: error instanceof Error ? error.message : "Erro ao salvar nota" },
-          { status: 500 }
+          { status: 500, headers: getSecurityHeaders() }
         );
       }
     }
 
     // Serve embedded HTML for all other routes (SPA)
     return new Response(indexHtml, {
-      headers: { "Content-Type": "text/html" }
+      headers: {
+        "Content-Type": "text/html",
+        ...getSecurityHeaders(),
+      }
     });
   },
 });
