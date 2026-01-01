@@ -190,6 +190,8 @@ const App: React.FC = () => {
 
   // History for undo (Ctrl+Z)
   const [annotationHistory, setAnnotationHistory] = useState<string[]>([]);
+  // Redo stack for Ctrl+Shift+Z (stores full annotation objects)
+  const [redoStack, setRedoStack] = useState<Annotation[]>([]);
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [showExport, setShowExport] = useState(false);
