@@ -185,12 +185,15 @@ export const Settings: React.FC<SettingsProps> = ({
       {showDialog && createPortal(
         <div
           ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="settings-dialog-title"
           className="fixed inset-0 bg-background z-50 flex flex-col overflow-hidden"
         >
             {/* Header */}
             <div className="px-6 py-4 border-b border-border flex items-center justify-between">
               <div className="flex-1">
-                <h3 className="text-lg font-semibold text-foreground">Configurações de Tipos de Nota</h3>
+                <h3 id="settings-dialog-title" className="text-lg font-semibold text-foreground">Configurações de Tipos de Nota</h3>
                 <p className="text-xs text-muted-foreground mt-1">Configure o caminho/URL para cada tipo de nota</p>
               </div>
               <div className="flex items-center gap-3">
