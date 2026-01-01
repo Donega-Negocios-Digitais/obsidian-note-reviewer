@@ -5,7 +5,7 @@
  * Raw Diff tab: Shows human-readable diff output with copy/download
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Annotation } from '../types';
 
 interface ExportModalProps {
@@ -33,6 +33,28 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<Tab>('share');
   const [copied, setCopied] = useState(false);
+
+  const jsonOutput = useMemo(() => {
+    const exportData = annotations.map(annotation => {
+      const entry: {
+        type: string;
+        originalText: string;
+        text?: string;
+        author?: string;
+      } = {
+        type: annotation.type,
+        originalText: annotation.originalText,
+      };
+      if (annotation.text) {
+        entry.text = annotation.text;
+      }
+      if (annotation.author) {
+        entry.author = annotation.author;
+      }
+      return entry;
+    });
+    return JSON.stringify(exportData, null, 2);
+  }, [annotations]);
 
   if (!isOpen) return null;
 
@@ -131,7 +153,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           </div>
 
           {/* Tab content */}
-          {activeTab === 'share' ? (
+          {activeTab === 'share' && (
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-2">
@@ -174,9 +196,15 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 This URL contains the full plan and all annotations. Anyone with this link can view and add to your annotations.
               </p>
             </div>
-          ) : (
+          )}
+          {activeTab === 'diff' && (
             <pre className="bg-muted rounded-lg p-4 text-xs font-mono leading-relaxed overflow-x-auto whitespace-pre-wrap">
               {diffOutput}
+            </pre>
+          )}
+          {activeTab === 'json' && (
+            <pre className="bg-muted rounded-lg p-4 text-xs font-mono leading-relaxed overflow-x-auto whitespace-pre-wrap">
+              {jsonOutput}
             </pre>
           )}
         </div>
