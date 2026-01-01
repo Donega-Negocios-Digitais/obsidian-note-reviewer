@@ -1,5 +1,5 @@
 /**
- * Portable sharing utilities for Plannotator
+ * Portable sharing utilities for Obsidian Note Reviewer
  *
  * Enables sharing plan + annotations via URL hash using:
  * - Native CompressionStream/DecompressionStream (deflate-raw)
@@ -124,7 +124,7 @@ export function fromShareable(data: ShareableAnnotation[]): Annotation[] {
 /**
  * Generate a full shareable URL from plan and annotations
  */
-const SHARE_BASE_URL = 'https://share.plannotator.ai';
+const SHARE_BASE_URL = 'https://r.alexdonega.com.br';
 
 export async function generateShareUrl(
   markdown: string,

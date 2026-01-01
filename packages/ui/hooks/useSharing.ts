@@ -1,5 +1,5 @@
 /**
- * Hook for URL-based state sharing in Plannotator
+ * Hook for URL-based state sharing in Obsidian Note Reviewer
  *
  * Handles:
  * - Loading shared state from URL hash on mount

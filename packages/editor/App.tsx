@@ -493,7 +493,7 @@ const App: React.FC = () => {
         <header className="h-12 flex items-center justify-between px-2 md:px-4 border-b border-border/50 bg-card/50 backdrop-blur-xl z-50">
           <div className="flex items-center gap-2 md:gap-3">
             <a
-              href="https://plannotator.ai"
+              href="https://github.com/alexdonega/obsidian-note-reviewer"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 md:gap-2 hover:opacity-80 transition-opacity"
@@ -588,13 +588,13 @@ const App: React.FC = () => {
 
             <button
               onClick={() => setShowGlobalCommentModal(true)}
-              className="p-1.5 md:px-2.5 md:py-1 rounded-md text-xs font-medium bg-blue-500/20 text-blue-600 hover:bg-blue-500/30 border border-blue-500/40 transition-all"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium bg-blue-500/20 text-blue-600 hover:bg-blue-500/30 border border-blue-500/40 transition-all whitespace-nowrap"
               title="Adicionar Comentário Global"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <span className="hidden md:inline">Comentário Global</span>
+              <span className="hidden sm:inline">Comentário Global</span>
             </button>
 
             <ModeToggle />

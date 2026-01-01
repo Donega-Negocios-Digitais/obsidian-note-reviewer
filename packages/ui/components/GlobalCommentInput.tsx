@@ -26,9 +26,7 @@ export const GlobalCommentInput: React.FC<GlobalCommentInputProps> = ({
   useEffect(() => {
     if (isOpen) {
       const identity = getIdentity();
-      if (identity) {
-        setAuthor(identity);
-      }
+      setAuthor(identity); // Always set author, even if empty it will generate one
       setComment(''); // Reset comment when opening
     }
   }, [isOpen]);
@@ -63,7 +61,7 @@ export const GlobalCommentInput: React.FC<GlobalCommentInputProps> = ({
       onClick={onClose}
     >
       <div
-        className="bg-card border border-border rounded-xl w-full max-w-lg shadow-2xl"
+        className="bg-card border border-border rounded-xl w-full max-w-2xl shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
@@ -79,7 +77,7 @@ export const GlobalCommentInput: React.FC<GlobalCommentInputProps> = ({
             </div>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -115,8 +113,8 @@ export const GlobalCommentInput: React.FC<GlobalCommentInputProps> = ({
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Adicione um comentário que se aplica ao documento inteiro..."
-              rows={5}
+              placeholder="Adicione um comentário que se aplica ao documento inteiro...&#10;&#10;"
+              rows={8}
               autoFocus
               className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
             />

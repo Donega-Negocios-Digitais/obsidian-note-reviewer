@@ -9,7 +9,7 @@
 import { uniqueUsernameGenerator, adjectives, nouns } from 'unique-username-generator';
 import { storage } from './storage';
 
-const STORAGE_KEY = 'plannotator-identity';
+const STORAGE_KEY = 'obsidian-reviewer-identity';
 
 /**
  * Generate a new tater identity

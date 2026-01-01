@@ -74,14 +74,14 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         {/* Header */}
         <div className="p-4 border-b border-border">
           <div className="flex justify-between items-center">
-            <h3 className="font-semibold text-sm">Export</h3>
+            <h3 className="font-semibold text-sm">Exportar</h3>
             <div className="flex items-center gap-3">
               <span className="text-xs text-muted-foreground">
-                {annotationCount} annotation{annotationCount !== 1 ? 's' : ''}
+                {annotationCount} anotaç{annotationCount !== 1 ? 'ões' : 'ão'}
               </span>
               <button
                 onClick={onClose}
-                className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -103,7 +103,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              Share
+              Compartilhar
             </button>
             <button
               onClick={() => setActiveTab('diff')}
@@ -113,7 +113,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              Raw Diff
+              Diff Bruto
             </button>
           </div>
 
@@ -122,7 +122,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-2">
-                  Shareable URL
+                  URL Compartilhável
                 </label>
                 <div className="relative group">
                   <textarea
@@ -140,14 +140,14 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
-                        Copied
+                        Copiado
                       </>
                     ) : (
                       <>
                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                         </svg>
-                        Copy
+                        Copiar
                       </>
                     )}
                   </button>
@@ -158,7 +158,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               </div>
 
               <p className="text-xs text-muted-foreground">
-                This URL contains the full plan and all annotations. Anyone with this link can view and add to your annotations.
+                Esta URL contém o plano completo e todas as anotações. Qualquer pessoa com este link pode visualizar e adicionar às suas anotações.
               </p>
             </div>
           ) : (
@@ -175,13 +175,13 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               onClick={handleCopyDiff}
               className="px-3 py-1.5 rounded-md text-xs font-medium bg-muted hover:bg-muted/80 transition-colors"
             >
-              {copied ? 'Copied!' : 'Copy'}
+              {copied ? 'Copiado!' : 'Copiar'}
             </button>
             <button
               onClick={handleDownloadDiff}
               className="px-3 py-1.5 rounded-md text-xs font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
             >
-              Download .diff
+              Baixar .diff
             </button>
           </div>
         )}
