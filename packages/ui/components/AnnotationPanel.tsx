@@ -90,15 +90,15 @@ const FilterButton: React.FC<FilterButtonProps> = ({ type, isActive, onClick }) 
     <button
       type="button"
       onClick={onClick}
-      aria-label={`${isActive ? 'Ocultar' : 'Mostrar'} ${config.label}`}
+      aria-label={`${isActive ? 'Ocultar' : 'Mostrar'} anotações do tipo ${config.label}`}
       aria-pressed={isActive}
-      title={config.label}
+      title={`${config.label}${isActive ? ' (ativo)' : ' (oculto)'}`}
       className={`
         p-1.5 rounded-md transition-all duration-150 ease-in-out
-        focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-1
+        focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-card
         ${isActive
-          ? `${config.bg} ${config.color} hover:opacity-80`
-          : 'bg-muted/30 text-muted-foreground/40 hover:bg-muted/50 hover:text-muted-foreground/60'
+          ? `${config.bg} ${config.color} border border-current/20 hover:opacity-80 shadow-sm`
+          : 'bg-muted/40 text-muted-foreground/50 border border-transparent hover:bg-muted/60 hover:text-muted-foreground/70 hover:border-border/50'
         }
       `}
     >

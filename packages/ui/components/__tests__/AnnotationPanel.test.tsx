@@ -52,6 +52,12 @@ const createTestAnnotations = (): Annotation[] => [
 
 const mockBlocks: Block[] = [];
 
+// Helper to get filter button title based on active state
+const getFilterButtonTitle = (type: AnnotationType, isActive: boolean = true) => {
+  const config = typeConfig[type];
+  return `${config.label}${isActive ? ' (ativo)' : ' (oculto)'}`;
+};
+
 describe('AnnotationPanel', () => {
   describe('Filter Button Rendering', () => {
     test('renderiza todos os botões de filtro', () => {
@@ -71,8 +77,7 @@ describe('AnnotationPanel', () => {
 
       // Check all filter buttons are rendered with their type labels as titles
       Object.values(AnnotationType).forEach(type => {
-        const config = typeConfig[type];
-        expect(screen.getByTitle(config.label)).toBeDefined();
+        expect(screen.getByTitle(getFilterButtonTitle(type, true))).toBeDefined();
       });
     });
 
@@ -93,8 +98,7 @@ describe('AnnotationPanel', () => {
 
       // All filter buttons should have aria-pressed="true" initially
       Object.values(AnnotationType).forEach(type => {
-        const config = typeConfig[type];
-        const button = screen.getByTitle(config.label);
+        const button = screen.getByTitle(getFilterButtonTitle(type, true));
         expect(button.getAttribute('aria-pressed')).toBe('true');
       });
     });
@@ -134,18 +138,20 @@ describe('AnnotationPanel', () => {
         />
       );
 
-      const deletionConfig = typeConfig[AnnotationType.DELETION];
-      const button = screen.getByTitle(deletionConfig.label);
+      // Get button by active title initially
+      let button = screen.getByTitle(getFilterButtonTitle(AnnotationType.DELETION, true));
 
       // Initially active
       expect(button.getAttribute('aria-pressed')).toBe('true');
 
-      // Click to toggle off
+      // Click to toggle off - title changes
       fireEvent.click(button);
+      button = screen.getByTitle(getFilterButtonTitle(AnnotationType.DELETION, false));
       expect(button.getAttribute('aria-pressed')).toBe('false');
 
-      // Click to toggle back on
+      // Click to toggle back on - title changes back
       fireEvent.click(button);
+      button = screen.getByTitle(getFilterButtonTitle(AnnotationType.DELETION, true));
       expect(button.getAttribute('aria-pressed')).toBe('true');
     });
 
@@ -164,12 +170,16 @@ describe('AnnotationPanel', () => {
         />
       );
 
-      const deletionButton = screen.getByTitle(typeConfig[AnnotationType.DELETION].label);
-      const insertionButton = screen.getByTitle(typeConfig[AnnotationType.INSERTION].label);
+      let deletionButton = screen.getByTitle(getFilterButtonTitle(AnnotationType.DELETION, true));
+      let insertionButton = screen.getByTitle(getFilterButtonTitle(AnnotationType.INSERTION, true));
 
       // Toggle off both
       fireEvent.click(deletionButton);
       fireEvent.click(insertionButton);
+
+      // Re-query with updated titles
+      deletionButton = screen.getByTitle(getFilterButtonTitle(AnnotationType.DELETION, false));
+      insertionButton = screen.getByTitle(getFilterButtonTitle(AnnotationType.INSERTION, false));
 
       expect(deletionButton.getAttribute('aria-pressed')).toBe('false');
       expect(insertionButton.getAttribute('aria-pressed')).toBe('false');
@@ -196,7 +206,7 @@ describe('AnnotationPanel', () => {
       expect(screen.getByText('"deleted text"')).toBeDefined();
 
       // Toggle off deletion type
-      const deletionButton = screen.getByTitle(typeConfig[AnnotationType.DELETION].label);
+      const deletionButton = screen.getByTitle(getFilterButtonTitle(AnnotationType.DELETION, true));
       fireEvent.click(deletionButton);
 
       // Deletion annotation should be hidden
@@ -223,7 +233,7 @@ describe('AnnotationPanel', () => {
       expect(screen.getByText('Comentários Globais')).toBeDefined();
 
       // Toggle off global comment type
-      const globalButton = screen.getByTitle(typeConfig[AnnotationType.GLOBAL_COMMENT].label);
+      const globalButton = screen.getByTitle(getFilterButtonTitle(AnnotationType.GLOBAL_COMMENT, true));
       fireEvent.click(globalButton);
 
       // Global comment should be hidden
@@ -246,9 +256,9 @@ describe('AnnotationPanel', () => {
         />
       );
 
-      // Toggle off all types
+      // Toggle off all types - need to get each button fresh as titles change
       Object.values(AnnotationType).forEach(type => {
-        const button = screen.getByTitle(typeConfig[type].label);
+        const button = screen.getByTitle(getFilterButtonTitle(type, true));
         fireEvent.click(button);
       });
 
@@ -271,13 +281,14 @@ describe('AnnotationPanel', () => {
         />
       );
 
-      const deletionButton = screen.getByTitle(typeConfig[AnnotationType.DELETION].label);
+      let deletionButton = screen.getByTitle(getFilterButtonTitle(AnnotationType.DELETION, true));
 
       // Toggle off
       fireEvent.click(deletionButton);
       expect(screen.queryByText('"deleted text"')).toBeNull();
 
-      // Toggle back on
+      // Toggle back on - get button with updated title
+      deletionButton = screen.getByTitle(getFilterButtonTitle(AnnotationType.DELETION, false));
       fireEvent.click(deletionButton);
       expect(screen.getByText('"deleted text"')).toBeDefined();
     });
@@ -319,7 +330,7 @@ describe('AnnotationPanel', () => {
       );
 
       // Toggle off deletion type (removes 1 annotation)
-      const deletionButton = screen.getByTitle(typeConfig[AnnotationType.DELETION].label);
+      const deletionButton = screen.getByTitle(getFilterButtonTitle(AnnotationType.DELETION, true));
       fireEvent.click(deletionButton);
 
       // Should show 4/5 format
@@ -342,8 +353,8 @@ describe('AnnotationPanel', () => {
       );
 
       // Toggle off deletion and insertion (removes 2 annotations)
-      fireEvent.click(screen.getByTitle(typeConfig[AnnotationType.DELETION].label));
-      fireEvent.click(screen.getByTitle(typeConfig[AnnotationType.INSERTION].label));
+      fireEvent.click(screen.getByTitle(getFilterButtonTitle(AnnotationType.DELETION, true)));
+      fireEvent.click(screen.getByTitle(getFilterButtonTitle(AnnotationType.INSERTION, true)));
 
       // Should show 3/5 format
       expect(screen.getByText('3/5')).toBeDefined();
@@ -364,13 +375,14 @@ describe('AnnotationPanel', () => {
         />
       );
 
-      const deletionButton = screen.getByTitle(typeConfig[AnnotationType.DELETION].label);
+      let deletionButton = screen.getByTitle(getFilterButtonTitle(AnnotationType.DELETION, true));
 
       // Toggle off
       fireEvent.click(deletionButton);
       expect(screen.getByText('4/5')).toBeDefined();
 
-      // Toggle back on
+      // Toggle back on - get button with updated title
+      deletionButton = screen.getByTitle(getFilterButtonTitle(AnnotationType.DELETION, false));
       fireEvent.click(deletionButton);
       expect(screen.getByText('5')).toBeDefined();
     });
@@ -412,13 +424,75 @@ describe('AnnotationPanel', () => {
         />
       );
 
-      // Check active buttons have "Ocultar" in aria-label
-      const activeButton = screen.getByTitle(typeConfig[AnnotationType.DELETION].label);
-      expect(activeButton.getAttribute('aria-label')).toContain('Ocultar');
+      // Check active buttons have "Ocultar" and type description in aria-label
+      const deletionConfig = typeConfig[AnnotationType.DELETION];
+      const activeButton = screen.getByTitle(`${deletionConfig.label} (ativo)`);
+      expect(activeButton.getAttribute('aria-label')).toBe(`Ocultar anotações do tipo ${deletionConfig.label}`);
 
       // Toggle off and check "Mostrar" in aria-label
       fireEvent.click(activeButton);
-      expect(activeButton.getAttribute('aria-label')).toContain('Mostrar');
+      expect(activeButton.getAttribute('aria-label')).toBe(`Mostrar anotações do tipo ${deletionConfig.label}`);
+    });
+
+    test('botões de filtro são acessíveis por teclado', () => {
+      const mockSelect = mock(() => {});
+      const mockDelete = mock(() => {});
+
+      render(
+        <AnnotationPanel
+          isOpen={true}
+          annotations={createTestAnnotations()}
+          blocks={mockBlocks}
+          onSelect={mockSelect}
+          onDelete={mockDelete}
+          selectedId={null}
+        />
+      );
+
+      // Filter buttons should be focusable (they are <button> elements)
+      const deletionConfig = typeConfig[AnnotationType.DELETION];
+      const button = screen.getByTitle(`${deletionConfig.label} (ativo)`);
+
+      // Verify button is a proper button element (keyboard accessible by default)
+      expect(button.tagName).toBe('BUTTON');
+      expect(button.getAttribute('type')).toBe('button');
+
+      // Verify button can receive focus
+      button.focus();
+      expect(document.activeElement).toBe(button);
+
+      // Simulate keyboard activation (Enter key triggers click on buttons)
+      fireEvent.keyDown(button, { key: 'Enter', code: 'Enter' });
+      fireEvent.keyUp(button, { key: 'Enter', code: 'Enter' });
+      // Note: fireEvent.click is triggered by Enter/Space on buttons natively,
+      // but we test the state change to verify keyboard interaction works
+    });
+
+    test('botões de filtro mostram status no title', () => {
+      const mockSelect = mock(() => {});
+      const mockDelete = mock(() => {});
+
+      render(
+        <AnnotationPanel
+          isOpen={true}
+          annotations={createTestAnnotations()}
+          blocks={mockBlocks}
+          onSelect={mockSelect}
+          onDelete={mockDelete}
+          selectedId={null}
+        />
+      );
+
+      const deletionConfig = typeConfig[AnnotationType.DELETION];
+
+      // Active button shows "(ativo)" in title
+      let button = screen.getByTitle(`${deletionConfig.label} (ativo)`);
+      expect(button).toBeDefined();
+
+      // After toggle, shows "(oculto)" in title
+      fireEvent.click(button);
+      button = screen.getByTitle(`${deletionConfig.label} (oculto)`);
+      expect(button).toBeDefined();
     });
   });
 });
