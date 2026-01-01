@@ -23,11 +23,15 @@ export function getItem(key: string): string | null {
 
 /**
  * Set a value in cookie storage
+ *
+ * Adds the Secure flag in secure contexts (HTTPS/localhost) to prevent
+ * cookie transmission over unencrypted HTTP connections.
  */
 export function setItem(key: string, value: string): void {
   try {
     const encoded = encodeURIComponent(value);
-    document.cookie = `${key}=${encoded}; path=/; max-age=${ONE_YEAR_SECONDS}; SameSite=Lax`;
+    const secureFlag = isSecureContext() ? '; Secure' : '';
+    document.cookie = `${key}=${encoded}; path=/; max-age=${ONE_YEAR_SECONDS}; SameSite=Lax${secureFlag}`;
   } catch (e) {
     // Cookie not available
   }
