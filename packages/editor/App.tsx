@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo, useRef } from 'react';
+﻿import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { parseMarkdownToBlocks, exportDiff } from '@obsidian-note-reviewer/ui/utils/parser';
 import { Viewer, ViewerHandle } from '@obsidian-note-reviewer/ui/components/Viewer';
 import { AnnotationPanel } from '@obsidian-note-reviewer/ui/components/AnnotationPanel';
@@ -288,7 +288,7 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Keyboard shortcuts: Ctrl+Z (undo), Ctrl+S (save)
+  // Keyboard shortcuts: Ctrl+Z (undo), Ctrl+S (save), Ctrl+E (export), Ctrl+G (global comment)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ctrl+Z: Undo last annotation
@@ -328,7 +328,7 @@ const App: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [annotationHistory, savePath, isSaving]);
+  }, [annotationHistory, savePath, isSaving, handleSaveToVault]);
 
   // API mode handlers
   const handleApprove = async () => {
@@ -425,7 +425,9 @@ const App: React.FC = () => {
     }).join('\n\n');
   };
 
-  const handleSaveToVault = async () => {
+  const diffOutput = useMemo(() => exportDiff(blocks, annotations), [blocks, annotations]);
+
+  const handleSaveToVault = useCallback(async () => {
     if (!savePath.trim()) {
       setSaveError('Configure o caminho nas configurações');
       return;
@@ -490,9 +492,7 @@ const App: React.FC = () => {
     } finally {
       setIsSaving(false);
     }
-  };
-
-  const diffOutput = useMemo(() => exportDiff(blocks, annotations), [blocks, annotations]);
+  }, [savePath, annotations, blocks, diffOutput, isApiMode]);
 
   return (
     <ThemeProvider defaultTheme="dark">
