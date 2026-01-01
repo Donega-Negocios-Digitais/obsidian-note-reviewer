@@ -16,6 +16,8 @@
 import { $ } from "bun";
 import path from 'path';
 import os from 'os';
+import { Ratelimit } from '@upstash/ratelimit';
+import { Redis } from '@upstash/redis';
 
 // Embed the built HTML at compile time
 import indexHtml from "../dist/index.html" with { type: "text" };
@@ -40,6 +42,74 @@ function isPathSafe(userPath: string): boolean {
     return false;
   }
 }
+
+/**
+ * Security: Rate limiting configuration
+ * Uses Upstash Redis in production, in-memory fallback for development
+ */
+let ratelimit: Ratelimit | null = null;
+
+// In-memory fallback for development (when Upstash credentials not available)
+const inMemoryRateLimitCache = new Map<string, { count: number; resetAt: number }>();
+
+function createRateLimiter(): Ratelimit | null {
+  const upstashUrl = process.env.UPSTASH_REDIS_URL;
+  const upstashToken = process.env.UPSTASH_REDIS_TOKEN;
+
+  if (upstashUrl && upstashToken) {
+    const redis = new Redis({
+      url: upstashUrl,
+      token: upstashToken
+    });
+
+    return new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(10, '10 s'), // 10 requests per 10 seconds
+      analytics: true,
+      prefix: '@plannotator/ratelimit'
+    });
+  }
+
+  console.warn('[Server] ⚠️ Upstash not configured, using in-memory rate limiting (dev only)');
+  return null;
+}
+
+/**
+ * Check rate limit for a given identifier (IP address)
+ * Returns true if allowed, false if rate limited
+ */
+async function checkRateLimit(identifier: string): Promise<boolean> {
+  // Production: Use Upstash
+  if (ratelimit) {
+    const { success } = await ratelimit.limit(identifier);
+    return success;
+  }
+
+  // Development fallback: In-memory rate limiting
+  const now = Date.now();
+  const cached = inMemoryRateLimitCache.get(identifier);
+
+  if (!cached || now > cached.resetAt) {
+    // First request or window expired
+    inMemoryRateLimitCache.set(identifier, {
+      count: 1,
+      resetAt: now + 10000 // 10 seconds window
+    });
+    return true;
+  }
+
+  if (cached.count >= 10) {
+    // Rate limit exceeded
+    return false;
+  }
+
+  // Increment count
+  cached.count++;
+  return true;
+}
+
+// Initialize rate limiter
+ratelimit = createRateLimiter();
 
 /**
  * Security: Add comprehensive security headers to responses
@@ -116,6 +186,26 @@ const server = Bun.serve({
     const url = new URL(req.url);
 
     console.log(`[Server] ${req.method} ${url.pathname}`);
+
+    // Security: Rate limiting (except for static assets)
+    if (!url.pathname.startsWith('/assets/') && url.pathname !== '/') {
+      const identifier = req.headers.get('x-forwarded-for') ||
+                        req.headers.get('x-real-ip') ||
+                        'localhost'; // Fallback for development
+
+      const allowed = await checkRateLimit(identifier);
+
+      if (!allowed) {
+        console.warn(`[Server] 🚨 Rate limit exceeded for ${identifier}`);
+        return addSecurityHeaders(Response.json(
+          { error: 'Rate limit exceeded. Please try again later.' },
+          {
+            status: 429,
+            headers: { 'Retry-After': '10' } // Tell client to retry after 10 seconds
+          }
+        ));
+      }
+    }
 
     // API: Get note content
     if (url.pathname === "/api/content" || url.pathname === "/api/plan") {
