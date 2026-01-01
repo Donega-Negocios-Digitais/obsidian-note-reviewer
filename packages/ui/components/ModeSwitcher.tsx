@@ -59,7 +59,7 @@ export const ModeSwitcher: React.FC<ModeSwitcherProps> = ({ mode, onChange }) =>
         >
           
           <div className="flex items-center justify-between p-4 border-b border-border">
-            <h3 className="font-semibold text-sm">Como o Plannotator Funciona</h3>
+            <h3 className="font-semibold text-sm">Como o Obsidian Note Reviewer Funciona</h3>
             <button
               onClick={() => setShowHelp(false)}
               className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
@@ -74,7 +74,7 @@ export const ModeSwitcher: React.FC<ModeSwitcherProps> = ({ mode, onChange }) =>
               width="100%"
               height="100%"
               src="https://www.youtube.com/embed/a_AT7cEN_9I?autoplay=1"
-              title="Como o Plannotator Funciona"
+              title="Como o Obsidian Note Reviewer Funciona"
               frameBorder="0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen

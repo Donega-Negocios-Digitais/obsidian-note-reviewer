@@ -146,7 +146,7 @@ Após testar esta nota, você pode:
 
 ## Suporte e Documentação
 
-- **Repositório**: `C:/Users/Alex/Dev/obsidian-note-reviewer`
+- **Repositório**: `C:/dev/obsidian-note-reviewer`
 - **Docs**: `docs/OBSIDIAN_INTEGRATION.md`
 - **Testes**: Execute `bun test` para ver cobertura
 

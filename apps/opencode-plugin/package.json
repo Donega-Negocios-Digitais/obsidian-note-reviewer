@@ -1,34 +1,35 @@
 {
-  "name": "@plannotator/opencode",
-  "version": "0.1.5",
-  "description": "Plannotator plugin for OpenCode - interactive plan review with visual annotation",
-  "author": "backnotprop",
+  "name": "@obsidian-note-reviewer/opencode",
+  "version": "0.2.0",
+  "description": "Obsidian Note Reviewer plugin for OpenCode - interactive note review with visual annotation",
+  "author": "Alex Donega",
   "license": "BSL-1.1",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/backnotprop/plannotator.git",
+    "url": "git+https://github.com/alexdonega/obsidian-note-reviewer.git",
     "directory": "apps/opencode-plugin"
   },
-  "homepage": "https://github.com/backnotprop/plannotator",
+  "homepage": "https://github.com/alexdonega/obsidian-note-reviewer",
   "bugs": {
-    "url": "https://github.com/backnotprop/plannotator/issues"
+    "url": "https://github.com/alexdonega/obsidian-note-reviewer/issues"
   },
   "keywords": [
     "opencode",
     "opencode-plugin",
-    "plannotator",
-    "plan-review",
+    "obsidian",
+    "note-review",
+    "obsidian-notes",
     "ai-agent",
     "coding-agent"
   ],
   "main": "index.ts",
   "files": [
     "index.ts",
-    "plannotator.html",
+    "obsreview.html",
     "README.md"
   ],
   "scripts": {
-    "build": "cp ../hook/dist/index.html ./plannotator.html",
+    "build": "cp ../hook/dist/index.html ./obsreview.html",
     "prepublishOnly": "bun run build"
   },
   "dependencies": {

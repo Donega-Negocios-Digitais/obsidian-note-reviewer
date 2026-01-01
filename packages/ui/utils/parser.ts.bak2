@@ -184,7 +184,7 @@ export const parseMarkdownToBlocks = (markdown: string): Block[] => {
 
 export const exportDiff = (blocks: Block[], annotations: any[]): string => {
   if (annotations.length === 0) {
-    return 'Nota aprovada sem alterações';
+    return 'No changes detected.';
   }
 
   const sortedAnns = [...annotations].sort((a, b) => {
@@ -194,36 +194,42 @@ export const exportDiff = (blocks: Block[], annotations: any[]): string => {
     return a.startOffset - b.startOffset;
   });
 
-  let output = `SOLICITAÇÃO DE ALTERAÇÕES:\n\n`;
+  let output = `# Plan Feedback\n\n`;
+  output += `I've reviewed this plan and have ${annotations.length} piece${annotations.length > 1 ? 's' : ''} of feedback:\n\n`;
 
-  sortedAnns.forEach((ann) => {
-    const blockIndex = blocks.findIndex(b => b.id === ann.blockId);
-    const lineNumber = blockIndex >= 0 ? `Linha ${blockIndex + 1}` : "Localização";
+  sortedAnns.forEach((ann, index) => {
+    const block = blocks.find(b => b.id === ann.blockId);
 
-    output += `## ${lineNumber}\n`;
+    output += `## ${index + 1}. `;
 
     switch (ann.type) {
       case 'DELETION':
-        output += `❌ DELETAR: "${ann.originalText}"\n`;
+        output += `Remove this\n`;
+        output += `\`\`\`\n${ann.originalText}\n\`\`\`\n`;
+        output += `> I don't want this in the plan.\n`;
         break;
 
       case 'INSERTION':
-        output += `➕ ADICIONAR: "${ann.text}"\n`;
+        output += `Add this\n`;
+        output += `\`\`\`\n${ann.text}\n\`\`\`\n`;
         break;
 
       case 'REPLACEMENT':
-        output += `🔄 SUBSTITUIR: "${ann.originalText}"\n`;
-        output += `Por: "${ann.text}"\n`;
+        output += `Change this\n`;
+        output += `**From:**\n\`\`\`\n${ann.originalText}\n\`\`\`\n`;
+        output += `**To:**\n\`\`\`\n${ann.text}\n\`\`\`\n`;
         break;
 
       case 'COMMENT':
-        output += `💬 COMENTÁRIO sobre: "${ann.originalText}"\n`;
-        output += `Sugestão: ${ann.text}\n`;
+        output += `Feedback on: "${ann.originalText}"\n`;
+        output += `> ${ann.text}\n`;
         break;
     }
 
     output += '\n';
   });
+
+  output += `---\n`;
 
   return output;
 };

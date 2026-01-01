@@ -1,5 +1,5 @@
 {
-  "name": "@plannotator/editor",
+  "name": "@obsidian-note-reviewer/editor",
   "version": "0.0.1",
   "type": "module",
   "exports": {
@@ -7,7 +7,7 @@
     "./styles": "./index.css"
   },
   "dependencies": {
-    "@plannotator/ui": "workspace:*",
+    "@obsidian-note-reviewer/ui": "workspace:*",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "tailwindcss": "^4.1.18"

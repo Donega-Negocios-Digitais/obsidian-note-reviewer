@@ -1,16 +1,24 @@
 ﻿import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { parseMarkdownToBlocks, exportDiff } from '@plannotator/ui/utils/parser';
-import { Viewer, ViewerHandle } from '@plannotator/ui/components/Viewer';
-import { AnnotationPanel } from '@plannotator/ui/components/AnnotationPanel';
-import { ExportModal } from '@plannotator/ui/components/ExportModal';
-import { Annotation, Block, EditorMode } from '@plannotator/ui/types';
-import { ThemeProvider } from '@plannotator/ui/components/ThemeProvider';
-import { ModeToggle } from '@plannotator/ui/components/ModeToggle';
-import { ModeSwitcher } from '@plannotator/ui/components/ModeSwitcher';
-import { Settings } from '@plannotator/ui/components/Settings';
-import { useSharing } from '@plannotator/ui/hooks/useSharing';
-import { storage, getVaultPath, getNotePath, setVaultPath, setNotePath } from '@plannotator/ui/utils/storage';
-import { UpdateBanner } from '@plannotator/ui/components/UpdateBanner';
+import { parseMarkdownToBlocks, exportDiff } from '@obsidian-note-reviewer/ui/utils/parser';
+import { Viewer, ViewerHandle } from '@obsidian-note-reviewer/ui/components/Viewer';
+import { AnnotationPanel } from '@obsidian-note-reviewer/ui/components/AnnotationPanel';
+import { ExportModal } from '@obsidian-note-reviewer/ui/components/ExportModal';
+import { Annotation, Block, EditorMode } from '@obsidian-note-reviewer/ui/types';
+import { ThemeProvider } from '@obsidian-note-reviewer/ui/components/ThemeProvider';
+import { ModeToggle } from '@obsidian-note-reviewer/ui/components/ModeToggle';
+import { ModeSwitcher } from '@obsidian-note-reviewer/ui/components/ModeSwitcher';
+import { SettingsPanel } from '@obsidian-note-reviewer/ui/components/SettingsPanel';
+import { useSharing } from '@obsidian-note-reviewer/ui/hooks/useSharing';
+import {
+  storage,
+  getVaultPath,
+  getNotePath,
+  setVaultPath,
+  setNotePath,
+  getNoteType
+} from '@obsidian-note-reviewer/ui/utils/storage';
+import { type TipoNota } from '@obsidian-note-reviewer/ui/utils/notePaths';
+import { UpdateBanner } from '@obsidian-note-reviewer/ui/components/UpdateBanner';
 
 const PLAN_CONTENT = `---
 title: Obsidian Note Reviewer - Guia de Teste
@@ -160,7 +168,7 @@ Após testar esta nota, você pode:
 
 ## Suporte e Documentação
 
-- **Repositório**: \`C:/Users/Alex/Dev/obsidian-note-reviewer\`
+- **Repositório**: \`C:/dev/obsidian-note-reviewer\`
 - **Docs**: \`docs/OBSIDIAN_INTEGRATION.md\`
 - **Testes**: Execute \`bun test\` para ver cobertura
 
@@ -172,6 +180,13 @@ Após testar esta nota, você pode:
 const App: React.FC = () => {
   const [markdown, setMarkdown] = useState(PLAN_CONTENT);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
+  const [savePath, setSavePath] = useState<string>(() => {
+    // Use note path directly
+    const note = getNotePath();
+    return note || '';
+  });
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // History for undo (Ctrl+Z)
   const [annotationHistory, setAnnotationHistory] = useState<string[]>([]);
@@ -180,6 +195,7 @@ const App: React.FC = () => {
   const [showExport, setShowExport] = useState(false);
   const [showFeedbackPrompt, setShowFeedbackPrompt] = useState(false);
   const [isPanelOpen, setIsPanelOpen] = useState(true);
+  const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<EditorMode>('selection');
 
   const [isApiMode, setIsApiMode] = useState(false);
@@ -342,12 +358,7 @@ const App: React.FC = () => {
   };
 
   const handleNotePathChange = (notePath: string) => {
-    const vaultPath = getVaultPath();
-    if (vaultPath && notePath) {
-      setSavePath(`${vaultPath}/${notePath}`);
-    } else {
-      setSavePath('');
-    }
+    setSavePath(notePath);
   };
 
   const handleIdentityChange = (oldIdentity: string, newIdentity: string) => {
@@ -356,6 +367,13 @@ const App: React.FC = () => {
     ));
   };
 
+  const handleNoteTypeChange = (tipo: TipoNota) => {
+    // Just save the type, path comes from handleNotePathChange
+  };
+
+  const handleNoteNameChange = (name: string) => {
+    // Note name is handled via handleNotePathChange
+  };
 
   const reconstructMarkdownFromBlocks = (blocks: Block[]): string => {
     return blocks.map(block => {
@@ -368,7 +386,7 @@ const App: React.FC = () => {
 
   const handleSaveToVault = async () => {
     if (!savePath.trim()) {
-      setSaveError('Configure o caminho do arquivo nas configurações');
+      setSaveError('Configure o caminho nas configurações');
       return;
     }
 
@@ -376,6 +394,26 @@ const App: React.FC = () => {
     setSaveError(null);
 
     try {
+      // CASO 1: TEM ANOTAÇÕES → Fazer Alterações (deny com feedback)
+      if (annotations.length > 0) {
+        console.log('🟠 Solicitando alterações com', annotations.length, 'anotações');
+
+        if (isApiMode) {
+          // Envia feedback para Claude Code
+          await fetch('/api/deny', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ feedback: diffOutput })
+          });
+          setSubmitted('denied');
+          console.log('✅ Alterações solicitadas ao Claude Code!');
+        }
+        return;
+      }
+
+      // CASO 2: SEM ANOTAÇÕES → Salvar no Obsidian e Aprovar
+      console.log('🟣 Salvando nota no Obsidian...');
+
       const content = reconstructMarkdownFromBlocks(blocks);
       const response = await fetch('/api/save', {
         method: 'POST',
@@ -392,7 +430,20 @@ const App: React.FC = () => {
         throw new Error(result.error || 'Erro ao salvar');
       }
 
-      console.log('Nota salva com sucesso:', savePath);
+      console.log('✅ Nota salva com sucesso:', savePath);
+
+      // Se estiver em API mode, também aprovar automaticamente
+      if (isApiMode) {
+        console.log('🎯 Aprovando automaticamente...');
+        try {
+          await fetch('/api/approve', { method: 'POST' });
+          setSubmitted('approved');
+          console.log('✅ Aprovado com sucesso!');
+        } catch (approveError) {
+          console.error('⚠️ Erro ao aprovar:', approveError);
+          // Não falha se aprovação der erro - nota já foi salva
+        }
+      }
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'Erro desconhecido');
     } finally {
@@ -404,7 +455,20 @@ const App: React.FC = () => {
 
   return (
     <ThemeProvider defaultTheme="dark">
-      <div className="h-screen flex flex-col bg-background overflow-hidden">        {/* Minimal Header */}
+      <div className="h-screen flex flex-col bg-background overflow-hidden">
+        {/* Show ONLY Settings when open */}
+        {isSettingsPanelOpen ? (
+          <SettingsPanel
+            isOpen={isSettingsPanelOpen}
+            onClose={() => setIsSettingsPanelOpen(false)}
+            onIdentityChange={handleIdentityChange}
+            onNoteTypeChange={handleNoteTypeChange}
+            onNotePathChange={handleNotePathChange}
+            onNoteNameChange={handleNoteNameChange}
+          />
+        ) : (
+          <>
+        {/* Minimal Header */}
         <header className="h-12 flex items-center justify-between px-2 md:px-4 border-b border-border/50 bg-card/50 backdrop-blur-xl z-50">
           <div className="flex items-center gap-2 md:gap-3">
             <a
@@ -413,7 +477,7 @@ const App: React.FC = () => {
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 md:gap-2 hover:opacity-80 transition-opacity"
             >
-              <span className="text-sm font-semibold tracking-tight">Plannotator</span>
+              <span className="text-sm font-semibold tracking-tight">Obsidian Note Reviewer</span>
             </a>
             <span className="text-xs text-muted-foreground font-mono opacity-60 hidden md:inline">
               v{typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0'}
@@ -462,12 +526,60 @@ const App: React.FC = () => {
               </>
             )}
 
+            
+            {/* Botão Salvar/Alterações - Condicional */}
+            <button
+              onClick={handleSaveToVault}
+              disabled={isSaving || !savePath}
+              className={`
+                flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-all
+                ${isSaving || !savePath
+                  ? 'opacity-50 cursor-not-allowed bg-muted text-muted-foreground'
+                  : annotations.length > 0
+                    ? 'bg-orange-500/20 text-orange-600 hover:bg-orange-500/30 border border-orange-500/40'
+                    : 'bg-purple-500/20 text-purple-600 hover:bg-purple-500/30 border border-purple-500/40'
+                }
+              `}
+              title={
+                !savePath
+                  ? 'Configure o caminho nas configurações'
+                  : annotations.length > 0
+                    ? 'Fazer alterações no Claude Code'
+                    : 'Salvar nota no Obsidian'
+              }
+            >
+              {annotations.length > 0 ? (
+                <>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  <span className="hidden md:inline">{isSaving ? 'Processando...' : 'Fazer Alterações'}</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                  </svg>
+                  <span className="hidden md:inline">{isSaving ? 'Salvando...' : 'Salvar no Obsidian'}</span>
+                </>
+              )}
+            </button>
+
             <ModeToggle />
-            <Settings
-              onIdentityChange={handleIdentityChange}
-              onVaultPathChange={handleVaultPathChange}
-              onNotePathChange={handleNotePathChange}
-            />
+            <button
+              onClick={() => setIsSettingsPanelOpen(!isSettingsPanelOpen)}
+              className={`p-1.5 rounded-md text-xs font-medium transition-all ${
+                isSettingsPanelOpen
+                  ? 'bg-primary/15 text-primary'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+              }`}
+              title="Configurações"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </button>
 
             <button
               onClick={() => setIsPanelOpen(!isPanelOpen)}
@@ -607,6 +719,8 @@ const App: React.FC = () => {
               </div>
             </div>
           </div>
+        )}
+          </>
         )}
 
         {/* Update notification */}

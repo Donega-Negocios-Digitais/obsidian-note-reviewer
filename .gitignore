@@ -28,3 +28,11 @@ apps/opencode-plugin/plannotator.html
 *.njsproj
 *.sln
 *.sw?
+
+# Auto Claude data directory
+.auto-claude/
+
+# Executables
+*.exe
+obsreview.exe
+obsidian-note-reviewer.exe

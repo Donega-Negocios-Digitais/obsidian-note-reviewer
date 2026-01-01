@@ -97,3 +97,136 @@ export function getNotePath(): string {
 export function setNotePath(path: string): void {
   setCookie('notePath', path);
 }
+
+/**
+ * Get note type from storage
+ */
+export function getNoteType(): string | null {
+  return getCookie('noteType');
+}
+
+/**
+ * Set note type in storage
+ */
+export function setNoteType(tipo: string): void {
+  setCookie('noteType', tipo);
+}
+
+/**
+ * Get note name from storage
+ */
+export function getNoteName(): string {
+  return getCookie('noteName') ?? '';
+}
+
+/**
+ * Set note name in storage
+ */
+export function setNoteName(name: string): void {
+  setCookie('noteName', name);
+}
+
+/**
+ * Get last used template from storage
+ */
+export function getLastUsedTemplate(): string | null {
+  return getCookie('lastTemplate');
+}
+
+/**
+ * Set last used template in storage
+ */
+export function setLastUsedTemplate(template: string): void {
+  setCookie('lastTemplate', template);
+}
+
+/**
+ * Save complete note configuration
+ */
+export function saveNoteConfig(config: {
+  tipo: string;
+  noteName: string;
+  vaultPath?: string;
+  notePath?: string;
+}): void {
+  setCookie('noteConfig', JSON.stringify(config));
+}
+
+/**
+ * Get saved note configuration
+ */
+export function getNoteConfig(): {
+  tipo: string;
+  noteName: string;
+  vaultPath?: string;
+  notePath?: string;
+} | null {
+  const config = getCookie('noteConfig');
+  try {
+    return config ? JSON.parse(config) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get path for a specific note type
+ */
+export function getNoteTypePath(tipo: string): string {
+  return getCookie(`notePath_${tipo}`) ?? '';
+}
+
+/**
+ * Set path for a specific note type
+ */
+export function setNoteTypePath(tipo: string, path: string): void {
+  setCookie(`notePath_${tipo}`, path);
+}
+
+/**
+ * Get all configured note type paths
+ */
+export function getAllNoteTypePaths(): Record<string, string> {
+  const paths: Record<string, string> = {};
+  // Parse all cookies to find notePath_* entries
+  const cookies = document.cookie.split(';');
+  for (const cookie of cookies) {
+    const [key, value] = cookie.trim().split('=');
+    if (key.startsWith('notePath_')) {
+      const tipo = key.replace('notePath_', '');
+      paths[tipo] = decodeURIComponent(value);
+    }
+  }
+  return paths;
+}
+
+/**
+ * Get template path for a specific note type
+ */
+export function getNoteTypeTemplate(tipo: string): string {
+  return getCookie(`noteTemplate_${tipo}`) ?? '';
+}
+
+/**
+ * Set template path for a specific note type
+ */
+export function setNoteTypeTemplate(tipo: string, templatePath: string): void {
+  setCookie(`noteTemplate_${tipo}`, templatePath);
+}
+
+/**
+ * Get all configured note type template paths
+ */
+export function getAllNoteTypeTemplates(): Record<string, string> {
+  const templates: Record<string, string> = {};
+  // Parse all cookies to find noteTemplate_* entries
+  const cookies = document.cookie.split(';');
+  for (const cookie of cookies) {
+    const [key, value] = cookie.trim().split('=');
+    if (key.startsWith('noteTemplate_')) {
+      const tipo = key.replace('noteTemplate_', '');
+      templates[tipo] = decodeURIComponent(value);
+    }
+  }
+  return templates;
+}

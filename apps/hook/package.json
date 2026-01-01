@@ -1,5 +1,5 @@
 {
-  "name": "@plannotator/hooks",
+  "name": "@obsidian-note-reviewer/hooks",
   "private": true,
   "version": "0.0.1",
   "type": "module",
@@ -9,8 +9,8 @@
     "serve": "bun run server/index.ts"
   },
   "dependencies": {
-    "@plannotator/editor": "workspace:*",
-    "@plannotator/ui": "workspace:*",
+    "@obsidian-note-reviewer/editor": "workspace:*",
+    "@obsidian-note-reviewer/ui": "workspace:*",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "tailwindcss": "^4.1.18",

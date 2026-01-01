@@ -29,7 +29,7 @@ Este é o Plannotator adaptado para revisar notas do Obsidian em português.
 ### 1. Build do projeto
 
 ```bash
-cd C:/Users/Alex/Dev/obsidian-note-reviewer
+cd C:/dev/obsidian-note-reviewer
 bun install
 bun run build
 ```
@@ -47,7 +47,7 @@ Adicione ao seu `~/.claude/settings.json`:
         "hooks": [
           {
             "type": "command",
-            "command": "C:/Users/Alex/Dev/obsidian-note-reviewer/apps/hook/dist/plannotator",
+            "command": "C:/dev/obsidian-note-reviewer/apps/hook/dist/plannotator",
             "timeout": 1800
           }
         ]

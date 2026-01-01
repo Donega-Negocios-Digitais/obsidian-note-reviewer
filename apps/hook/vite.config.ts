@@ -17,9 +17,9 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, '.'),
-      '@plannotator/ui': path.resolve(__dirname, '../../packages/ui'),
-      '@plannotator/editor/styles': path.resolve(__dirname, '../../packages/editor/index.css'),
-      '@plannotator/editor': path.resolve(__dirname, '../../packages/editor/App.tsx'),
+      '@obsidian-note-reviewer/ui': path.resolve(__dirname, '../../packages/ui'),
+      '@obsidian-note-reviewer/editor/styles': path.resolve(__dirname, '../../packages/editor/index.css'),
+      '@obsidian-note-reviewer/editor': path.resolve(__dirname, '../../packages/editor/App.tsx'),
     }
   },
   build: {

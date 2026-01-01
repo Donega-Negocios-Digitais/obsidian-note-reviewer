@@ -1,10 +1,16 @@
-﻿/**
- * Plannotator Ephemeral Server
+/**
+ * Obsidian Note Reviewer Ephemeral Server (Sistema Unificado)
  *
- * Spawned by ExitPlanMode hook to serve Plannotator UI and handle approve/deny decisions.
+ * Spawned by hook to serve Obsidian Note Reviewer UI and handle approve/deny decisions.
  * Uses random port to support multiple concurrent Claude Code sessions.
  *
- * Reads hook event from stdin, extracts plan content, serves UI, returns decision.
+ * Reads hook event from stdin, extracts note content, serves UI, returns decision.
+ *
+ * API Endpoints (ONLY 4):
+ * - GET  /api/content - Returns note content from hook event
+ * - POST /api/approve - User approved (no changes)
+ * - POST /api/deny - User requested changes (with feedback)
+ * - POST /api/save - Save note to Obsidian vault
  */
 
 import { $ } from "bun";
@@ -15,17 +21,17 @@ import indexHtml from "../dist/index.html" with { type: "text" };
 // Read hook event from stdin
 const eventJson = await Bun.stdin.text();
 
-let planContent = "";
+let noteContent = "";
 try {
   const event = JSON.parse(eventJson);
-  planContent = event.tool_input?.plan || "";
+  noteContent = event.tool_input?.content || event.tool_input?.plan || "";
 } catch {
   console.error("Failed to parse hook event from stdin");
   process.exit(1);
 }
 
-if (!planContent) {
-  console.error("No plan content in hook event");
+if (!noteContent) {
+  console.error("No note content in hook event");
   process.exit(1);
 }
 
@@ -41,12 +47,14 @@ const server = Bun.serve({
   async fetch(req) {
     const url = new URL(req.url);
 
-    // API: Get plan content
-    if (url.pathname === "/api/plan") {
-      return Response.json({ plan: planContent });
+    console.log(`[Server] ${req.method} ${url.pathname}`);
+
+    // API: Get note content
+    if (url.pathname === "/api/content" || url.pathname === "/api/plan") {
+      return Response.json({ content: noteContent, plan: noteContent });
     }
 
-    // API: Approve plan
+    // API: Approve note
     if (url.pathname === "/api/approve" && req.method === "POST") {
       resolveDecision({ approved: true });
       return Response.json({ ok: true });
@@ -61,7 +69,9 @@ const server = Bun.serve({
         resolveDecision({ approved: false, feedback: "Plan rejected by user" });
       }
       return Response.json({ ok: true });
-    }    // API: Save note to vault
+    }
+
+    // API: Save note to vault
     if (url.pathname === "/api/save" && req.method === "POST") {
       try {
         const body = await req.json() as { content: string; path: string };
@@ -75,40 +85,16 @@ const server = Bun.serve({
         // Save file
         await fs.writeFile(body.path, body.content, "utf-8");
 
-        return Response.json({ ok: true, message: "Nota salva com sucesso" });
+        console.log(`[Server] ✅ Nota salva: ${body.path}`);
+        return Response.json({ ok: true, message: "Nota salva com sucesso", path: body.path });
       } catch (error) {
+        console.error(`[Server] ❌ Erro ao salvar:`, error);
         return Response.json(
           { ok: false, error: error instanceof Error ? error.message : "Erro ao salvar nota" },
           { status: 500 }
         );
       }
     }
-
-
-
-    // API: Load note from filesystem
-    if (url.pathname === "/api/load" && req.method === "GET") {
-      try {
-        const filePath = url.searchParams.get("path");
-        if (!filePath) {
-          return Response.json(
-            { ok: false, error: "Parâmetro 'path' é obrigatório" },
-            { status: 400 }
-          );
-        }
-
-        const fs = await import("fs/promises");
-        const content = await fs.readFile(filePath, "utf-8");
-
-        return Response.json({ ok: true, content });
-      } catch (error) {
-        return Response.json(
-          { ok: false, error: error instanceof Error ? error.message : "Erro ao carregar nota" },
-          { status: 500 }
-        );
-      }
-    }
-
 
     // Serve embedded HTML for all other routes (SPA)
     return new Response(indexHtml, {
@@ -119,7 +105,7 @@ const server = Bun.serve({
 
 // Open browser - cross-platform support
 const url = `http://localhost:${server.port}`;
-console.error(`Plannotator server running on ${url}`);
+console.error(`[Server] Obsidian Note Reviewer running on ${url}`);
 
 try {
   const platform = process.platform;
@@ -131,7 +117,7 @@ try {
     await $`xdg-open ${url}`.quiet();
   }
 } catch {
-  console.error(`Open browser manually: ${url}`);
+  console.error(`[Server] Open browser manually: ${url}`);
 }
 
 // Wait for user decision (blocks until approve/deny)

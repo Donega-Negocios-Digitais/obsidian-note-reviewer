@@ -1,0 +1,582 @@
+﻿/**
+ * Obsidian Note Reviewer Ephemeral Server
+ *
+ * Spawned by ExitPlanMode hook to serve Obsidian Note Reviewer UI and handle approve/deny decisions.
+ * Uses random port to support multiple concurrent Claude Code sessions.
+ *
+ * Reads hook event from stdin, extracts plan content, serves UI, returns decision.
+ */
+
+import { $ } from "bun";
+import { join } from "path";
+import { existsSync } from "fs";
+
+// Get project root - try multiple strategies
+function getProjectRoot(): string {
+  // Strategy 1: Check if we're in the project structure
+  const candidates = [
+    join(import.meta.dir, "../../.."),  // From apps/hook/server
+    join(process.cwd(), "../.."),        // From apps/hook when running via bun
+    "C:\\dev\\obsidian-note-reviewer",   // Absolute fallback
+  ];
+
+  for (const candidate of candidates) {
+    if (existsSync(join(candidate, "references"))) {
+      return candidate;
+    }
+  }
+
+  // Final fallback
+  return "C:\\dev\\obsidian-note-reviewer";
+}
+
+const projectRoot = getProjectRoot();
+
+// Embed the built HTML at compile time
+import indexHtml from "../dist/index.html" with { type: "text" };
+
+// Read hook event from stdin
+const eventJson = await Bun.stdin.text();
+
+let planContent = "";
+try {
+  const event = JSON.parse(eventJson);
+  planContent = event.tool_input?.plan || "";
+} catch {
+  console.error("Failed to parse hook event from stdin");
+  process.exit(1);
+}
+
+if (!planContent) {
+  console.error("No plan content in hook event");
+  process.exit(1);
+}
+
+// Promise that resolves when user makes a decision
+let resolveDecision: (result: { approved: boolean; feedback?: string }) => void;
+const decisionPromise = new Promise<{ approved: boolean; feedback?: string }>(
+  (resolve) => { resolveDecision = resolve; }
+);
+
+const server = Bun.serve({
+  port: 0, // Random available port - critical for multi-instance support
+
+  async fetch(req) {
+    const url = new URL(req.url);
+
+    console.log(`[Server] ${req.method} ${url.pathname}`);
+
+    // API: Get plan content
+    if (url.pathname === "/api/plan") {
+      return Response.json({ plan: planContent });
+    }
+
+    // API: Approve plan
+    if (url.pathname === "/api/approve" && req.method === "POST") {
+      resolveDecision({ approved: true });
+      return Response.json({ ok: true });
+    }
+
+    // API: Deny with feedback
+    if (url.pathname === "/api/deny" && req.method === "POST") {
+      try {
+        const body = await req.json() as { feedback?: string };
+        resolveDecision({ approved: false, feedback: body.feedback || "Plan rejected by user" });
+      } catch {
+        resolveDecision({ approved: false, feedback: "Plan rejected by user" });
+      }
+      return Response.json({ ok: true });
+    }    // API: Save note to vault
+    if (url.pathname === "/api/save" && req.method === "POST") {
+      try {
+        const body = await req.json() as { content: string; path: string };
+        const fs = await import("fs/promises");
+        const pathModule = await import("path");
+
+        // Ensure directory exists
+        const dir = pathModule.dirname(body.path);
+        await fs.mkdir(dir, { recursive: true });
+
+        // Save file
+        await fs.writeFile(body.path, body.content, "utf-8");
+
+        return Response.json({ ok: true, message: "Nota salva com sucesso" });
+      } catch (error) {
+        return Response.json(
+          { ok: false, error: error instanceof Error ? error.message : "Erro ao salvar nota" },
+          { status: 500 }
+        );
+      }
+    }
+
+
+
+    // API: Load note from filesystem
+    if (url.pathname === "/api/load" && req.method === "GET") {
+      try {
+        const filePath = url.searchParams.get("path");
+        if (!filePath) {
+          return Response.json(
+            { ok: false, error: "Parâmetro 'path' é obrigatório" },
+            { status: 400 }
+          );
+        }
+
+        const fs = await import("fs/promises");
+        const content = await fs.readFile(filePath, "utf-8");
+
+        return Response.json({ ok: true, content });
+      } catch (error) {
+        return Response.json(
+          { ok: false, error: error instanceof Error ? error.message : "Erro ao carregar nota" },
+          { status: 500 }
+        );
+      }
+    }
+
+    // API: Get template content
+    if (url.pathname === "/api/template" && req.method === "GET") {
+      try {
+        const tipo = url.searchParams.get("tipo");
+        if (!tipo) {
+          return Response.json(
+            { ok: false, error: "Parâmetro 'tipo' obrigatório" },
+            { status: 400 }
+          );
+        }
+
+        const fs = await import("fs/promises");
+        const pathModule = await import("path");
+
+        // Determine template path based on note type category
+        const isAlex = tipo.endsWith('_alex') || ['projeto', 'tutorial', 'conteudo_mestre', 'roteiro'].includes(tipo);
+        const templateBase = isAlex
+          ? 'C:/dev/obsidian-alexdonega/Sistema/Templates/Templates de notas work'
+          : 'C:/dev/obsidian-alexdonega/Sistema/Templates/Templates de notas conteúdo';
+
+        // Map tipo to template filename
+        const templateMap: Record<string, string> = {
+          // Terceiros
+          'video_youtube': 'template-video-youtube.md',
+          'artigo': 'template-artigo.md',
+          'newsletter': 'template-newsletter.md',
+          'livro': 'template-livro.md',
+          'curso': 'template-curso.md',
+          'aula': 'template-aula.md',
+          'podcast': 'template-podcast.md',
+          'palestra': 'template-palestra.md',
+          'entrevista': 'template-entrevista.md',
+          // Atômicas
+          'atomica': 'template-atomica.md',
+          'framework': 'template-framework.md',
+          'pessoa': 'template-pessoa.md',
+          'citacao': 'template-citacao.md',
+          // Organizacionais
+          'moc': 'template-moc.md',
+          'dashboard': 'template-dashboard.md',
+          // Alex
+          'artigo_alex': 'template-artigo-alex.md',
+          'video_alex': 'template-video-youtube-alex.md',
+          'projeto': 'template-projeto.md',
+          'tutorial': 'template-tutorial.md',
+          'conteudo_mestre': 'template-conteudo-mestre.md',
+          'roteiro': 'template-roteiro.md'
+        };
+
+        const templateFilename = templateMap[tipo];
+        if (!templateFilename) {
+          return Response.json(
+            { ok: false, error: `Tipo de nota '${tipo}' não reconhecido` },
+            { status: 400 }
+          );
+        }
+
+        const templatePath = pathModule.join(templateBase, templateFilename);
+        const template = await fs.readFile(templatePath, "utf-8");
+
+        return Response.json({ ok: true, template, templatePath });
+      } catch (error) {
+        return Response.json(
+          { ok: false, error: error instanceof Error ? error.message : "Erro ao carregar template" },
+          { status: 500 }
+        );
+      }
+    }
+
+    // API: Extract content (YouTube, Google Drive, etc.)
+    if (url.pathname === "/api/extract" && req.method === "POST") {
+      try {
+        const body = await req.json() as { tipo: string; url: string };
+        const { execFile } = await import('child_process');
+        const { promisify } = await import('util');
+        const execFileAsync = promisify(execFile);
+
+        let scriptPath = '';
+
+        if (body.tipo === 'video_youtube') {
+          scriptPath = 'C:/Users/Alex/.claude/skills/nota-obsidian/scripts/extrator-youtube.py';
+        } else if (body.tipo === 'gdrive') {
+          scriptPath = 'C:/Users/Alex/.claude/skills/nota-obsidian/scripts/extrator-gdrive.py';
+        } else {
+          return Response.json(
+            { ok: false, error: 'Tipo de extração não suportado' },
+            { status: 400 }
+          );
+        }
+
+        // Check if script exists
+        const fs = await import('fs/promises');
+        try {
+          await fs.access(scriptPath);
+        } catch {
+          return Response.json(
+            { ok: false, error: `Script Python não encontrado: ${scriptPath}` },
+            { status: 404 }
+          );
+        }
+
+        // Execute Python script
+        const { stdout, stderr } = await execFileAsync('python', [scriptPath, body.url]);
+
+        if (stderr && !stdout) {
+          return Response.json(
+            { ok: false, error: stderr },
+            { status: 500 }
+          );
+        }
+
+        // Parse JSON output from Python script
+        let extracted;
+        try {
+          extracted = JSON.parse(stdout);
+        } catch {
+          return Response.json(
+            { ok: false, error: 'Script retornou formato inválido (esperado JSON)' },
+            { status: 500 }
+          );
+        }
+
+        return Response.json({ ok: true, data: extracted });
+      } catch (error) {
+        return Response.json(
+          { ok: false, error: error instanceof Error ? error.message : 'Erro ao extrair conteúdo' },
+          { status: 500 }
+        );
+      }
+    }
+
+    // API: List configuration files
+    if (url.pathname === "/api/config/list" && req.method === "GET") {
+      console.log(`[Server] Handling /api/config/list - projectRoot: ${projectRoot}`);
+      try {
+        const fs = await import("fs/promises");
+        const pathModule = await import("path");
+
+        const configDir = pathModule.join(projectRoot, "references");
+        console.log(`[Server] Config dir: ${configDir}`);
+
+        // Ensure directory exists
+        try {
+          await fs.access(configDir);
+        } catch {
+          return Response.json({ ok: true, files: [] });
+        }
+
+        const files = await fs.readdir(configDir);
+        const mdFiles = files
+          .filter(f => f.endsWith('.md'))
+          .map(f => ({
+            name: f,
+            displayName: f.replace('.md', '').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+            path: pathModule.join(configDir, f)
+          }));
+
+        return Response.json({ ok: true, files: mdFiles });
+      } catch (error) {
+        return Response.json(
+          { ok: false, error: error instanceof Error ? error.message : "Erro ao listar configurações" },
+          { status: 500 }
+        );
+      }
+    }
+
+    // API: Read configuration file
+    if (url.pathname === "/api/config/read" && req.method === "GET") {
+      try {
+        const fileName = url.searchParams.get("file");
+        if (!fileName) {
+          return Response.json(
+            { ok: false, error: "Parâmetro 'file' é obrigatório" },
+            { status: 400 }
+          );
+        }
+
+        const fs = await import("fs/promises");
+        const pathModule = await import("path");
+
+        const configDir = pathModule.join(projectRoot, "references");
+        const filePath = pathModule.join(configDir, fileName);
+
+        // Security: Ensure file is within references directory
+        if (!filePath.startsWith(configDir)) {
+          return Response.json(
+            { ok: false, error: "Caminho de arquivo inválido" },
+            { status: 403 }
+          );
+        }
+
+        const content = await fs.readFile(filePath, "utf-8");
+
+        return Response.json({ ok: true, content, fileName });
+      } catch (error) {
+        return Response.json(
+          { ok: false, error: error instanceof Error ? error.message : "Erro ao ler configuração" },
+          { status: 500 }
+        );
+      }
+    }
+
+    // API: Save configuration file
+    if (url.pathname === "/api/config/save" && req.method === "POST") {
+      try {
+        const body = await req.json() as { fileName: string; content: string };
+
+        if (!body.fileName || body.content === undefined) {
+          return Response.json(
+            { ok: false, error: "Parâmetros 'fileName' e 'content' são obrigatórios" },
+            { status: 400 }
+          );
+        }
+
+        const fs = await import("fs/promises");
+        const pathModule = await import("path");
+
+        const configDir = pathModule.join(projectRoot, "references");
+        const filePath = pathModule.join(configDir, body.fileName);
+
+        // Security: Ensure file is within references directory
+        if (!filePath.startsWith(configDir)) {
+          return Response.json(
+            { ok: false, error: "Caminho de arquivo inválido" },
+            { status: 403 }
+          );
+        }
+
+        // Ensure directory exists
+        await fs.mkdir(configDir, { recursive: true });
+
+        // CRITICAL: Create backup before saving
+        const backupPath = `${filePath}.bak`;
+        try {
+          // Check if file exists before backing up
+          await fs.access(filePath);
+          // File exists, create backup
+          await fs.copyFile(filePath, backupPath);
+        } catch {
+          // File doesn't exist yet (first save), skip backup
+        }
+
+        // Save file
+        await fs.writeFile(filePath, body.content, "utf-8");
+
+        return Response.json({ ok: true, message: "Configuração salva com sucesso" });
+      } catch (error) {
+        return Response.json(
+          { ok: false, error: error instanceof Error ? error.message : "Erro ao salvar configuração" },
+          { status: 500 }
+        );
+      }
+    }
+
+    // API: Validate config paths (templates, folders)
+    if (url.pathname === "/api/config/validate-paths" && req.method === "POST") {
+      try {
+        const body = await req.json() as { content: string };
+        const fs = await import("fs/promises");
+
+        // Extract paths from content (templates and folders)
+        const pathRegex = /(?:template|Template|pasta|Pasta|Atlas|Work)[^\n]*?([A-Z]:[\\\/][^\s`"'\n]+(?:\.md)?)/g;
+        const matches = [...body.content.matchAll(pathRegex)];
+
+        const validationResults: { path: string; exists: boolean; lineNumber?: number }[] = [];
+
+        for (const match of matches) {
+          const path = match[1].replace(/`$/, ''); // Remove trailing backtick if present
+          try {
+            await fs.access(path);
+            validationResults.push({ path, exists: true });
+          } catch {
+            validationResults.push({ path, exists: false });
+          }
+        }
+
+        return Response.json({ ok: true, validationResults });
+      } catch (error) {
+        return Response.json(
+          { ok: false, error: error instanceof Error ? error.message : "Erro na validação" },
+          { status: 500 }
+        );
+      }
+    }
+
+    // API: Validate paths
+    if (url.pathname === "/api/validate" && req.method === "POST") {
+      try {
+        const body = await req.json() as { tipo: string; filename: string };
+        const fs = await import("fs/promises");
+        const pathModule = await import("path");
+
+        // Determine paths based on tipo (simplified version - should import from notePaths.ts)
+        const isAlex = body.tipo.endsWith('_alex') || ['projeto', 'tutorial', 'conteudo_mestre', 'roteiro'].includes(body.tipo);
+        const templateBase = isAlex
+          ? 'C:/dev/obsidian-alexdonega/Sistema/Templates/Templates de notas work'
+          : 'C:/dev/obsidian-alexdonega/Sistema/Templates/Templates de notas conteúdo';
+
+        // Build full path (simplified)
+        const vaultBase = 'C:/dev/obsidian-alexdonega';
+        let subfolder = '';
+
+        // Map tipos to subfolders (simplified - could import from notePaths.ts)
+        const folderMap: Record<string, string> = {
+          'video_youtube': 'Atlas/Conteudos/Video Youtube',
+          'artigo': 'Atlas/Conteudos/Artigos',
+          'newsletter': 'Atlas/Conteudos/Newsletters',
+          'livro': 'Atlas/Conteudos/Livros',
+          'curso': 'Atlas/Conteudos/Cursos',
+          'aula': 'Atlas/Conteudos/Aulas',
+          'podcast': 'Atlas/Conteudos/Podcasts',
+          'palestra': 'Atlas/Conteudos/Palestras',
+          'entrevista': 'Atlas/Conteudos/Entrevistas',
+          'atomica': 'Atlas/Atomos/Conceitos',
+          'framework': 'Atlas/Atomos/Frameworks',
+          'pessoa': 'Atlas/Atomos/Pessoas',
+          'citacao': 'Atlas/Atomos/Citacoes',
+          'moc': 'Atlas/Mapas',
+          'dashboard': 'Atlas/Mapas/Dashboards',
+          'artigo_alex': 'Work/Conteudos Mestre',
+          'video_alex': 'Work/Conteudos Mestre',
+          'projeto': 'Work/Projetos',
+          'tutorial': 'Work/Tutoriais',
+          'conteudo_mestre': 'Work/Conteudos Mestre',
+          'roteiro': 'Work/Roteiros'
+        };
+
+        subfolder = folderMap[body.tipo] || '';
+        const fullPath = pathModule.join(vaultBase, subfolder, body.filename.endsWith('.md') ? body.filename : `${body.filename}.md`);
+        const dir = pathModule.dirname(fullPath);
+
+        // Validate template exists
+        const templateMap: Record<string, string> = {
+          'video_youtube': 'template-video-youtube.md',
+          'artigo': 'template-artigo.md',
+          'newsletter': 'template-newsletter.md',
+          'livro': 'template-livro.md',
+          'curso': 'template-curso.md',
+          'aula': 'template-aula.md',
+          'podcast': 'template-podcast.md',
+          'palestra': 'template-palestra.md',
+          'entrevista': 'template-entrevista.md',
+          'atomica': 'template-atomica.md',
+          'framework': 'template-framework.md',
+          'pessoa': 'template-pessoa.md',
+          'citacao': 'template-citacao.md',
+          'moc': 'template-moc.md',
+          'dashboard': 'template-dashboard.md',
+          'artigo_alex': 'template-artigo-alex.md',
+          'video_alex': 'template-video-youtube-alex.md',
+          'projeto': 'template-projeto.md',
+          'tutorial': 'template-tutorial.md',
+          'conteudo_mestre': 'template-conteudo-mestre.md',
+          'roteiro': 'template-roteiro.md'
+        };
+
+        const templateFilename = templateMap[body.tipo];
+        const templatePath = pathModule.join(templateBase, templateFilename || 'template-default.md');
+
+        let templateExists = false;
+        try {
+          await fs.access(templatePath);
+          templateExists = true;
+        } catch {}
+
+        // Check if directory exists
+        let dirExists = false;
+        try {
+          await fs.access(dir);
+          dirExists = true;
+        } catch {}
+
+        return Response.json({
+          ok: true,
+          validation: {
+            templateExists,
+            templatePath,
+            dirExists,
+            fullPath,
+            canSave: templateExists // dirExists not required - we'll create it
+          }
+        });
+      } catch (error) {
+        return Response.json(
+          { ok: false, error: error instanceof Error ? error.message : 'Erro na validação' },
+          { status: 500 }
+        );
+      }
+    }
+
+    // Serve embedded HTML for all other routes (SPA)
+    return new Response(indexHtml, {
+      headers: { "Content-Type": "text/html" }
+    });
+  },
+});
+
+// Open browser - cross-platform support
+const url = `http://localhost:${server.port}`;
+console.error(`Obsidian Note Reviewer server running on ${url}`);
+
+try {
+  const platform = process.platform;
+  if (platform === "win32") {
+    await $`cmd /c start ${url}`.quiet();
+  } else if (platform === "darwin") {
+    await $`open ${url}`.quiet();
+  } else {
+    await $`xdg-open ${url}`.quiet();
+  }
+} catch {
+  console.error(`Open browser manually: ${url}`);
+}
+
+// Wait for user decision (blocks until approve/deny)
+const result = await decisionPromise;
+
+// Give browser time to receive response and update UI
+await Bun.sleep(1500);
+
+// Cleanup
+server.stop();
+
+// Output JSON for PermissionRequest hook decision control
+if (result.approved) {
+  console.log(JSON.stringify({
+    hookSpecificOutput: {
+      hookEventName: "PermissionRequest",
+      decision: {
+        behavior: "allow"
+      }
+    }
+  }));
+} else {
+  console.log(JSON.stringify({
+    hookSpecificOutput: {
+      hookEventName: "PermissionRequest",
+      decision: {
+        behavior: "deny",
+        message: result.feedback || "Plan changes requested"
+      }
+    }
+  }));
+}
+
+process.exit(0);

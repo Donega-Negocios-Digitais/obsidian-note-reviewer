@@ -1,17 +1,17 @@
 {
-  "name": "plannotator",
+  "name": "obsidian-note-reviewer",
   "version": "0.2.1",
   "private": true,
-  "description": "Interactive Plan Review for Claude Code - annotate plans visually, share with team, automatically send feedback",
-  "author": "backnotprop",
+  "description": "Obsidian Note Reviewer - Create and review notes for Obsidian with Claude Code integration",
+  "author": "Alex Donega",
   "license": "BSL-1.1",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/backnotprop/plannotator.git"
+    "url": "git+https://github.com/alexdonega/obsidian-note-reviewer.git"
   },
-  "homepage": "https://github.com/backnotprop/plannotator",
+  "homepage": "https://github.com/alexdonega/obsidian-note-reviewer",
   "bugs": {
-    "url": "https://github.com/backnotprop/plannotator/issues"
+    "url": "https://github.com/alexdonega/obsidian-note-reviewer/issues"
   },
   "workspaces": [
     "apps/*",

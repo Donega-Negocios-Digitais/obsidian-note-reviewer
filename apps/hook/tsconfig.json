@@ -20,9 +20,9 @@
     "jsx": "react-jsx",
     "paths": {
       "@/*": ["./*"],
-      "@plannotator/ui/*": ["../../packages/ui/*"],
-      "@plannotator/editor": ["../../packages/editor/App.tsx"],
-      "@plannotator/editor/*": ["../../packages/editor/*"]
+      "@obsidian-note-reviewer/ui/*": ["../../packages/ui/*"],
+      "@obsidian-note-reviewer/editor": ["../../packages/editor/App.tsx"],
+      "@obsidian-note-reviewer/editor/*": ["../../packages/editor/*"]
     },
     "allowImportingTsExtensions": true,
     "noEmit": true

@@ -174,16 +174,7 @@ export const Settings: React.FC<SettingsProps> = ({
       </button>
 
       {showDialog && createPortal(
-        <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setShowDialog(false);
-          }}
-        >
-          <div
-            className="bg-background border border-border rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 bg-background z-50 flex flex-col overflow-hidden">
             {/* Header */}
             <div className="px-6 py-4 border-b border-border flex items-center justify-between">
               <div className="flex-1">
@@ -287,10 +278,9 @@ export const Settings: React.FC<SettingsProps> = ({
                 onClick={() => setShowDialog(false)}
                 className="px-4 py-2 text-xs font-medium text-foreground bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors"
               >
-                Salvar e Fechar
+                Fechar
               </button>
             </div>
-          </div>
         </div>,
         document.body
       )}
