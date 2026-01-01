@@ -118,15 +118,40 @@ export function useFocusTrap(options: UseFocusTrapOptions): void {
 
     const container = containerRef.current;
 
-    // Placeholder for focus trap implementation
-    // Subtasks 1.2-1.5 will implement:
-    // - Focusable element detection
-    // - Tab key cycling
-    // - Escape key handling
-    // - Focus restoration
-
     const handleKeyDown = (event: KeyboardEvent) => {
-      // Will be implemented in subtasks 1.3 and 1.4
+      // Handle Tab key for focus cycling
+      if (event.key === 'Tab') {
+        const focusableElements = getFocusableElements(container);
+
+        // If no focusable elements, prevent Tab from leaving the modal
+        if (focusableElements.length === 0) {
+          event.preventDefault();
+          return;
+        }
+
+        const firstElement = focusableElements[0];
+        const lastElement = focusableElements[focusableElements.length - 1];
+        const activeElement = document.activeElement as HTMLElement;
+
+        if (event.shiftKey) {
+          // Shift+Tab: cycle backwards
+          // If focus is on first element or not in the modal, wrap to last element
+          if (activeElement === firstElement || !focusableElements.includes(activeElement)) {
+            event.preventDefault();
+            lastElement.focus();
+          }
+        } else {
+          // Tab: cycle forwards
+          // If focus is on last element or not in the modal, wrap to first element
+          if (activeElement === lastElement || !focusableElements.includes(activeElement)) {
+            event.preventDefault();
+            firstElement.focus();
+          }
+        }
+        return;
+      }
+
+      // Will be refined in subtask 1.4
       if (event.key === 'Escape') {
         event.preventDefault();
         event.stopPropagation();
