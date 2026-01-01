@@ -733,7 +733,7 @@ const MermaidRenderer: React.FC<any> = (props) => {
               border1: '#6b7280',
               border2: '#9ca3af',
             },
-            securityLevel: 'loose',
+            securityLevel: 'strict',
             flowchart: {
               useMaxWidth: true,
               htmlLabels: true,
