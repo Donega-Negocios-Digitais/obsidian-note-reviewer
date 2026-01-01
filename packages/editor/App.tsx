@@ -3,7 +3,8 @@ import { parseMarkdownToBlocks, exportDiff } from '@obsidian-note-reviewer/ui/ut
 import { Viewer, ViewerHandle } from '@obsidian-note-reviewer/ui/components/Viewer';
 import { AnnotationPanel } from '@obsidian-note-reviewer/ui/components/AnnotationPanel';
 import { ExportModal } from '@obsidian-note-reviewer/ui/components/ExportModal';
-import { Annotation, Block, EditorMode } from '@obsidian-note-reviewer/ui/types';
+import { GlobalCommentInput } from '@obsidian-note-reviewer/ui/components/GlobalCommentInput';
+import { Annotation, Block, EditorMode, AnnotationType } from '@obsidian-note-reviewer/ui/types';
 import { ThemeProvider } from '@obsidian-note-reviewer/ui/components/ThemeProvider';
 import { ModeToggle } from '@obsidian-note-reviewer/ui/components/ModeToggle';
 import { ModeSwitcher } from '@obsidian-note-reviewer/ui/components/ModeSwitcher';
@@ -18,7 +19,6 @@ import {
   getNoteType
 } from '@obsidian-note-reviewer/ui/utils/storage';
 import { type TipoNota } from '@obsidian-note-reviewer/ui/utils/notePaths';
-import { UpdateBanner } from '@obsidian-note-reviewer/ui/components/UpdateBanner';
 
 const PLAN_CONTENT = `---
 title: Obsidian Note Reviewer - Guia de Teste
@@ -194,6 +194,7 @@ const App: React.FC = () => {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [showExport, setShowExport] = useState(false);
   const [showFeedbackPrompt, setShowFeedbackPrompt] = useState(false);
+  const [showGlobalCommentModal, setShowGlobalCommentModal] = useState(false);
   const [isPanelOpen, setIsPanelOpen] = useState(true);
   const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<EditorMode>('selection');
@@ -346,6 +347,26 @@ const App: React.FC = () => {
     viewerRef.current?.removeHighlight(id);
     setAnnotations(prev => prev.filter(a => a.id !== id));
     if (selectedAnnotationId === id) setSelectedAnnotationId(null);
+  };
+
+  const handleAddGlobalComment = (comment: string, author: string) => {
+    const newAnnotation: Annotation = {
+      id: `global-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      blockId: '', // Not tied to a specific block
+      startOffset: 0,
+      endOffset: 0,
+      type: AnnotationType.GLOBAL_COMMENT,
+      text: comment,
+      originalText: '', // No selected text
+      createdA: Date.now(),
+      author,
+      isGlobal: true,
+    };
+
+    setAnnotations(prev => [...prev, newAnnotation]);
+    setSelectedAnnotationId(newAnnotation.id);
+    setIsPanelOpen(true);
+    setAnnotationHistory(prev => [...prev, newAnnotation.id]);
   };
 
   const handleVaultPathChange = (vaultPath: string) => {
@@ -565,6 +586,17 @@ const App: React.FC = () => {
               )}
             </button>
 
+            <button
+              onClick={() => setShowGlobalCommentModal(true)}
+              className="p-1.5 md:px-2.5 md:py-1 rounded-md text-xs font-medium bg-blue-500/20 text-blue-600 hover:bg-blue-500/30 border border-blue-500/40 transition-all"
+              title="Adicionar Comentário Global"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="hidden md:inline">Comentário Global</span>
+            </button>
+
             <ModeToggle />
             <button
               onClick={() => setIsSettingsPanelOpen(!isSettingsPanelOpen)}
@@ -651,7 +683,14 @@ const App: React.FC = () => {
           shareUrlSize={shareUrlSize}
           diffOutput={diffOutput}
           annotationCount={annotations.length}
-          
+
+        />
+
+        {/* Global Comment Input Modal */}
+        <GlobalCommentInput
+          isOpen={showGlobalCommentModal}
+          onClose={() => setShowGlobalCommentModal(false)}
+          onSubmit={handleAddGlobalComment}
         />
 
         {/* Feedback prompt dialog */}
@@ -724,7 +763,6 @@ const App: React.FC = () => {
         )}
 
         {/* Update notification */}
-        <UpdateBanner />
       </div>
     </ThemeProvider>
   );

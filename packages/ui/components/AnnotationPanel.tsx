@@ -24,6 +24,10 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
   const [copied, setCopied] = useState(false);
   const sortedAnnotations = [...annotations].sort((a, b) => a.createdA - b.createdA);
 
+  // Separate global comments from text annotations
+  const globalComments = sortedAnnotations.filter(ann => ann.isGlobal);
+  const textAnnotations = sortedAnnotations.filter(ann => !ann.isGlobal);
+
   const handleQuickShare = async () => {
     if (!shareUrl) return;
     try {

@@ -3,6 +3,7 @@
   INSERTION = 'INSERTION',
   REPLACEMENT = 'REPLACEMENT',
   COMMENT = 'COMMENT',
+  GLOBAL_COMMENT = 'GLOBAL_COMMENT',
 }
 
 export type EditorMode = 'selection' | 'redline' | 'edit';
@@ -17,6 +18,7 @@ export interface Annotation {
   originalText: string; // The text that was selected
   createdA: number;
   author?: string; // Tater identity for collaborative sharing
+  isGlobal?: boolean; // true for global comments (not tied to specific text)
   // web-highlighter metadata for cross-element selections
   startMeta?: {
     parentTagName: string;
