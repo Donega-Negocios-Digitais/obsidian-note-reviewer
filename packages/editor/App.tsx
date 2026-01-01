@@ -4,6 +4,7 @@ import { Viewer, ViewerHandle } from '@obsidian-note-reviewer/ui/components/View
 import { AnnotationPanel } from '@obsidian-note-reviewer/ui/components/AnnotationPanel';
 import { ExportModal } from '@obsidian-note-reviewer/ui/components/ExportModal';
 import { GlobalCommentInput } from '@obsidian-note-reviewer/ui/components/GlobalCommentInput';
+import { KeyboardShortcutsModal } from '@obsidian-note-reviewer/ui/components/KeyboardShortcutsModal';
 import { Annotation, Block, EditorMode, AnnotationType } from '@obsidian-note-reviewer/ui/types';
 import { ThemeProvider } from '@obsidian-note-reviewer/ui/components/ThemeProvider';
 import { ModeToggle } from '@obsidian-note-reviewer/ui/components/ModeToggle';
@@ -195,6 +196,7 @@ const App: React.FC = () => {
   const [showExport, setShowExport] = useState(false);
   const [showFeedbackPrompt, setShowFeedbackPrompt] = useState(false);
   const [showGlobalCommentModal, setShowGlobalCommentModal] = useState(false);
+  const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
   const [isPanelOpen, setIsPanelOpen] = useState(true);
   const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<EditorMode>('selection');
@@ -691,6 +693,12 @@ const App: React.FC = () => {
           isOpen={showGlobalCommentModal}
           onClose={() => setShowGlobalCommentModal(false)}
           onSubmit={handleAddGlobalComment}
+        />
+
+        {/* Keyboard Shortcuts Modal */}
+        <KeyboardShortcutsModal
+          isOpen={showKeyboardShortcuts}
+          onClose={() => setShowKeyboardShortcuts(false)}
         />
 
         {/* Feedback prompt dialog */}
