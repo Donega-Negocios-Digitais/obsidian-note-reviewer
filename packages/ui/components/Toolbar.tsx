@@ -132,12 +132,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({ highlightElement, onAnnotate, 
           <button
             type="submit"
             disabled={!inputValue.trim()}
-            className="px-2 py-1 text-xs font-medium rounded bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity"
+            className="px-2 py-1 text-xs font-medium rounded bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >Salvar</button>
           <button
             type="button"
             onClick={() => setStep('menu')}
-            className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -159,7 +159,7 @@ const ToolbarButton: React.FC<{
   <button
     onClick={onClick}
     title={label}
-    className={`p-1.5 rounded-md transition-colors ${className}`}
+    className={`p-1.5 rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${className}`}
   >
     {icon}
   </button>
