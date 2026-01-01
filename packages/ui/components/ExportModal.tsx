@@ -118,6 +118,16 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             >
               Raw Diff
             </button>
+            <button
+              onClick={() => setActiveTab('json')}
+              className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                activeTab === 'json'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              JSON
+            </button>
           </div>
 
           {/* Tab content */}

@@ -1,0 +1,25 @@
+{
+  "active": true,
+  "spec": "002-add-json-export-tab-to-exportmodal",
+  "state": "building",
+  "subtasks": {
+    "completed": 1,
+    "total": 7,
+    "in_progress": 1,
+    "failed": 0
+  },
+  "phase": {
+    "current": "Update ExportModal Component",
+    "id": null,
+    "total": 4
+  },
+  "workers": {
+    "active": 0,
+    "max": 1
+  },
+  "session": {
+    "number": 3,
+    "started_at": "2026-01-01T18:51:30.304005"
+  },
+  "last_update": "2026-01-01T19:02:58.982325"
+}
