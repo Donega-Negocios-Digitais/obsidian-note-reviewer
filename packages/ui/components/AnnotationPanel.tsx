@@ -73,6 +73,9 @@ interface PanelProps {
   shareUrl?: string;
 }
 
+// Default set of all annotation types - used to initialize filter state
+const ALL_ANNOTATION_TYPES = new Set<AnnotationType>(Object.values(AnnotationType));
+
 export const AnnotationPanel: React.FC<PanelProps> = ({
   isOpen,
   annotations,
@@ -83,6 +86,26 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
   shareUrl
 }) => {
   const [copied, setCopied] = useState(false);
+
+  // Filter state: tracks which annotation types are currently visible
+  // Initialized with all types visible (enabled)
+  const [visibleTypes, setVisibleTypes] = useState<Set<AnnotationType>>(
+    () => new Set(ALL_ANNOTATION_TYPES)
+  );
+
+  // Toggle visibility of a specific annotation type
+  const toggleTypeVisibility = (type: AnnotationType) => {
+    setVisibleTypes(prev => {
+      const next = new Set(prev);
+      if (next.has(type)) {
+        next.delete(type);
+      } else {
+        next.add(type);
+      }
+      return next;
+    });
+  };
+
   const sortedAnnotations = [...annotations].sort((a, b) => a.createdA - b.createdA);
 
   // Separate global comments from text annotations
