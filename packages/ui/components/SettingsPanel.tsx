@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { getIdentity, regenerateIdentity } from '../utils/identity';
 import {
   getNoteTypePath,
@@ -37,6 +37,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const [notePaths, setNotePaths] = useState<Record<string, string>>({});
   const [noteTemplates, setNoteTemplates] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState<CategoryTab>('regras');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load saved configuration on mount and when panel opens
   useEffect(() => {
@@ -125,6 +126,20 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     URL.revokeObjectURL(url);
   };
 
+  const handleImportSettings = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    // TODO: Implement file reading and import logic in subtask 2.4
+    // Clear the file input to allow re-selecting the same file
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
   const noteTypes = getNoteTypesByCategory();
 
   const tabs: Array<{ id: CategoryTab; emoji: string; label: string }> = [
@@ -193,6 +208,23 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               </svg>
               Exportar
             </button>
+            <button
+              onClick={handleImportClick}
+              className="px-2 py-1 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-md transition-colors flex items-center gap-1"
+              title="Importar configurações"
+            >
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m4-8l-4-4m0 0l-4 4m4-4v12" />
+              </svg>
+              Importar
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json"
+              onChange={handleImportSettings}
+              className="hidden"
+            />
             <button
               onClick={handleLoadDefaults}
               className="px-2 py-1 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-md transition-colors flex items-center gap-1"
