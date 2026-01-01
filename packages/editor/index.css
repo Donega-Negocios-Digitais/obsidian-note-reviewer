@@ -262,6 +262,113 @@ pre code.hljs {
   @apply px-4 py-3;
 }
 
+/* Elementos dentro do callout-content */
+.callout-content p {
+  @apply mb-4 last:mb-0;
+  line-height: 1.6;
+}
+
+.callout-content ul,
+.callout-content ol {
+  @apply my-4;
+  padding-left: 2rem !important;
+  line-height: 1.6;
+  list-style: none;
+}
+
+.callout-content li {
+  @apply mb-2;
+  line-height: 1.6;
+}
+
+.callout-content ul > li {
+  list-style-type: disc !important;
+  display: list-item !important;
+  list-style-position: outside !important;
+  margin-left: 0 !important;
+}
+
+.callout-content ol > li {
+  list-style-type: decimal !important;
+  display: list-item !important;
+  list-style-position: outside !important;
+  margin-left: 0 !important;
+}
+
+/* Nested lists */
+.callout-content ul ul,
+.callout-content ol ol,
+.callout-content ul ol,
+.callout-content ol ul {
+  @apply my-2;
+  padding-left: 1.5rem !important;
+}
+
+.callout-content ul ul > li {
+  list-style-type: circle !important;
+}
+
+.callout-content ul ul ul > li {
+  list-style-type: square !important;
+}
+
+/* Force list rendering */
+.callout-content ul {
+  list-style: disc outside !important;
+}
+
+.callout-content ol {
+  list-style: decimal outside !important;
+}
+
+.callout-content pre {
+  @apply my-4 p-4 rounded bg-muted/50 overflow-x-auto;
+  line-height: 1.6;
+}
+
+.callout-content code {
+  @apply text-sm font-mono;
+}
+
+.callout-content pre code {
+  @apply bg-transparent p-0;
+}
+
+.callout-content :not(pre) > code {
+  @apply px-1.5 py-0.5 rounded bg-muted text-sm;
+}
+
+.callout-content h1,
+.callout-content h2,
+.callout-content h3,
+.callout-content h4,
+.callout-content h5,
+.callout-content h6 {
+  @apply font-semibold mt-6 mb-3 first:mt-0;
+  line-height: 1.4;
+}
+
+.callout-content h1 { @apply text-xl; }
+.callout-content h2 { @apply text-lg; }
+.callout-content h3 { @apply text-base; }
+
+/* Mermaid diagrams */
+.callout-content .mermaid-diagram {
+  @apply my-4;
+}
+
+.callout-content a {
+  @apply text-primary underline underline-offset-2 hover:text-primary/80;
+}
+
+.callout-content strong {
+  @apply font-semibold;
+}
+
+.callout-content em {
+  @apply italic;
+}
+
 /* Tipos específicos com cores RGB para backgrounds */
 .callout-note { --callout-color-rgb: 59, 130, 246; }
 .callout-abstract { --callout-color-rgb: 6, 182, 212; }

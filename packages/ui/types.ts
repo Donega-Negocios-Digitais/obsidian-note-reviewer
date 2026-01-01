@@ -5,7 +5,7 @@
   COMMENT = 'COMMENT',
 }
 
-export type EditorMode = 'selection' | 'redline';
+export type EditorMode = 'selection' | 'redline' | 'edit';
 
 export interface Annotation {
   id: string;

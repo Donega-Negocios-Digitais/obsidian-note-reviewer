@@ -8,6 +8,9 @@ import { Toolbar } from './Toolbar';
 import { getIdentity } from '../utils/identity';
 import { getCalloutConfig } from '../utils/callouts';
 import * as LucideIcons from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import mermaid from 'mermaid';
 
 interface ViewerProps {
   blocks: Block[];
@@ -17,6 +20,7 @@ interface ViewerProps {
   onSelectAnnotation: (id: string | null) => void;
   selectedAnnotationId: string | null;
   mode: EditorMode;
+  onBlockChange?: (blocks: Block[]) => void;
 }
 
 export interface ViewerHandle {
@@ -32,7 +36,8 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(({
   onAddAnnotation,
   onSelectAnnotation,
   selectedAnnotationId,
-  mode
+  mode,
+  onBlockChange
 }, ref) => {
   const [copied, setCopied] = useState(false);
 
@@ -534,7 +539,13 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(({
               isHovered={hoveredCodeBlock?.block.id === block.id}
             />
           ) : (
-            <BlockRenderer key={block.id} block={block} />
+            <BlockRenderer
+              key={block.id}
+              block={block}
+              blocks={blocks}
+              onBlockChange={onBlockChange}
+              isEditMode={mode === 'edit'}
+            />
           )
         ))}
 
@@ -685,6 +696,87 @@ function getLucideIcon(iconName: string): React.ComponentType<{ size?: number; c
 }
 
 /**
+ * Custom code renderer for Mermaid diagrams
+ */
+const MermaidRenderer: React.FC<any> = (props) => {
+  const { children, className, node, inline, ...rest } = props;
+  const mermaidRef = useRef<HTMLDivElement>(null);
+  const [svg, setSvg] = useState<string>('');
+  const [error, setError] = useState<string | null>(null);
+
+  // Extract language from className
+  const match = /language-(\w+)/.exec(className || '');
+  const language = match ? match[1] : '';
+
+  // Get text content
+  const code = String(children).replace(/\n$/, '');
+
+  useEffect(() => {
+    if (!inline && language === 'mermaid' && code) {
+      const renderDiagram = async () => {
+        try {
+          // Initialize mermaid with safe config
+          mermaid.initialize({
+            startOnLoad: false,
+            theme: 'base',
+            themeVariables: {
+              primaryColor: '#8b5cf6',
+              primaryTextColor: '#fff',
+              primaryBorderColor: '#7c3aed',
+              lineColor: '#a78bfa',
+              secondaryColor: '#06b6d4',
+              tertiaryColor: '#f59e0b',
+              background: '#1f2937',
+              mainBkg: '#374151',
+              secondBkg: '#4b5563',
+              textColor: '#e5e7eb',
+              border1: '#6b7280',
+              border2: '#9ca3af',
+            },
+            securityLevel: 'loose',
+            flowchart: {
+              useMaxWidth: true,
+              htmlLabels: true,
+              curve: 'basis',
+            },
+          });
+
+          const id = `mermaid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          const result = await mermaid.render(id, code);
+
+          setSvg(result.svg);
+          setError(null);
+        } catch (err) {
+          console.error('Mermaid rendering error:', err);
+          setError(err instanceof Error ? err.message : 'Failed to render diagram');
+        }
+      };
+
+      renderDiagram();
+    }
+  }, [code, language, inline]);
+
+  // Handle Mermaid diagrams
+  if (!inline && language === 'mermaid') {
+    if (error) {
+      return (
+        <div className="p-4 my-4 bg-destructive/10 border border-destructive rounded text-destructive text-sm">
+          <strong>Mermaid Error:</strong> {error}
+          <pre className="mt-2 text-xs opacity-75 overflow-auto">{code}</pre>
+        </div>
+      );
+    }
+    if (svg) {
+      return <div className="mermaid-diagram my-4" dangerouslySetInnerHTML={{ __html: svg }} />;
+    }
+    return <div className="my-4 text-muted-foreground">Rendering diagram...</div>;
+  }
+
+  // Regular code blocks and inline code
+  return <code className={className} {...rest}>{children}</code>;
+};
+
+/**
  * Renders a callout block with icon, title, and collapsible functionality
  */
 const CalloutBlock: React.FC<{ block: Block }> = ({ block }) => {
@@ -733,7 +825,23 @@ const CalloutBlock: React.FC<{ block: Block }> = ({ block }) => {
 
       {!isCollapsed && (
         <div className="callout-content">
-          <InlineMarkdown text={block.content} />
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              code: MermaidRenderer,
+              ul: ({ node, ...props }) => (
+                <ul style={{ listStyleType: 'disc', paddingLeft: '2rem', marginLeft: 0 }} {...props} />
+              ),
+              ol: ({ node, ...props }) => (
+                <ol style={{ listStyleType: 'decimal', paddingLeft: '2rem', marginLeft: 0 }} {...props} />
+              ),
+              li: ({ node, ordered, ...props }) => (
+                <li style={{ display: 'list-item', listStylePosition: 'outside' }} {...props} />
+              ),
+            }}
+          >
+            {block.content}
+          </ReactMarkdown>
         </div>
       )}
     </div>
@@ -742,9 +850,50 @@ const CalloutBlock: React.FC<{ block: Block }> = ({ block }) => {
 
 const BlockRenderer: React.FC<{
   block: Block;
-  blocks: Block[];
+  blocks?: Block[];
   onBlockChange?: (blocks: Block[]) => void;
-}> = ({ block, blocks, onBlockChange }) => {
+  isEditMode?: boolean;
+}> = ({ block, blocks, onBlockChange, isEditMode = false }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(block.content);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    setEditValue(block.content);
+  }, [block.content]);
+
+  useEffect(() => {
+    if (isEditing && textareaRef.current) {
+      textareaRef.current.focus();
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
+    }
+  }, [isEditing]);
+
+  const handleSave = () => {
+    if (blocks && onBlockChange && editValue !== block.content) {
+      const updatedBlocks = blocks.map(b =>
+        b.id === block.id ? { ...b, content: editValue } : b
+      );
+      onBlockChange(updatedBlocks);
+    }
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    setEditValue(block.content);
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      handleSave();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      handleCancel();
+    }
+  };
   switch (block.type) {    case 'frontmatter':
       return (
         <div
@@ -768,7 +917,61 @@ const BlockRenderer: React.FC<{
         3: 'text-base font-semibold mb-2 mt-6 text-foreground/80',
       }[block.level || 1] || 'text-base font-semibold mb-2 mt-4';
 
-      return <Tag className={styles} data-block-id={block.id}><InlineMarkdown text={block.content} /></Tag>;
+      if (isEditing) {
+        return (
+          <div className="mb-4 relative group" data-block-id={block.id}>
+            <input
+              type="text"
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleSave();
+                } else if (e.key === 'Escape') {
+                  e.preventDefault();
+                  handleCancel();
+                }
+              }}
+              className={`w-full p-2 bg-muted/30 border-2 border-primary/50 rounded-lg ${styles} focus:outline-none focus:border-primary`}
+              autoFocus
+            />
+            <div className="flex gap-2 mt-2">
+              <button
+                onClick={handleSave}
+                className="px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-opacity"
+              >
+                Salvar (Enter)
+              </button>
+              <button
+                onClick={handleCancel}
+                className="px-3 py-1.5 text-xs font-medium bg-muted text-muted-foreground rounded-md hover:bg-muted/80 transition-colors"
+              >
+                Cancelar (Esc)
+              </button>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="relative group" data-block-id={block.id}>
+          <Tag className={styles}>
+            <InlineMarkdown text={block.content} />
+          </Tag>
+          {isEditMode && (
+            <button
+              onClick={() => setIsEditing(true)}
+              className="absolute -right-8 top-0 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity"
+              title="Editar este título"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </button>
+          )}
+        </div>
+      );
 
     case 'callout':
       return <CalloutBlock block={block} />;
@@ -831,13 +1034,56 @@ const BlockRenderer: React.FC<{
       return <hr className="border-border/30 my-8" data-block-id={block.id} />;
 
     default:
+      if (isEditing) {
+        return (
+          <div className="mb-4 relative group" data-block-id={block.id}>
+            <textarea
+              ref={textareaRef}
+              value={editValue}
+              onChange={(e) => {
+                setEditValue(e.target.value);
+                e.target.style.height = 'auto';
+                e.target.style.height = e.target.scrollHeight + 'px';
+              }}
+              onKeyDown={handleKeyDown}
+              className="w-full p-3 bg-muted/30 border-2 border-primary/50 rounded-lg text-foreground/90 text-[15px] leading-relaxed resize-none focus:outline-none focus:border-primary"
+              rows={1}
+            />
+            <div className="flex gap-2 mt-2">
+              <button
+                onClick={handleSave}
+                className="px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-opacity"
+              >
+                Salvar (Ctrl+Enter)
+              </button>
+              <button
+                onClick={handleCancel}
+                className="px-3 py-1.5 text-xs font-medium bg-muted text-muted-foreground rounded-md hover:bg-muted/80 transition-colors"
+              >
+                Cancelar (Esc)
+              </button>
+            </div>
+          </div>
+        );
+      }
+
       return (
-        <p
-          className="mb-4 leading-relaxed text-foreground/90 text-[15px]"
-          data-block-id={block.id}
-        >
-          <InlineMarkdown text={block.content} />
-        </p>
+        <div className="relative group mb-4" data-block-id={block.id}>
+          <p className="leading-relaxed text-foreground/90 text-[15px]">
+            <InlineMarkdown text={block.content} />
+          </p>
+          {isEditMode && (
+            <button
+              onClick={() => setIsEditing(true)}
+              className="absolute -right-8 top-0 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity"
+              title="Editar este parágrafo"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </button>
+          )}
+        </div>
       );
   }
 };
