@@ -26,7 +26,7 @@ export const AnnotationSidebar: React.FC<SidebarProps> = ({
   return (
     <div className="w-80 border-l border-border/50 bg-card/50 backdrop-blur-sm h-full flex flex-col transition-colors">
       <div className="p-4 border-b border-border/50 flex items-center justify-between">
-        <h2 className="font-semibold text-foreground">Revisar AlteraÃ§Ãµes</h2>
+        <h2 className="font-semibold text-foreground">Revisar Alterações</h2>
         <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-full">
           {annotations.length}
         </span>
