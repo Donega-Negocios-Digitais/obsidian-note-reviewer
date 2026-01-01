@@ -1,4 +1,4 @@
-﻿import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
+import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import Highlighter from 'web-highlighter';
 import hljs from 'highlight.js';

@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { Annotation, AnnotationType, Block } from '../types';
 
 interface SidebarProps {
