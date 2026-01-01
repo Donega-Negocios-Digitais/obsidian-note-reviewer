@@ -39,10 +39,14 @@ export function setItem(key: string, value: string): void {
 
 /**
  * Remove a value from cookie storage
+ *
+ * Includes the same cookie attributes (path, SameSite, Secure) used when setting
+ * the cookie to ensure proper deletion across all browsers.
  */
 export function removeItem(key: string): void {
   try {
-    document.cookie = `${key}=; path=/; max-age=0`;
+    const secureFlag = isSecureContext() ? '; Secure' : '';
+    document.cookie = `${key}=; path=/; max-age=0; SameSite=Lax${secureFlag}`;
   } catch (e) {
     // Cookie not available
   }
