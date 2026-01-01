@@ -4,19 +4,21 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { setCorsHeaders, handlePreflightRequest } from '../utils/cors';
 
 // Simulação de banco de dados em memória (em produção, usar DB real)
 const notes: Record<string, { title: string; content: string; createdAt: string }> = {};
 
 export default function handler(req: VercelRequest, res: VercelResponse) {
-  // CORS headers
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  // Get the Origin header from the request for CORS validation
+  const origin = req.headers.origin;
 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+  // Set secure CORS headers based on origin validation
+  setCorsHeaders(res, origin);
+
+  // Handle CORS preflight request
+  if (handlePreflightRequest(req.method, res)) {
+    return;
   }
 
   const { slug } = req.query;
