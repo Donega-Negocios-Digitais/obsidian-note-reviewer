@@ -523,6 +523,7 @@ const App: React.FC = () => {
                       : 'bg-accent/15 text-accent hover:bg-accent/25 border border-accent/30'
                   }`}
                   title="Solicitar Alterações"
+                  aria-label="Solicitar alterações na nota"
                 >
                   <svg className="w-4 h-4 md:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -538,6 +539,7 @@ const App: React.FC = () => {
                       ? 'opacity-50 cursor-not-allowed bg-muted text-muted-foreground'
                       : 'bg-green-600 text-white hover:bg-green-500'
                   }`}
+                  aria-label="Aprovar nota e continuar"
                 >
                   <span className="md:hidden">{isSubmitting ? '...' : 'OK'}</span>
                   <span className="hidden md:inline">{isSubmitting ? 'Aprovando...' : 'Aprovar'}</span>
@@ -568,6 +570,13 @@ const App: React.FC = () => {
                     ? 'Fazer alterações no Claude Code'
                     : 'Salvar nota no Obsidian'
               }
+              aria-label={
+                !savePath
+                  ? 'Botão desabilitado - configure o caminho nas configurações'
+                  : annotations.length > 0
+                    ? 'Fazer alterações no Claude Code'
+                    : 'Salvar nota no Obsidian'
+              }
             >
               {annotations.length > 0 ? (
                 <>
@@ -590,6 +599,7 @@ const App: React.FC = () => {
               onClick={() => setShowGlobalCommentModal(true)}
               className="p-1.5 md:px-2.5 md:py-1 rounded-md text-xs font-medium bg-blue-500/20 text-blue-600 hover:bg-blue-500/30 border border-blue-500/40 transition-all"
               title="Adicionar Comentário Global"
+              aria-label="Adicionar comentário global à nota"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -606,6 +616,8 @@ const App: React.FC = () => {
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted'
               }`}
               title="Configurações"
+              aria-label="Abrir configurações"
+              aria-expanded={isSettingsPanelOpen}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -620,6 +632,8 @@ const App: React.FC = () => {
                   ? 'bg-primary/15 text-primary'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted'
               }`}
+              aria-label={isPanelOpen ? 'Fechar painel de anotações' : 'Abrir painel de anotações'}
+              aria-expanded={isPanelOpen}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
@@ -630,6 +644,7 @@ const App: React.FC = () => {
               onClick={() => setShowExport(true)}
               className="p-1.5 md:px-2.5 md:py-1 rounded-md text-xs font-medium bg-muted hover:bg-muted/80 transition-colors"
               title="Exportar"
+              aria-label="Exportar nota e anotações"
             >
               <svg className="w-4 h-4 md:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
@@ -695,15 +710,20 @@ const App: React.FC = () => {
 
         {/* Feedback prompt dialog */}
         {showFeedbackPrompt && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="feedback-prompt-title"
+          >
             <div className="bg-card border border-border rounded-xl w-full max-w-sm shadow-2xl p-6">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center">
-                  <svg className="w-5 h-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <svg className="w-5 h-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
                   </svg>
                 </div>
-                <h3 className="font-semibold">Adicione Anotações</h3>
+                <h3 id="feedback-prompt-title" className="font-semibold">Adicione Anotações</h3>
               </div>
               <p className="text-sm text-muted-foreground mb-6">
                 Para solicitar alterações, selecione texto na nota e adicione anotações.
@@ -712,6 +732,7 @@ const App: React.FC = () => {
                 <button
                   onClick={() => setShowFeedbackPrompt(false)}
                   className="px-4 py-2 rounded-md text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
+                  aria-label="Fechar aviso e continuar"
                 >
                   Entendi
                 </button>
