@@ -177,7 +177,9 @@ const AnnotationCard: React.FC<{
   isSelected: boolean;
   onSelect: () => void;
   onDelete: () => void;
-}> = ({ annotation, isSelected, onSelect, onDelete }) => {
+  isChecked?: boolean;
+  onCheckToggle?: () => void;
+}> = ({ annotation, isSelected, onSelect, onDelete, isChecked, onCheckToggle }) => {
   const typeConfig = {
     [AnnotationType.DELETION]: {
       label: 'Excluir',
