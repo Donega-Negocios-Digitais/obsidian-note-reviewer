@@ -1,0 +1,25 @@
+{
+  "active": true,
+  "spec": "016-add-annotation-search-to-panel",
+  "state": "building",
+  "subtasks": {
+    "completed": 4,
+    "total": 6,
+    "in_progress": 1,
+    "failed": 0
+  },
+  "phase": {
+    "current": "UX Enhancements",
+    "id": null,
+    "total": 2
+  },
+  "workers": {
+    "active": 0,
+    "max": 1
+  },
+  "session": {
+    "number": 6,
+    "started_at": "2026-01-02T13:13:52.023198"
+  },
+  "last_update": "2026-01-02T13:32:33.104554"
+}
