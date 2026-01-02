@@ -109,29 +109,60 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
           </span>
         </div>
         {/* Search Input */}
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Buscar anotações..."
-          aria-label="Buscar anotações"
-          className="w-full mt-2 px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-        />
+        <div className="relative mt-2">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar anotações..."
+            aria-label="Buscar anotações"
+            className="w-full px-3 py-2 pr-8 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              aria-label="Limpar busca"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* List */}
       <div className="flex-1 overflow-y-auto p-2 space-y-3">
         {filteredAnnotations.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-40 text-center px-4">
-            <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center mb-3">
-              <svg className="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-              </svg>
+          isSearchActive ? (
+            // Empty state: Search returned no results
+            <div className="flex flex-col items-center justify-center h-40 text-center px-4">
+              <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center mb-3">
+                <svg className="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Nenhuma anotação encontrada
+              </p>
+              <p className="text-[10px] text-muted-foreground/70 mt-1">
+                Tente uma busca diferente
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Selecione texto para adicionar anotações
-            </p>
-          </div>
+          ) : (
+            // Empty state: No annotations at all
+            <div className="flex flex-col items-center justify-center h-40 text-center px-4">
+              <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center mb-3">
+                <svg className="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                </svg>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Selecione texto para adicionar anotações
+              </p>
+            </div>
+          )
         ) : (
           <>
             {/* Global Comments Section */}
