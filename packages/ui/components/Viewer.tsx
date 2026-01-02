@@ -1112,7 +1112,15 @@ interface CodeBlockProps {
 }
 
 const CodeBlock: React.FC<CodeBlockProps> = ({ block, onHover, onLeave, isHovered }) => {
-  const [copied, setCopied] = useState(false);
+  // Use copy feedback hook for animations
+  const {
+    copied,
+    handleCopy,
+    animationClass,
+    buttonClass,
+    iconClass,
+  } = useCopyFeedback();
+
   const containerRef = useRef<HTMLDivElement>(null);
   const codeRef = useRef<HTMLElement>(null);
 
@@ -1125,16 +1133,6 @@ const CodeBlock: React.FC<CodeBlockProps> = ({ block, onHover, onLeave, isHovere
       hljs.highlightElement(codeRef.current);
     }
   }, [block.content, block.language]);
-
-  const handleCopy = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(block.content);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
-    }
-  }, [block.content]);
 
   const handleMouseEnter = () => {
     if (containerRef.current) {
@@ -1154,12 +1152,12 @@ const CodeBlock: React.FC<CodeBlockProps> = ({ block, onHover, onLeave, isHovere
       onMouseLeave={onLeave}
     >
       <button
-        onClick={handleCopy}
-        className="absolute top-2 right-2 p-1.5 rounded-md bg-muted/80 hover:bg-muted text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity z-10"
-        title={copied ? 'Copiado!' : 'Copiar cÃ³digo'}
+        onClick={() => handleCopy(block.content)}
+        className={`absolute top-2 right-2 p-1.5 rounded-md bg-muted/80 hover:bg-muted text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity z-10 ${animationClass} ${buttonClass}`}
+        title={copied ? 'Copiado!' : 'Copiar código'}
       >
         {copied ? (
-          <svg className="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg className={`w-4 h-4 copy-check-animated ${iconClass}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
         ) : (
