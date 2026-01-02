@@ -1,7 +1,28 @@
 /**
  * Validation utilities for batch operations.
+ *
+ * SECURITY RATIONALE:
+ * ====================
  * These functions provide security-critical input validation to prevent
- * mass assignment vulnerabilities.
+ * "Mass Assignment" vulnerabilities (also known as "over-posting" or
+ * "auto-binding" vulnerabilities).
+ *
+ * WHAT IS MASS ASSIGNMENT?
+ * Mass assignment occurs when an application automatically binds user input
+ * to internal object properties without proper filtering. An attacker can
+ * exploit this by including unexpected fields in their request payload.
+ *
+ * ATTACK EXAMPLE:
+ * An attacker sends: { title: 'New Title', org_id: 'attacker-org-id' }
+ * Without validation, org_id could be overwritten, allowing the attacker
+ * to transfer note ownership to their organization.
+ *
+ * DEFENSE STRATEGY:
+ * We use a WHITELIST approach - only explicitly allowed fields are accepted.
+ * All other fields are filtered out, and attempts to modify protected fields
+ * are logged for security monitoring.
+ *
+ * See OWASP for more: https://cheatsheetseries.owasp.org/cheatsheets/Mass_Assignment_Cheat_Sheet.html
  */
 
 /**

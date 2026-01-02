@@ -1,5 +1,30 @@
 // Supabase Edge Function: Batch Operations
 // Handle bulk updates efficiently
+//
+// =============================================================================
+// SECURITY: MASS ASSIGNMENT PROTECTION
+// =============================================================================
+//
+// This edge function implements strict input validation to prevent mass
+// assignment attacks. Mass assignment occurs when user-provided data is
+// directly spread into database operations, allowing attackers to modify
+// fields they shouldn't have access to.
+//
+// THREAT MODEL:
+// - Attacker could inject { org_id: 'their-org' } to steal notes
+// - Attacker could inject { created_by: 'their-id' } to spoof authorship
+// - Attacker could inject { share_hash: 'known-hash' } to compromise sharing
+//
+// PROTECTION MECHANISM:
+// 1. ALLOWED_UPDATE_FIELDS: Whitelist of fields clients CAN modify
+// 2. PROTECTED_FIELDS: Fields that are NEVER accepted from clients
+// 3. Security logging: All protected field attempts are logged
+// 4. validateBatchData(): Filters input to allowed fields only
+// 5. validateTagData(): Ensures only 'tags' field is used for tag operations
+//
+// IMPORTANT: When adding new updateable fields, you MUST add them to
+// ALLOWED_UPDATE_FIELDS. Never spread raw user data into updates.
+// =============================================================================
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -20,6 +45,19 @@ interface BatchRequest {
  * Fields that can be safely updated via the batch update operation.
  * This whitelist prevents mass assignment vulnerabilities by explicitly
  * defining which fields clients are allowed to modify.
+ *
+ * ALLOWED FIELDS:
+ * - title: Note title, user-editable
+ * - content: Note body/text, user-editable
+ * - markdown: Markdown source content, user-editable
+ * - slug: URL-friendly identifier, user-editable
+ * - is_public: Public visibility toggle, user-editable
+ *
+ * ADDING NEW FIELDS:
+ * When adding a new field here, ensure it:
+ * 1. Should be directly modifiable by any authenticated user
+ * 2. Does not affect ownership, permissions, or audit trails
+ * 3. Is not a system-managed field (like timestamps)
  */
 const ALLOWED_UPDATE_FIELDS = ['title', 'content', 'markdown', 'slug', 'is_public'] as const;
 
