@@ -1,6 +1,8 @@
 ﻿import React, { useState } from 'react';
 import { Annotation, AnnotationType, Block } from '../types';
 import { isCurrentUser } from '../utils/identity';
+import { useAnnotationStore } from '../store/useAnnotationStore';
+import { BulkSelectionBar } from './BulkSelectionBar';
 
 interface PanelProps {
   isOpen: boolean;
@@ -23,6 +25,11 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
 }) => {
   const [copied, setCopied] = useState(false);
   const sortedAnnotations = [...annotations].sort((a, b) => a.createdA - b.createdA);
+
+  // Bulk selection from store
+  const selectedIds = useAnnotationStore((state) => state.selectedIds);
+  const selectAll = useAnnotationStore((state) => state.selectAll);
+  const clearSelection = useAnnotationStore((state) => state.clearSelection);
 
   // Separate global comments from text annotations
   const globalComments = sortedAnnotations.filter(ann => ann.isGlobal);
@@ -54,6 +61,14 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
           </span>
         </div>
       </div>
+
+      {/* Bulk Selection Bar */}
+      <BulkSelectionBar
+        selectedCount={selectedIds.length}
+        totalCount={annotations.length}
+        onSelectAll={selectAll}
+        onClearSelection={clearSelection}
+      />
 
       {/* List */}
       <div className="flex-1 overflow-y-auto p-2 space-y-3">
