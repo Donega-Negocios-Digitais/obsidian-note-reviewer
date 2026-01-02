@@ -22,6 +22,7 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
   shareUrl
 }) => {
   const [copied, setCopied] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const sortedAnnotations = [...annotations].sort((a, b) => a.createdA - b.createdA);
 
   // Separate global comments from text annotations
@@ -53,6 +54,15 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
             {annotations.length}
           </span>
         </div>
+        {/* Search Input */}
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Buscar anotações..."
+          aria-label="Buscar anotações"
+          className="w-full mt-2 px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+        />
       </div>
 
       {/* List */}
