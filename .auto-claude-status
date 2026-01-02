@@ -1,0 +1,25 @@
+{
+  "active": true,
+  "spec": "027-wildcard-cors-in-supabase-edge-functions",
+  "state": "building",
+  "subtasks": {
+    "completed": 1,
+    "total": 6,
+    "in_progress": 1,
+    "failed": 0
+  },
+  "phase": {
+    "current": "",
+    "id": 0,
+    "total": 0
+  },
+  "workers": {
+    "active": 0,
+    "max": 1
+  },
+  "session": {
+    "number": 3,
+    "started_at": "2026-01-02T13:14:45.550762"
+  },
+  "last_update": "2026-01-02T13:22:00.918690"
+}

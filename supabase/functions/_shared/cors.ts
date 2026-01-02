@@ -56,4 +56,24 @@ export function getCorsHeaders(req: Request): Record<string, string> {
   };
 }
 
+/**
+ * Handle CORS preflight (OPTIONS) requests consistently
+ *
+ * Usage in edge functions:
+ * ```typescript
+ * if (req.method === 'OPTIONS') {
+ *   return handleCorsPreflightRequest(req);
+ * }
+ * ```
+ *
+ * @param req - The incoming Request object
+ * @returns Response with appropriate CORS headers for preflight
+ */
+export function handleCorsPreflightRequest(req: Request): Response {
+  return new Response(null, {
+    status: 204,
+    headers: getCorsHeaders(req),
+  });
+}
+
 export type CorsHeaders = ReturnType<typeof getCorsHeaders>;
