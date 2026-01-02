@@ -20,6 +20,9 @@
 
 import React from 'react';
 
+// Re-export the hook from the centralized location for backward compatibility
+export { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion';
+
 export interface AnimatedCheckmarkProps {
   /**
    * Size of the checkmark in pixels.
@@ -107,46 +110,6 @@ export function AnimatedCheckmark({
       />
     </svg>
   );
-}
-
-/**
- * Hook to detect if user prefers reduced motion.
- * Can be used to conditionally skip JavaScript-based animations
- * while CSS animations are handled automatically by media query.
- *
- * @example
- * ```tsx
- * const prefersReducedMotion = usePrefersReducedMotion();
- * // Use this to skip any JS-based animation logic
- * ```
- */
-export function usePrefersReducedMotion(): boolean {
-  const [prefersReducedMotion, setPrefersReducedMotion] = React.useState(() => {
-    // Default to false during SSR, check on client
-    if (typeof window === 'undefined') return false;
-    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  });
-
-  React.useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-
-    // Set initial value on client
-    setPrefersReducedMotion(mediaQuery.matches);
-
-    // Listen for changes
-    const handleChange = (event: MediaQueryListEvent) => {
-      setPrefersReducedMotion(event.matches);
-    };
-
-    // Use addEventListener with options for modern browsers
-    mediaQuery.addEventListener('change', handleChange);
-
-    return () => {
-      mediaQuery.removeEventListener('change', handleChange);
-    };
-  }, []);
-
-  return prefersReducedMotion;
 }
 
 export default AnimatedCheckmark;

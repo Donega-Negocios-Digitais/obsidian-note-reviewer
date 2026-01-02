@@ -6,9 +6,16 @@
  * - Copy state management (idle, copying, copied)
  * - Animation class names for visual feedback
  * - Configurable success display duration
+ * - Reduced motion preference awareness
+ *
+ * Accessibility:
+ * CSS animations are automatically disabled via @media (prefers-reduced-motion: reduce)
+ * in index.css. The visual feedback (color changes, icon swaps) remains functional
+ * without motion to ensure all users receive confirmation of the copy action.
  */
 
 import { useState, useCallback, useRef } from 'react';
+import { usePrefersReducedMotion } from './usePrefersReducedMotion';
 
 export type CopyState = 'idle' | 'copying' | 'copied';
 
@@ -38,6 +45,8 @@ export interface UseCopyFeedbackResult {
   iconClass: string;
   /** Reset state back to idle */
   reset: () => void;
+  /** Whether the user prefers reduced motion (from system settings) */
+  prefersReducedMotion: boolean;
 }
 
 /**
@@ -62,6 +71,7 @@ export function useCopyFeedback(options: CopyFeedbackOptions = {}): UseCopyFeedb
 
   const [state, setState] = useState<CopyState>('idle');
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prefersReducedMotion = usePrefersReducedMotion();
 
   // Clear any existing timeout
   const clearExistingTimeout = useCallback(() => {
@@ -131,5 +141,6 @@ export function useCopyFeedback(options: CopyFeedbackOptions = {}): UseCopyFeedb
     buttonClass,
     iconClass,
     reset,
+    prefersReducedMotion,
   };
 }

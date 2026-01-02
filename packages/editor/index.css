@@ -511,6 +511,7 @@ pre code.hljs {
 
 /* Respect user's reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
+  /* Disable all copy feedback animations */
   .copy-success,
   .copy-icon-enter,
   .copy-icon-exit,
@@ -518,6 +519,7 @@ pre code.hljs {
     animation: none !important;
   }
 
+  /* Ensure final visual states are shown immediately */
   .copy-icon-enter {
     opacity: 1;
     transform: scale(1);
@@ -531,5 +533,15 @@ pre code.hljs {
   .copy-check-animated {
     stroke-dashoffset: 0;
     opacity: 1;
+  }
+
+  /* Reduce transition duration globally for snappier experience */
+  * {
+    transition-duration: 0.01ms !important;
+  }
+
+  /* Keep color and opacity feedback instant but visible */
+  .copy-button-success {
+    transition: none !important;
   }
 }
