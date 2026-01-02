@@ -3,6 +3,7 @@ import { Annotation, AnnotationType, Block } from '../types';
 import { isCurrentUser } from '../utils/identity';
 import { useAnnotationStore } from '../store/useAnnotationStore';
 import { BulkSelectionBar } from './BulkSelectionBar';
+import { BulkActionsBar } from './BulkActionsBar';
 
 interface PanelProps {
   isOpen: boolean;
@@ -31,6 +32,7 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
   const selectAll = useAnnotationStore((state) => state.selectAll);
   const clearSelection = useAnnotationStore((state) => state.clearSelection);
   const toggleSelection = useAnnotationStore((state) => state.toggleSelection);
+  const deleteSelected = useAnnotationStore((state) => state.deleteSelected);
 
   // Separate global comments from text annotations
   const globalComments = sortedAnnotations.filter(ann => ann.isGlobal);
@@ -50,7 +52,7 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
   if (!isOpen) return null;
 
   return (
-    <aside className="w-72 border-l border-border/50 bg-card/30 backdrop-blur-sm flex flex-col">
+    <aside className="w-72 border-l border-border/50 bg-card/30 backdrop-blur-sm flex flex-col relative">
       {/* Header */}
       <div className="p-3 border-b border-border/50">
         <div className="flex items-center justify-between">
@@ -72,7 +74,7 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
       />
 
       {/* List */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-3">
+      <div className={`flex-1 overflow-y-auto p-2 space-y-3 ${selectedIds.length > 0 ? 'pb-14' : ''}`}>
         {sortedAnnotations.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-40 text-center px-4">
             <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center mb-3">
@@ -172,6 +174,13 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
           </button>
         </div>
       )}
+
+      {/* Bulk Actions Bar - appears at bottom when items are selected */}
+      <BulkActionsBar
+        selectedCount={selectedIds.length}
+        onDeleteSelected={deleteSelected}
+        onExportSelected={() => {/* TODO: Implement in phase 5 */}}
+      />
     </aside>
   );
 };
