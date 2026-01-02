@@ -2,6 +2,7 @@
 import { Annotation, AnnotationType, Block } from '../types';
 import { isCurrentUser } from '../utils/identity';
 import { annotationTypeConfig } from '../utils/annotationTypeConfig';
+import { AnnotationStatistics } from './AnnotationStatistics';
 
 interface PanelProps {
   isOpen: boolean;
@@ -55,6 +56,11 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
           </span>
         </div>
       </div>
+
+      {/* Statistics */}
+      {annotations.length > 0 && (
+        <AnnotationStatistics annotations={annotations} />
+      )}
 
       {/* List */}
       <div className="flex-1 overflow-y-auto p-2 space-y-3">
