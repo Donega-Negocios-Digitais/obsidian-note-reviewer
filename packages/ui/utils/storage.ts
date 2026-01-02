@@ -7,6 +7,18 @@
  * localhost:54322 share the same cookies.
  */
 
+import { safeJsonParseOrNull, type JsonValidator } from './safeJson';
+
+/**
+ * Note configuration type stored in cookies
+ */
+export interface NoteConfig {
+  tipo: string;
+  noteName: string;
+  vaultPath?: string;
+  notePath?: string;
+}
+
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
 
 /**
@@ -141,32 +153,51 @@ export function setLastUsedTemplate(template: string): void {
 }
 
 /**
+ * Validator for NoteConfig structure
+ * Ensures the parsed data has the required fields with correct types
+ */
+const isValidNoteConfig: JsonValidator<NoteConfig> = (data): data is NoteConfig => {
+  if (typeof data !== 'object' || data === null) {
+    return false;
+  }
+  const obj = data as Record<string, unknown>;
+  // Required fields
+  if (typeof obj.tipo !== 'string' || typeof obj.noteName !== 'string') {
+    return false;
+  }
+  // Optional fields - if present, must be strings
+  if (obj.vaultPath !== undefined && typeof obj.vaultPath !== 'string') {
+    return false;
+  }
+  if (obj.notePath !== undefined && typeof obj.notePath !== 'string') {
+    return false;
+  }
+  return true;
+};
+
+/**
  * Save complete note configuration
  */
-export function saveNoteConfig(config: {
-  tipo: string;
-  noteName: string;
-  vaultPath?: string;
-  notePath?: string;
-}): void {
+export function saveNoteConfig(config: NoteConfig): void {
   setCookie('noteConfig', JSON.stringify(config));
 }
 
 /**
  * Get saved note configuration
+ *
+ * Uses safeJsonParseOrNull with validation to ensure proper error handling
+ * and type safety when parsing cookie data.
+ *
+ * Security note: Cookie data is same-origin only, making this lower risk
+ * than URL-based shares, but validation ensures data integrity even if
+ * cookies are corrupted or manually modified.
  */
-export function getNoteConfig(): {
-  tipo: string;
-  noteName: string;
-  vaultPath?: string;
-  notePath?: string;
-} | null {
+export function getNoteConfig(): NoteConfig | null {
   const config = getCookie('noteConfig');
-  try {
-    return config ? JSON.parse(config) : null;
-  } catch {
+  if (!config) {
     return null;
   }
+  return safeJsonParseOrNull<NoteConfig>(config, isValidNoteConfig);
 }
 
 /**
