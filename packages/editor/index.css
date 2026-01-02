@@ -502,11 +502,15 @@ pre code.hljs {
 
 /* Timing Distribution */
 .stats-timing-list {
-  @apply space-y-1;
+  @apply space-y-2;
 }
 
 .stats-timing-item {
-  @apply flex items-center justify-between text-[11px];
+  @apply flex flex-col gap-0.5 text-[11px];
+}
+
+.stats-timing-info {
+  @apply flex items-center justify-between;
 }
 
 .stats-timing-label {
@@ -515,4 +519,25 @@ pre code.hljs {
 
 .stats-timing-count {
   @apply font-mono text-muted-foreground;
+}
+
+.stats-timing-bar-container {
+  @apply w-full h-1.5 bg-muted/50 rounded-full overflow-hidden;
+}
+
+.stats-timing-bar {
+  @apply h-full rounded-full transition-all duration-300;
+  min-width: 4px; /* Ensure at least a dot is visible for small percentages */
+}
+
+.stats-timing-bar-today {
+  @apply bg-primary;
+}
+
+.stats-timing-bar-week {
+  @apply bg-secondary;
+}
+
+.stats-timing-bar-older {
+  @apply bg-muted-foreground/50;
 }

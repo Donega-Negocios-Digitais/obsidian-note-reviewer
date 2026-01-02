@@ -168,21 +168,37 @@ const TimingDistributionSection: React.FC<TimingDistributionSectionProps> = ({ d
   }
 
   const buckets = [
-    { key: 'today', label: 'Hoje', count: distribution.today },
-    { key: 'thisWeek', label: 'Esta semana', count: distribution.thisWeek },
-    { key: 'older', label: 'Anterior', count: distribution.older },
+    { key: 'today', label: 'Hoje', count: distribution.today, colorClass: 'stats-timing-bar-today' },
+    { key: 'thisWeek', label: 'Esta semana', count: distribution.thisWeek, colorClass: 'stats-timing-bar-week' },
+    { key: 'older', label: 'Anterior', count: distribution.older, colorClass: 'stats-timing-bar-older' },
   ].filter(bucket => bucket.count > 0);
 
   return (
     <div className="stats-section stats-timing">
       <h4 className="stats-section-title">Quando</h4>
       <div className="stats-timing-list">
-        {buckets.map(bucket => (
-          <div key={bucket.key} className="stats-timing-item">
-            <span className="stats-timing-label">{bucket.label}</span>
-            <span className="stats-timing-count">{bucket.count}</span>
-          </div>
-        ))}
+        {buckets.map(bucket => {
+          const percentage = Math.round((bucket.count / total) * 100);
+          return (
+            <div key={bucket.key} className="stats-timing-item">
+              <div className="stats-timing-info">
+                <span className="stats-timing-label">{bucket.label}</span>
+                <span className="stats-timing-count">{bucket.count}</span>
+              </div>
+              <div className="stats-timing-bar-container">
+                <div
+                  className={`stats-timing-bar ${bucket.colorClass}`}
+                  style={{ width: `${percentage}%` }}
+                  role="progressbar"
+                  aria-valuenow={percentage}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label={`${bucket.label}: ${bucket.count} (${percentage}%)`}
+                />
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
