@@ -71,9 +71,17 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const sortedAnnotations = [...annotations].sort((a, b) => a.createdA - b.createdA);
 
+  // Apply search filter
+  const filteredAnnotations = filterAnnotations(sortedAnnotations, searchQuery);
+
   // Separate global comments from text annotations
-  const globalComments = sortedAnnotations.filter(ann => ann.isGlobal);
-  const textAnnotations = sortedAnnotations.filter(ann => !ann.isGlobal);
+  const globalComments = filteredAnnotations.filter(ann => ann.isGlobal);
+  const textAnnotations = filteredAnnotations.filter(ann => !ann.isGlobal);
+
+  // Determine if search is active for count display
+  const isSearchActive = searchQuery.trim().length > 0;
+  const totalCount = annotations.length;
+  const filteredCount = filteredAnnotations.length;
 
   const handleQuickShare = async () => {
     if (!shareUrl) return;
@@ -97,7 +105,7 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
             Anotações
           </h2>
           <span className="text-[10px] font-mono bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
-            {annotations.length}
+            {isSearchActive ? `${filteredCount} / ${totalCount}` : totalCount}
           </span>
         </div>
         {/* Search Input */}
@@ -113,7 +121,7 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
 
       {/* List */}
       <div className="flex-1 overflow-y-auto p-2 space-y-3">
-        {sortedAnnotations.length === 0 ? (
+        {filteredAnnotations.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-40 text-center px-4">
             <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center mb-3">
               <svg className="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
