@@ -2,6 +2,7 @@
 import { Annotation, AnnotationType, Block, SortOption } from '../types';
 import { isCurrentUser } from '../utils/identity';
 import { sortAnnotations } from '../utils/annotationSort';
+import { useSettingsStore } from '../store/useSettingsStore';
 import { SortSelector } from './SortSelector';
 
 interface PanelProps {
@@ -24,7 +25,18 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
   shareUrl
 }) => {
   const [copied, setCopied] = useState(false);
-  const [sortOption, setSortOption] = useState<SortOption>('oldest');
+
+  // Get persisted sort preference from store
+  const { annotationSort, setAnnotationSort } = useSettingsStore();
+  // Local state for immediate UI updates, initialized from store
+  const [sortOption, setSortOption] = useState<SortOption>(annotationSort);
+
+  // Handler that updates both local state (immediate) and store (persist)
+  const handleSortChange = (newSort: SortOption) => {
+    setSortOption(newSort);
+    setAnnotationSort(newSort);
+  };
+
   const sortedAnnotations = sortAnnotations(annotations, sortOption);
 
   // Separate global comments from text annotations
@@ -54,7 +66,7 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
           </h2>
           <SortSelector
             currentSort={sortOption}
-            onSortChange={setSortOption}
+            onSortChange={handleSortChange}
           />
           <span className="text-[10px] font-mono bg-muted px-1.5 py-0.5 rounded text-muted-foreground ml-auto flex-shrink-0">
             {annotations.length}
