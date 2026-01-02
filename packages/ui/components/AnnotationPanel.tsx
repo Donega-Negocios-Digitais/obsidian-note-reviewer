@@ -30,6 +30,7 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
   const selectedIds = useAnnotationStore((state) => state.selectedIds);
   const selectAll = useAnnotationStore((state) => state.selectAll);
   const clearSelection = useAnnotationStore((state) => state.clearSelection);
+  const toggleSelection = useAnnotationStore((state) => state.toggleSelection);
 
   // Separate global comments from text annotations
   const globalComments = sortedAnnotations.filter(ann => ann.isGlobal);
@@ -106,6 +107,8 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
                     isSelected={selectedId === ann.id}
                     onSelect={() => onSelect(ann.id)}
                     onDelete={() => onDelete(ann.id)}
+                    isChecked={selectedIds.includes(ann.id)}
+                    onCheckToggle={() => toggleSelection(ann.id)}
                   />
                 ))}
               </div>
@@ -134,6 +137,8 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
                     isSelected={selectedId === ann.id}
                     onSelect={() => onSelect(ann.id)}
                     onDelete={() => onDelete(ann.id)}
+                    isChecked={selectedIds.includes(ann.id)}
+                    onCheckToggle={() => toggleSelection(ann.id)}
                   />
                 ))}
               </div>
