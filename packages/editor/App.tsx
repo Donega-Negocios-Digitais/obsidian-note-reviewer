@@ -1,6 +1,7 @@
 ﻿import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { parseMarkdownToBlocks, exportDiff } from '@obsidian-note-reviewer/ui/utils/parser';
 import { Viewer, ViewerHandle } from '@obsidian-note-reviewer/ui/components/Viewer';
+import { ViewerSkeleton } from '@obsidian-note-reviewer/ui/components/ViewerSkeleton';
 import { AnnotationPanel } from '@obsidian-note-reviewer/ui/components/AnnotationPanel';
 import { ExportModal } from '@obsidian-note-reviewer/ui/components/ExportModal';
 import { GlobalCommentInput } from '@obsidian-note-reviewer/ui/components/GlobalCommentInput';
@@ -649,17 +650,22 @@ const App: React.FC = () => {
                 <ModeSwitcher mode={editorMode} onChange={setEditorMode} />
               </div>
 
-              <Viewer
-                ref={viewerRef}
-                blocks={blocks}
-                markdown={markdown}
-                annotations={annotations}
-                onAddAnnotation={handleAddAnnotation}
-                onSelectAnnotation={setSelectedAnnotationId}
-                selectedAnnotationId={selectedAnnotationId}
-                mode={editorMode}
-                onBlockChange={setBlocks}
-              />
+              {/* Show skeleton during initial load */}
+              {(isLoading || isLoadingShared) ? (
+                <ViewerSkeleton />
+              ) : (
+                <Viewer
+                  ref={viewerRef}
+                  blocks={blocks}
+                  markdown={markdown}
+                  annotations={annotations}
+                  onAddAnnotation={handleAddAnnotation}
+                  onSelectAnnotation={setSelectedAnnotationId}
+                  selectedAnnotationId={selectedAnnotationId}
+                  mode={editorMode}
+                  onBlockChange={setBlocks}
+                />
+              )}
             </div>
           </main>
 
