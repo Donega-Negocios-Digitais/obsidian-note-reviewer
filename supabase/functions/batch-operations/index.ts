@@ -258,14 +258,24 @@ serve(async (req) => {
       errors: [] as string[],
     };
 
+    // SECURITY: Validate data for update operation to prevent mass assignment attacks.
+    // This must happen before processing any chunks to ensure all updates use filtered data.
+    let validatedUpdateData: ValidatedNoteUpdate = {};
+    if (operation === 'update' && data) {
+      const validation = validateBatchData(data as Record<string, unknown>, user.id, noteIds);
+      validatedUpdateData = validation.validatedData;
+    }
+
     for (const chunk of chunks) {
       try {
         switch (operation) {
           case 'update':
+            // SECURITY: Use validatedUpdateData instead of raw data to prevent
+            // injection of protected fields (org_id, created_by, id, etc.)
             await supabase
               .from('notes')
               .update({
-                ...data,
+                ...validatedUpdateData,
                 updated_at: new Date().toISOString(),
                 updated_by: user.id,
               })
