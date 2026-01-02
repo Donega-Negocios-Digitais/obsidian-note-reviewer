@@ -429,3 +429,78 @@ pre code.hljs {
   @apply px-3 py-2 border-t border-border/30;
   background-color: var(--card);
 }
+
+/* ============================================
+   ANNOTATION STATISTICS
+   ============================================ */
+
+.annotation-statistics {
+  @apply mx-2 mb-2;
+}
+
+.annotation-statistics-content {
+  @apply space-y-3;
+}
+
+.stats-section {
+  @apply space-y-1.5;
+}
+
+.stats-section-title {
+  @apply text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5;
+}
+
+/* Stats by Type */
+.stats-badges {
+  @apply flex flex-wrap gap-1.5;
+}
+
+.stats-badge {
+  @apply inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium;
+}
+
+.stats-badge-icon {
+  @apply flex-shrink-0;
+}
+
+.stats-badge-label {
+  @apply truncate;
+}
+
+.stats-badge-count {
+  @apply font-mono font-semibold;
+}
+
+/* Stats by Author */
+.stats-author-list {
+  @apply space-y-1;
+}
+
+.stats-author-item {
+  @apply flex items-center justify-between text-[11px];
+}
+
+.stats-author-name {
+  @apply truncate text-foreground/80;
+}
+
+.stats-author-count {
+  @apply font-mono text-muted-foreground;
+}
+
+/* Timing Distribution */
+.stats-timing-list {
+  @apply space-y-1;
+}
+
+.stats-timing-item {
+  @apply flex items-center justify-between text-[11px];
+}
+
+.stats-timing-label {
+  @apply text-foreground/80;
+}
+
+.stats-timing-count {
+  @apply font-mono text-muted-foreground;
+}
