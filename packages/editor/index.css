@@ -396,3 +396,69 @@ pre code.hljs {
 :root[data-theme="dark"] .callout.is-collapsible .callout-title:hover {
   background-color: rgba(var(--callout-color-rgb, 100, 116, 139), 0.2);
 }
+
+/* ============================================
+   SKELETON LOADING ANIMATIONS
+   ============================================ */
+
+/* Define pulse animation keyframes */
+@keyframes skeleton-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Custom skeleton animation that works with theme colors */
+.animate-pulse {
+  animation: skeleton-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Skeleton base styling - uses theme-aware muted color */
+.skeleton {
+  background-color: var(--muted);
+  animation: skeleton-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Skeleton shimmer effect variant (optional alternative) */
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--muted) 0%,
+    oklch(from var(--muted) calc(l + 0.1) c h) 50%,
+    var(--muted) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+/* Light mode shimmer adjustment */
+.light .skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--muted) 0%,
+    oklch(from var(--muted) calc(l - 0.05) c h) 50%,
+    var(--muted) 100%
+  );
+  background-size: 200% 100%;
+}
+
+/* Disable skeleton animation when reduced motion is preferred */
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse,
+  .skeleton,
+  .skeleton-shimmer {
+    animation: none;
+  }
+}
