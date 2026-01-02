@@ -9,6 +9,7 @@
  */
 
 import { Annotation, AnnotationType } from '../types';
+import { safeJsonParse } from './safeJson';
 
 // Minimal shareable annotation format: [type, originalText, text?, author?]
 export type ShareableAnnotation =
@@ -65,7 +66,12 @@ export async function decompress(b64: string): Promise<SharePayload> {
   const buffer = await new Response(stream.readable).arrayBuffer();
   const json = new TextDecoder().decode(buffer);
 
-  return JSON.parse(json) as SharePayload;
+  const result = safeJsonParse<SharePayload>(json);
+  if (!result.success) {
+    throw new Error(`Failed to parse share payload: ${result.error}`);
+  }
+
+  return result.data;
 }
 
 /**
