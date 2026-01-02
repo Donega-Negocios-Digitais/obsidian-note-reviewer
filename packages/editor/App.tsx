@@ -202,6 +202,7 @@ const App: React.FC = () => {
 
   const [isApiMode, setIsApiMode] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isParsing, setIsParsing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState<'approved' | 'denied' | null>(null);
   const viewerRef = useRef<ViewerHandle>(null);
@@ -262,9 +263,59 @@ const App: React.FC = () => {
       .finally(() => setIsLoading(false));
   }, [isLoadingShared, isSharedSession]);
 
+  // Parse markdown with optional skeleton display for large content
+  // Uses a threshold to avoid skeleton flash for fast parsing
   useEffect(() => {
-    setBlocks(parseMarkdownToBlocks(markdown));
-  }, [markdown]);
+    // Skip if still doing initial load (skeleton already shown)
+    if (isLoading || isLoadingShared) {
+      setBlocks(parseMarkdownToBlocks(markdown));
+      return;
+    }
+
+    // For subsequent content changes, check if content is potentially large
+    // Large content threshold: ~10KB of markdown typically takes noticeable time
+    const LARGE_CONTENT_THRESHOLD = 10000;
+    const PARSING_SKELETON_DELAY = 50; // ms before showing skeleton
+
+    if (markdown.length < LARGE_CONTENT_THRESHOLD) {
+      // Small content: parse immediately without skeleton
+      setBlocks(parseMarkdownToBlocks(markdown));
+      return;
+    }
+
+    // Large content: show skeleton if parsing takes longer than threshold
+    let showSkeletonTimeout: ReturnType<typeof setTimeout> | null = null;
+    let isCancelled = false;
+
+    // Schedule showing skeleton after delay (if parsing is slow)
+    showSkeletonTimeout = setTimeout(() => {
+      if (!isCancelled) {
+        setIsParsing(true);
+      }
+    }, PARSING_SKELETON_DELAY);
+
+    // Defer parsing to next frame to allow skeleton to display
+    requestAnimationFrame(() => {
+      if (isCancelled) return;
+
+      const newBlocks = parseMarkdownToBlocks(markdown);
+
+      // Clear timeout and hide skeleton
+      if (showSkeletonTimeout) {
+        clearTimeout(showSkeletonTimeout);
+      }
+      setIsParsing(false);
+      setBlocks(newBlocks);
+    });
+
+    return () => {
+      isCancelled = true;
+      if (showSkeletonTimeout) {
+        clearTimeout(showSkeletonTimeout);
+      }
+      setIsParsing(false);
+    };
+  }, [markdown, isLoading, isLoadingShared]);
 
   // Load file from URL parameter
   useEffect(() => {
@@ -650,8 +701,8 @@ const App: React.FC = () => {
                 <ModeSwitcher mode={editorMode} onChange={setEditorMode} />
               </div>
 
-              {/* Show skeleton during initial load */}
-              {(isLoading || isLoadingShared) ? (
+              {/* Show skeleton during initial load or large content parsing */}
+              {(isLoading || isLoadingShared || isParsing) ? (
                 <ViewerSkeleton />
               ) : (
                 <Viewer
