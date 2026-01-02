@@ -178,6 +178,8 @@ const AnnotationCard: React.FC<{
   onSelect: () => void;
   onDelete: () => void;
 }> = ({ annotation, isSelected, onSelect, onDelete }) => {
+  const [copied, setCopied] = useState(false);
+
   const typeConfig = {
     [AnnotationType.DELETION]: {
       label: 'Excluir',
