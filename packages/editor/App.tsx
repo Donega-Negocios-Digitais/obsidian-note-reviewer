@@ -190,6 +190,8 @@ const App: React.FC = () => {
 
   // History for undo (Ctrl+Z)
   const [annotationHistory, setAnnotationHistory] = useState<string[]>([]);
+  // Redo stack for Ctrl+Shift+Z (stores full annotation objects)
+  const [redoStack, setRedoStack] = useState<Annotation[]>([]);
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [showExport, setShowExport] = useState(false);
@@ -288,27 +290,49 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Ctrl+Z to undo last annotation
+  // Ctrl+Z to undo, Ctrl+Shift+Z to redo annotation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+      // Ctrl+Shift+Z: Redo (must check before Ctrl+Z)
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
+        e.preventDefault();
+        if (redoStack.length > 0) {
+          // Pop the last undone annotation from redo stack
+          const annotationToRedo = redoStack[redoStack.length - 1];
+          setRedoStack(prev => prev.slice(0, -1));
+          // Add annotation back to annotations array
+          setAnnotations(prev => [...prev, annotationToRedo]);
+          // Add ID back to annotation history
+          setAnnotationHistory(prev => [...prev, annotationToRedo.id]);
+          // Re-apply highlight to viewer
+          viewerRef.current?.applySharedAnnotations([annotationToRedo]);
+        }
+      }
+      // Ctrl+Z: Undo
+      else if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
         e.preventDefault();
         if (annotationHistory.length > 0) {
           const lastAnnotationId = annotationHistory[annotationHistory.length - 1];
-          // Remove annotation
-          setAnnotations(prev => prev.filter(a => a.id !== lastAnnotationId));
+          // Find and store annotation for redo, then remove
+          setAnnotations(prev => {
+            const annotationToUndo = prev.find(a => a.id === lastAnnotationId);
+            if (annotationToUndo) {
+              // Push to redo stack for Ctrl+Shift+Z
+              setRedoStack(redoPrev => [...redoPrev, annotationToUndo]);
+            }
+            return prev.filter(a => a.id !== lastAnnotationId);
+          });
           // Remove from history
           setAnnotationHistory(prev => prev.slice(0, -1));
           // Remove highlight from viewer
           viewerRef.current?.removeHighlight(lastAnnotationId);
-          console.log('↶ Anotação desfeita:', lastAnnotationId);
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [annotationHistory]);
+  }, [annotationHistory, redoStack]);
 
   // API mode handlers
   const handleApprove = async () => {
@@ -336,6 +360,8 @@ const App: React.FC = () => {
   };
 
   const handleAddAnnotation = (ann: Annotation) => {
+    // Clear redo stack when new annotation is added (standard undo/redo behavior)
+    setRedoStack([]);
     setAnnotations(prev => [...prev, ann]);
     setSelectedAnnotationId(ann.id);
     setIsPanelOpen(true);
@@ -350,6 +376,8 @@ const App: React.FC = () => {
   };
 
   const handleAddGlobalComment = (comment: string, author: string) => {
+    // Clear redo stack when new global comment is added (standard undo/redo behavior)
+    setRedoStack([]);
     const newAnnotation: Annotation = {
       id: `global-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       blockId: '', // Not tied to a specific block
