@@ -1,9 +1,7 @@
 ﻿import React, { useState } from 'react';
 import { Annotation, AnnotationType, Block } from '../types';
 import { isCurrentUser } from '../utils/identity';
-import { useAnnotationStore } from '../store/useAnnotationStore';
-import { BulkSelectionBar } from './BulkSelectionBar';
-import { BulkActionsBar } from './BulkActionsBar';
+import { ConfirmationDialog } from './ConfirmationDialog';
 
 interface PanelProps {
   isOpen: boolean;
@@ -25,18 +23,32 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
   shareUrl
 }) => {
   const [copied, setCopied] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const sortedAnnotations = [...annotations].sort((a, b) => a.createdA - b.createdA);
-
-  // Bulk selection from store
-  const selectedIds = useAnnotationStore((state) => state.selectedIds);
-  const selectAll = useAnnotationStore((state) => state.selectAll);
-  const clearSelection = useAnnotationStore((state) => state.clearSelection);
-  const toggleSelection = useAnnotationStore((state) => state.toggleSelection);
-  const deleteSelected = useAnnotationStore((state) => state.deleteSelected);
 
   // Separate global comments from text annotations
   const globalComments = sortedAnnotations.filter(ann => ann.isGlobal);
   const textAnnotations = sortedAnnotations.filter(ann => !ann.isGlobal);
+
+  // Get the annotation pending deletion (for dialog display)
+  const pendingDeleteAnnotation = pendingDeleteId
+    ? annotations.find(ann => ann.id === pendingDeleteId) ?? null
+    : null;
+
+  const handleDeleteClick = (id: string) => {
+    setPendingDeleteId(id);
+  };
+
+  const handleConfirmDelete = () => {
+    if (pendingDeleteId) {
+      onDelete(pendingDeleteId);
+      setPendingDeleteId(null);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setPendingDeleteId(null);
+  };
 
   const handleQuickShare = async () => {
     if (!shareUrl) return;
@@ -52,7 +64,7 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
   if (!isOpen) return null;
 
   return (
-    <aside className="w-72 border-l border-border/50 bg-card/30 backdrop-blur-sm flex flex-col relative">
+    <aside className="w-72 border-l border-border/50 bg-card/30 backdrop-blur-sm flex flex-col">
       {/* Header */}
       <div className="p-3 border-b border-border/50">
         <div className="flex items-center justify-between">
@@ -65,16 +77,8 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
         </div>
       </div>
 
-      {/* Bulk Selection Bar */}
-      <BulkSelectionBar
-        selectedCount={selectedIds.length}
-        totalCount={annotations.length}
-        onSelectAll={selectAll}
-        onClearSelection={clearSelection}
-      />
-
       {/* List */}
-      <div className={`flex-1 overflow-y-auto p-2 space-y-3 ${selectedIds.length > 0 ? 'pb-14' : ''}`}>
+      <div className="flex-1 overflow-y-auto p-2 space-y-3">
         {sortedAnnotations.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-40 text-center px-4">
             <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center mb-3">
@@ -108,9 +112,7 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
                     annotation={ann}
                     isSelected={selectedId === ann.id}
                     onSelect={() => onSelect(ann.id)}
-                    onDelete={() => onDelete(ann.id)}
-                    isChecked={selectedIds.includes(ann.id)}
-                    onCheckToggle={() => toggleSelection(ann.id)}
+                    onDelete={() => handleDeleteClick(ann.id)}
                   />
                 ))}
               </div>
@@ -138,9 +140,7 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
                     annotation={ann}
                     isSelected={selectedId === ann.id}
                     onSelect={() => onSelect(ann.id)}
-                    onDelete={() => onDelete(ann.id)}
-                    isChecked={selectedIds.includes(ann.id)}
-                    onCheckToggle={() => toggleSelection(ann.id)}
+                    onDelete={() => handleDeleteClick(ann.id)}
                   />
                 ))}
               </div>
@@ -175,15 +175,96 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
         </div>
       )}
 
-      {/* Bulk Actions Bar - appears at bottom when items are selected */}
-      <BulkActionsBar
-        selectedCount={selectedIds.length}
-        onDeleteSelected={deleteSelected}
-        onExportSelected={() => {/* TODO: Implement in phase 5 */}}
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={pendingDeleteId !== null}
+        onClose={handleCancelDelete}
+        onConfirm={handleConfirmDelete}
+        title="Excluir anotação"
+        message={buildDeleteConfirmationMessage(pendingDeleteAnnotation)}
+        confirmLabel="Excluir"
+        destructive
       />
     </aside>
   );
 };
+
+/**
+ * Truncates text to a maximum length with ellipsis.
+ * @param text The text to truncate
+ * @param maxLength Maximum number of characters before truncation (default: 50)
+ */
+function truncateText(text: string, maxLength: number = 50): string {
+  if (text.length <= maxLength) return text;
+  return text.slice(0, maxLength).trimEnd() + '…';
+}
+
+/**
+ * Maps annotation type to Portuguese label for display in dialogs.
+ */
+function getAnnotationTypeLabel(type: AnnotationType): string {
+  const labels: Record<AnnotationType, string> = {
+    [AnnotationType.DELETION]: 'Excluir',
+    [AnnotationType.INSERTION]: 'Inserir',
+    [AnnotationType.REPLACEMENT]: 'Substituir',
+    [AnnotationType.COMMENT]: 'Comentário',
+    [AnnotationType.GLOBAL_COMMENT]: 'Comentário Global',
+  };
+  return labels[type] ?? 'Anotação';
+}
+
+/**
+ * Builds a confirmation message for annotation deletion.
+ * Shows the annotation type and previews of original text and comment.
+ */
+function buildDeleteConfirmationMessage(annotation: Annotation | null): React.ReactNode {
+  if (!annotation) {
+    return 'Tem certeza que deseja excluir esta anotação?';
+  }
+
+  const typeLabel = getAnnotationTypeLabel(annotation.type);
+  const isGlobal = annotation.isGlobal;
+  const hasOriginalText = !isGlobal && annotation.originalText;
+  const hasComment = annotation.text && annotation.type !== AnnotationType.DELETION;
+
+  return (
+    <div className="space-y-3">
+      <p>Tem certeza que deseja excluir esta anotação?</p>
+
+      <div className="p-3 rounded-md bg-muted/50 border border-border/50 space-y-2">
+        {/* Annotation Type */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Tipo:</span>
+          <span className="text-xs font-medium">{typeLabel}</span>
+        </div>
+
+        {/* Original Text Preview */}
+        {hasOriginalText && (
+          <div>
+            <span className="text-xs text-muted-foreground">Texto selecionado:</span>
+            <p className="text-xs font-mono mt-0.5 text-foreground/80 truncate">
+              "{truncateText(annotation.originalText!, 60)}"
+            </p>
+          </div>
+        )}
+
+        {/* Comment/Replacement Text Preview */}
+        {hasComment && (
+          <div>
+            <span className="text-xs text-muted-foreground">
+              {annotation.type === AnnotationType.REPLACEMENT ? 'Substituição:' : 'Comentário:'}
+            </span>
+            <p className="text-xs mt-0.5 text-foreground/80 truncate">
+              {truncateText(annotation.text!, 60)}
+            </p>
+          </div>
+        )}
+      </div>
+
+      <p className="text-xs text-muted-foreground">Esta ação não pode ser desfeita.</p>
+    </div>
+  );
+}
 
 function formatTimestamp(ts: number): string {
   const now = Date.now();
@@ -206,9 +287,7 @@ const AnnotationCard: React.FC<{
   isSelected: boolean;
   onSelect: () => void;
   onDelete: () => void;
-  isChecked?: boolean;
-  onCheckToggle?: () => void;
-}> = ({ annotation, isSelected, onSelect, onDelete, isChecked, onCheckToggle }) => {
+}> = ({ annotation, isSelected, onSelect, onDelete }) => {
   const typeConfig = {
     [AnnotationType.DELETION]: {
       label: 'Excluir',
@@ -264,19 +343,12 @@ const AnnotationCard: React.FC<{
 
   const config = typeConfig[annotation.type];
   const isGlobal = annotation.isGlobal;
-  const showCheckbox = onCheckToggle !== undefined;
-
-  const handleCheckboxClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onCheckToggle?.();
-  };
 
   return (
     <div
       onClick={onSelect}
       className={`
-        group relative rounded-lg border cursor-pointer transition-all flex
-        ${showCheckbox ? 'pl-1' : 'pl-2.5'} pr-2.5 py-2.5
+        group relative p-2.5 rounded-lg border cursor-pointer transition-all
         ${isGlobal
           ? isSelected
             ? 'bg-blue-500/10 border-blue-500/40 shadow-sm'
@@ -287,24 +359,6 @@ const AnnotationCard: React.FC<{
         }
       `}
     >
-      {/* Checkbox for bulk selection */}
-      {showCheckbox && (
-        <div
-          onClick={handleCheckboxClick}
-          className="flex-shrink-0 flex items-start pt-0.5 pr-2"
-        >
-          <input
-            type="checkbox"
-            checked={isChecked ?? false}
-            onChange={() => {}} // Controlled by onClick handler
-            aria-label={`Select annotation: ${config.label}`}
-            className="w-3.5 h-3.5 rounded border-border/50 text-primary focus:ring-primary/30 focus:ring-offset-0 cursor-pointer"
-          />
-        </div>
-      )}
-
-      {/* Card content */}
-      <div className="flex-1 min-w-0">
       {/* Author */}
       {annotation.author && (
         <div className={`flex items-center gap-1.5 text-[10px] font-mono truncate mb-1.5 ${isCurrentUser(annotation.author) ? 'text-muted-foreground/60' : 'text-muted-foreground'}`}>
@@ -332,7 +386,7 @@ const AnnotationCard: React.FC<{
         </div>
         <button
           onClick={(e) => { e.stopPropagation(); onDelete(); }}
-          className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 touch-visible p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all"
+          className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all"
         >
           <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -353,7 +407,6 @@ const AnnotationCard: React.FC<{
           {annotation.text}
         </div>
       )}
-      </div>
     </div>
   );
 };
