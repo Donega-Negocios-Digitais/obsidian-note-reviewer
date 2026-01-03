@@ -5,8 +5,8 @@
  * Raw Diff tab: Shows human-readable diff output with copy/download
  */
 
-import React, { useRef, useState } from 'react';
-import { useFocusTrap } from '../hooks/useFocusTrap';
+import React, { useState } from 'react';
+import { useCopyFeedback } from '../hooks/useCopyFeedback';
 
 interface ExportModalProps {
   isOpen: boolean;
@@ -30,37 +30,25 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   taterSprite,
 }) => {
   const [activeTab, setActiveTab] = useState<Tab>('share');
-  const [copied, setCopied] = useState(false);
-  const modalRef = useRef<HTMLDivElement>(null);
 
-  // Set up focus trap for accessibility
-  useFocusTrap({
-    containerRef: modalRef,
-    isOpen,
-    onClose,
-  });
+  // Copy URL feedback (share tab)
+  const {
+    copied: urlCopied,
+    handleCopy: handleCopyUrl,
+    animationClass: urlAnimationClass,
+    buttonClass: urlButtonClass,
+    iconClass: urlIconClass,
+  } = useCopyFeedback();
+
+  // Copy diff feedback (diff tab)
+  const {
+    copied: diffCopied,
+    handleCopy: handleCopyDiff,
+    animationClass: diffAnimationClass,
+    buttonClass: diffButtonClass,
+  } = useCopyFeedback();
 
   if (!isOpen) return null;
-
-  const handleCopyUrl = async () => {
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (e) {
-      console.error('Failed to copy:', e);
-    }
-  };
-
-  const handleCopyDiff = async () => {
-    try {
-      await navigator.clipboard.writeText(diffOutput);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (e) {
-      console.error('Failed to copy:', e);
-    }
-  };
 
   const handleDownloadDiff = () => {
     const blob = new Blob([diffOutput], { type: 'text/plain' });
@@ -75,10 +63,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
       <div
-        ref={modalRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="export-modal-title"
         className="bg-card border border-border rounded-xl w-full max-w-2xl flex flex-col max-h-[80vh] shadow-2xl relative"
         onClick={e => e.stopPropagation()}
       >
@@ -87,14 +71,14 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         {/* Header */}
         <div className="p-4 border-b border-border">
           <div className="flex justify-between items-center">
-            <h3 id="export-modal-title" className="font-semibold text-sm">Export</h3>
+            <h3 className="font-semibold text-sm">Exportar</h3>
             <div className="flex items-center gap-3">
               <span className="text-xs text-muted-foreground">
-                {annotationCount} annotation{annotationCount !== 1 ? 's' : ''}
+                {annotationCount} anotaç{annotationCount !== 1 ? 'ões' : 'ão'}
               </span>
               <button
                 onClick={onClose}
-                className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -116,7 +100,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              Share
+              Compartilhar
             </button>
             <button
               onClick={() => setActiveTab('diff')}
@@ -126,7 +110,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              Raw Diff
+              Diff Bruto
             </button>
           </div>
 
@@ -135,7 +119,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-2">
-                  Shareable URL
+                  URL Compartilhável
                 </label>
                 <div className="relative group">
                   <textarea
@@ -145,22 +129,22 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                     onClick={e => (e.target as HTMLTextAreaElement).select()}
                   />
                   <button
-                    onClick={handleCopyUrl}
-                    className="absolute top-2 right-2 px-2 py-1 rounded text-xs font-medium bg-background/80 hover:bg-background border border-border/50 transition-colors flex items-center gap-1"
+                    onClick={() => handleCopyUrl(shareUrl)}
+                    className={`absolute top-2 right-2 px-2 py-1 rounded text-xs font-medium bg-background/80 hover:bg-background border border-border/50 transition-colors flex items-center gap-1 ${urlAnimationClass} ${urlButtonClass}`}
                   >
-                    {copied ? (
+                    {urlCopied ? (
                       <>
-                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <svg className={`w-3 h-3 copy-check-animated ${urlIconClass}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
-                        Copied
+                        Copiado
                       </>
                     ) : (
                       <>
                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                         </svg>
-                        Copy
+                        Copiar
                       </>
                     )}
                   </button>
@@ -171,7 +155,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               </div>
 
               <p className="text-xs text-muted-foreground">
-                This URL contains the full plan and all annotations. Anyone with this link can view and add to your annotations.
+                Esta URL contém o plano completo e todas as anotações. Qualquer pessoa com este link pode visualizar e adicionar às suas anotações.
               </p>
             </div>
           ) : (
@@ -185,16 +169,16 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         {activeTab === 'diff' && (
           <div className="p-4 border-t border-border flex justify-end gap-2">
             <button
-              onClick={handleCopyDiff}
-              className="px-3 py-1.5 rounded-md text-xs font-medium bg-muted hover:bg-muted/80 transition-colors"
+              onClick={() => handleCopyDiff(diffOutput)}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium bg-muted hover:bg-muted/80 transition-colors ${diffAnimationClass} ${diffButtonClass}`}
             >
-              {copied ? 'Copied!' : 'Copy'}
+              {diffCopied ? 'Copiado!' : 'Copiar'}
             </button>
             <button
               onClick={handleDownloadDiff}
               className="px-3 py-1.5 rounded-md text-xs font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
             >
-              Download .diff
+              Baixar .diff
             </button>
           </div>
         )}

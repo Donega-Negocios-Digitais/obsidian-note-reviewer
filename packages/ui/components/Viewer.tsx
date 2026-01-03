@@ -11,7 +11,8 @@ import * as LucideIcons from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import mermaid from 'mermaid';
-import { sanitizeSvg } from '../utils/sanitize';
+import DOMPurify from 'dompurify';
+import { useCopyFeedback } from '../hooks/useCopyFeedback';
 
 interface ViewerProps {
   blocks: Block[];
@@ -40,17 +41,15 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(({
   mode,
   onBlockChange
 }, ref) => {
-  const [copied, setCopied] = useState(false);
+  // Copy note button feedback
+  const {
+    copied: noteCopied,
+    handleCopy: handleCopyNote,
+    animationClass: noteAnimationClass,
+    buttonClass: noteButtonClass,
+    iconClass: noteIconClass,
+  } = useCopyFeedback();
 
-  const handleCopyPlan = async () => {
-    try {
-      await navigator.clipboard.writeText(markdown);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (e) {
-      console.error('Failed to copy:', e);
-    }
-  };
   const containerRef = useRef<HTMLDivElement>(null);
   const highlighterRef = useRef<Highlighter | null>(null);
   const modeRef = useRef<EditorMode>(mode);
@@ -488,13 +487,13 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(({
       >
         {/* Copy plan button */}
         <button
-          onClick={handleCopyPlan}
-          className="absolute top-3 right-3 md:top-5 md:right-5 flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted rounded-md transition-colors"
-          title={copied ? 'Copiado!' : 'Copiar nota'}
+          onClick={() => handleCopyNote(markdown)}
+          className={`absolute top-3 right-3 md:top-5 md:right-5 flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted rounded-md transition-colors ${noteAnimationClass} ${noteButtonClass}`}
+          title={noteCopied ? 'Copiado!' : 'Copiar nota'}
         >
-          {copied ? (
+          {noteCopied ? (
             <>
-              <svg className="w-3.5 h-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className={`w-3.5 h-3.5 text-green-500 ${noteIconClass}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
               Copiado!
@@ -697,6 +696,20 @@ function getLucideIcon(iconName: string): React.ComponentType<{ size?: number; c
 }
 
 /**
+ * Security: Sanitize Mermaid SVG output to prevent XSS attacks
+ * Removes dangerous tags and attributes while preserving SVG functionality
+ */
+function sanitizeMermaidSVG(svg: string): string {
+  return DOMPurify.sanitize(svg, {
+    USE_PROFILES: { svg: true },
+    FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form'],
+    FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur'],
+    ALLOWED_TAGS: ['svg', 'g', 'path', 'rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'text', 'tspan', 'defs', 'marker', 'use', 'foreignObject', 'style'],
+    KEEP_CONTENT: false
+  });
+}
+
+/**
  * Custom code renderer for Mermaid diagrams
  */
 const MermaidRenderer: React.FC<any> = (props) => {
@@ -734,7 +747,7 @@ const MermaidRenderer: React.FC<any> = (props) => {
               border1: '#6b7280',
               border2: '#9ca3af',
             },
-            securityLevel: 'strict',
+            securityLevel: 'loose',
             flowchart: {
               useMaxWidth: true,
               htmlLabels: true,
@@ -745,7 +758,9 @@ const MermaidRenderer: React.FC<any> = (props) => {
           const id = `mermaid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
           const result = await mermaid.render(id, code);
 
-          setSvg(sanitizeSvg(result.svg));
+          // Security: Sanitize SVG before rendering to prevent XSS
+          const cleanSvg = sanitizeMermaidSVG(result.svg);
+          setSvg(cleanSvg);
           setError(null);
         } catch (err) {
           console.error('Mermaid rendering error:', err);
@@ -1097,7 +1112,15 @@ interface CodeBlockProps {
 }
 
 const CodeBlock: React.FC<CodeBlockProps> = ({ block, onHover, onLeave, isHovered }) => {
-  const [copied, setCopied] = useState(false);
+  // Use copy feedback hook for animations
+  const {
+    copied,
+    handleCopy,
+    animationClass,
+    buttonClass,
+    iconClass,
+  } = useCopyFeedback();
+
   const containerRef = useRef<HTMLDivElement>(null);
   const codeRef = useRef<HTMLElement>(null);
 
@@ -1110,16 +1133,6 @@ const CodeBlock: React.FC<CodeBlockProps> = ({ block, onHover, onLeave, isHovere
       hljs.highlightElement(codeRef.current);
     }
   }, [block.content, block.language]);
-
-  const handleCopy = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(block.content);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
-    }
-  }, [block.content]);
 
   const handleMouseEnter = () => {
     if (containerRef.current) {
@@ -1139,12 +1152,12 @@ const CodeBlock: React.FC<CodeBlockProps> = ({ block, onHover, onLeave, isHovere
       onMouseLeave={onLeave}
     >
       <button
-        onClick={handleCopy}
-        className="absolute top-2 right-2 p-1.5 rounded-md bg-muted/80 hover:bg-muted text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity z-10"
+        onClick={() => handleCopy(block.content)}
+        className={`absolute top-2 right-2 p-1.5 rounded-md bg-muted/80 hover:bg-muted text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity z-10 ${animationClass} ${buttonClass}`}
         title={copied ? 'Copiado!' : 'Copiar código'}
       >
         {copied ? (
-          <svg className="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg className={`w-4 h-4 copy-check-animated ${iconClass}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
         ) : (

@@ -398,67 +398,150 @@ pre code.hljs {
 }
 
 /* ============================================
-   SKELETON LOADING ANIMATIONS
+   COPY FEEDBACK ANIMATIONS
    ============================================ */
 
-/* Define pulse animation keyframes */
-@keyframes skeleton-pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
+/* Success color variable for copy feedback */
+:root {
+  --copy-success-color: oklch(0.65 0.20 145);
+  --copy-success-glow: oklch(0.65 0.20 145 / 0.4);
 }
 
-/* Custom skeleton animation that works with theme colors */
-.animate-pulse {
-  animation: skeleton-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+.light {
+  --copy-success-color: oklch(0.50 0.18 145);
+  --copy-success-glow: oklch(0.50 0.18 145 / 0.3);
 }
 
-/* Skeleton base styling - uses theme-aware muted color */
-.skeleton {
-  background-color: var(--muted);
-  animation: skeleton-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-/* Skeleton shimmer effect variant (optional alternative) */
-@keyframes skeleton-shimmer {
+/* Scale pulse animation - bouncy spring feel */
+@keyframes copy-pulse {
   0% {
-    background-position: -200% 0;
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.15);
+  }
+  70% {
+    transform: scale(0.95);
   }
   100% {
-    background-position: 200% 0;
+    transform: scale(1);
   }
 }
 
-.skeleton-shimmer {
-  background: linear-gradient(
-    90deg,
-    var(--muted) 0%,
-    oklch(from var(--muted) calc(l + 0.1) c h) 50%,
-    var(--muted) 100%
-  );
-  background-size: 200% 100%;
-  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+/* Checkmark stroke draw animation */
+@keyframes copy-check-draw {
+  0% {
+    stroke-dashoffset: 24;
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
 }
 
-/* Light mode shimmer adjustment */
-.light .skeleton-shimmer {
-  background: linear-gradient(
-    90deg,
-    var(--muted) 0%,
-    oklch(from var(--muted) calc(l - 0.05) c h) 50%,
-    var(--muted) 100%
-  );
-  background-size: 200% 100%;
+/* Subtle green glow fade animation */
+@keyframes copy-success-glow {
+  0% {
+    box-shadow: 0 0 0 0 var(--copy-success-glow);
+  }
+  50% {
+    box-shadow: 0 0 12px 2px var(--copy-success-glow);
+  }
+  100% {
+    box-shadow: 0 0 0 0 var(--copy-success-glow);
+  }
 }
 
-/* Disable skeleton animation when reduced motion is preferred */
+/* Icon fade-in animation for swap transitions */
+@keyframes copy-icon-fade-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Icon fade-out animation for swap transitions */
+@keyframes copy-icon-fade-out {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+}
+
+/* Combined copy success class - applies pulse and glow */
+.copy-success {
+  animation:
+    copy-pulse 280ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    copy-success-glow 600ms ease-out;
+}
+
+/* Icon entering (checkmark appearing) */
+.copy-icon-enter {
+  animation: copy-icon-fade-in 200ms ease-out forwards;
+}
+
+/* Icon exiting (copy icon disappearing) */
+.copy-icon-exit {
+  animation: copy-icon-fade-out 150ms ease-in forwards;
+}
+
+/* Animated checkmark SVG styling */
+.copy-check-animated {
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+  animation: copy-check-draw 300ms ease-out forwards;
+}
+
+/* Success state button styling */
+.copy-button-success {
+  color: var(--copy-success-color) !important;
+}
+
+/* Respect user's reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
-  .animate-pulse,
-  .skeleton,
-  .skeleton-shimmer {
-    animation: none;
+  /* Disable all copy feedback animations */
+  .copy-success,
+  .copy-icon-enter,
+  .copy-icon-exit,
+  .copy-check-animated {
+    animation: none !important;
+  }
+
+  /* Ensure final visual states are shown immediately */
+  .copy-icon-enter {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .copy-icon-exit {
+    opacity: 0;
+    transform: scale(1);
+  }
+
+  .copy-check-animated {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+
+  /* Reduce transition duration globally for snappier experience */
+  * {
+    transition-duration: 0.01ms !important;
+  }
+
+  /* Keep color and opacity feedback instant but visible */
+  .copy-button-success {
+    transition: none !important;
   }
 }

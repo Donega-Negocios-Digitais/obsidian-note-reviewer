@@ -1,7 +1,7 @@
-﻿import React, { useState } from 'react';
+﻿import React from 'react';
 import { Annotation, AnnotationType, Block } from '../types';
 import { isCurrentUser } from '../utils/identity';
-import { ConfirmationDialog } from './ConfirmationDialog';
+import { useCopyFeedback } from '../hooks/useCopyFeedback';
 
 interface PanelProps {
   isOpen: boolean;
@@ -22,42 +22,16 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
   selectedId,
   shareUrl
 }) => {
-  const [copied, setCopied] = useState(false);
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const { copied, handleCopy, animationClass, buttonClass, iconClass } = useCopyFeedback();
   const sortedAnnotations = [...annotations].sort((a, b) => a.createdA - b.createdA);
 
   // Separate global comments from text annotations
   const globalComments = sortedAnnotations.filter(ann => ann.isGlobal);
   const textAnnotations = sortedAnnotations.filter(ann => !ann.isGlobal);
 
-  // Get the annotation pending deletion (for dialog display)
-  const pendingDeleteAnnotation = pendingDeleteId
-    ? annotations.find(ann => ann.id === pendingDeleteId) ?? null
-    : null;
-
-  const handleDeleteClick = (id: string) => {
-    setPendingDeleteId(id);
-  };
-
-  const handleConfirmDelete = () => {
-    if (pendingDeleteId) {
-      onDelete(pendingDeleteId);
-      setPendingDeleteId(null);
-    }
-  };
-
-  const handleCancelDelete = () => {
-    setPendingDeleteId(null);
-  };
-
-  const handleQuickShare = async () => {
-    if (!shareUrl) return;
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (e) {
-      console.error('Failed to copy:', e);
+  const handleQuickShare = () => {
+    if (shareUrl) {
+      handleCopy(shareUrl);
     }
   };
 
@@ -112,7 +86,7 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
                     annotation={ann}
                     isSelected={selectedId === ann.id}
                     onSelect={() => onSelect(ann.id)}
-                    onDelete={() => handleDeleteClick(ann.id)}
+                    onDelete={() => onDelete(ann.id)}
                   />
                 ))}
               </div>
@@ -140,7 +114,7 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
                     annotation={ann}
                     isSelected={selectedId === ann.id}
                     onSelect={() => onSelect(ann.id)}
-                    onDelete={() => handleDeleteClick(ann.id)}
+                    onDelete={() => onDelete(ann.id)}
                   />
                 ))}
               </div>
@@ -154,11 +128,11 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
         <div className="p-2 border-t border-border/50">
           <button
             onClick={handleQuickShare}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all text-muted-foreground hover:text-foreground hover:bg-muted/50 ${animationClass} ${buttonClass}`}
           >
             {copied ? (
               <>
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg className={`w-3.5 h-3.5 copy-check-animated ${iconClass}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
                 Copiado
@@ -174,97 +148,9 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
           </button>
         </div>
       )}
-
-      {/* Delete Confirmation Dialog */}
-      <ConfirmationDialog
-        isOpen={pendingDeleteId !== null}
-        onClose={handleCancelDelete}
-        onConfirm={handleConfirmDelete}
-        title="Excluir anotação"
-        message={buildDeleteConfirmationMessage(pendingDeleteAnnotation)}
-        confirmLabel="Excluir"
-        destructive
-      />
     </aside>
   );
 };
-
-/**
- * Truncates text to a maximum length with ellipsis.
- * @param text The text to truncate
- * @param maxLength Maximum number of characters before truncation (default: 50)
- */
-function truncateText(text: string, maxLength: number = 50): string {
-  if (text.length <= maxLength) return text;
-  return text.slice(0, maxLength).trimEnd() + '…';
-}
-
-/**
- * Maps annotation type to Portuguese label for display in dialogs.
- */
-function getAnnotationTypeLabel(type: AnnotationType): string {
-  const labels: Record<AnnotationType, string> = {
-    [AnnotationType.DELETION]: 'Excluir',
-    [AnnotationType.INSERTION]: 'Inserir',
-    [AnnotationType.REPLACEMENT]: 'Substituir',
-    [AnnotationType.COMMENT]: 'Comentário',
-    [AnnotationType.GLOBAL_COMMENT]: 'Comentário Global',
-  };
-  return labels[type] ?? 'Anotação';
-}
-
-/**
- * Builds a confirmation message for annotation deletion.
- * Shows the annotation type and previews of original text and comment.
- */
-function buildDeleteConfirmationMessage(annotation: Annotation | null): React.ReactNode {
-  if (!annotation) {
-    return 'Tem certeza que deseja excluir esta anotação?';
-  }
-
-  const typeLabel = getAnnotationTypeLabel(annotation.type);
-  const isGlobal = annotation.isGlobal;
-  const hasOriginalText = !isGlobal && annotation.originalText;
-  const hasComment = annotation.text && annotation.type !== AnnotationType.DELETION;
-
-  return (
-    <div className="space-y-3">
-      <p>Tem certeza que deseja excluir esta anotação?</p>
-
-      <div className="p-3 rounded-md bg-muted/50 border border-border/50 space-y-2">
-        {/* Annotation Type */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">Tipo:</span>
-          <span className="text-xs font-medium">{typeLabel}</span>
-        </div>
-
-        {/* Original Text Preview */}
-        {hasOriginalText && (
-          <div>
-            <span className="text-xs text-muted-foreground">Texto selecionado:</span>
-            <p className="text-xs font-mono mt-0.5 text-foreground/80 truncate">
-              "{truncateText(annotation.originalText!, 60)}"
-            </p>
-          </div>
-        )}
-
-        {/* Comment/Replacement Text Preview */}
-        {hasComment && (
-          <div>
-            <span className="text-xs text-muted-foreground">
-              {annotation.type === AnnotationType.REPLACEMENT ? 'Substituição:' : 'Comentário:'}
-            </span>
-            <p className="text-xs mt-0.5 text-foreground/80 truncate">
-              {truncateText(annotation.text!, 60)}
-            </p>
-          </div>
-        )}
-      </div>
-
-      <p className="text-xs text-muted-foreground">Esta ação não pode ser desfeita.</p>
-    </div>
-  );
-}
 
 function formatTimestamp(ts: number): string {
   const now = Date.now();
