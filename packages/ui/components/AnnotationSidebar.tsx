@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { Annotation, AnnotationType, Block } from '../types';
 
 interface SidebarProps {
@@ -24,19 +24,10 @@ export const AnnotationSidebar: React.FC<SidebarProps> = ({
   });
 
   return (
-    <aside
-      role="complementary"
-      aria-label="Barra lateral de anotações"
-      className="w-80 border-l border-border/50 bg-card/50 backdrop-blur-sm h-full flex flex-col transition-colors"
-    >
+    <div className="w-80 border-l border-border/50 bg-card/50 backdrop-blur-sm h-full flex flex-col transition-colors">
       <div className="p-4 border-b border-border/50 flex items-center justify-between">
-        <h2 className="font-semibold text-foreground">Revisar AlteraÃ§Ãµes</h2>
-        <span
-          className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-full"
-          aria-live="polite"
-          aria-atomic="true"
-          aria-label={`${annotations.length} ${annotations.length === 1 ? 'anotação' : 'anotações'}`}
-        >
+        <h2 className="font-semibold text-foreground">Revisar Alterações</h2>
+        <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-full">
           {annotations.length}
         </span>
       </div>
@@ -44,8 +35,8 @@ export const AnnotationSidebar: React.FC<SidebarProps> = ({
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {sortedAnnotations.length === 0 ? (
           <div className="text-center text-muted-foreground mt-10 text-sm">
-            <p>Nenhuma anotaÃ§Ã£o ainda.</p>
-            <p className="mt-2 text-xs">Selecione texto no documento para adicionar comentÃ¡rios ou sugerir alteraÃ§Ãµes.</p>
+            <p>Nenhuma anotação ainda.</p>
+            <p className="mt-2 text-xs">Selecione texto no documento para adicionar comentários ou sugerir alterações.</p>
           </div>
         ) : (
           sortedAnnotations.map(ann => (
@@ -61,25 +52,21 @@ export const AnnotationSidebar: React.FC<SidebarProps> = ({
               `}
             >
               <div className="flex justify-between items-start mb-1">
-                <span
-                  className={`
-                    text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded
-                    ${ann.type === AnnotationType.DELETION ? 'bg-destructive/20 text-destructive' :
-                      ann.type === AnnotationType.INSERTION ? 'bg-secondary/20 text-secondary' :
-                      ann.type === AnnotationType.REPLACEMENT ? 'bg-primary/20 text-primary' :
-                      'bg-accent/20 text-accent'}
-                  `}
-                  aria-label={`Tipo de anotação: ${ann.type}`}
-                >
+                <span className={`
+                  text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded
+                  ${ann.type === AnnotationType.DELETION ? 'bg-destructive/20 text-destructive' :
+                    ann.type === AnnotationType.INSERTION ? 'bg-secondary/20 text-secondary' :
+                    ann.type === AnnotationType.REPLACEMENT ? 'bg-primary/20 text-primary' :
+                    'bg-accent/20 text-accent'}
+                `}>
                   {ann.type}
                 </span>
                 <button
                   onClick={(e) => { e.stopPropagation(); onDelete(ann.id); }}
                   className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all p-1 rounded hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   title="Remover Anotação"
-                  aria-label={`Remover anotação do tipo ${ann.type}`}
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
               </div>
 
@@ -89,13 +76,13 @@ export const AnnotationSidebar: React.FC<SidebarProps> = ({
 
               {(ann.text && ann.type !== AnnotationType.DELETION) && (
                 <div className="text-sm text-foreground font-medium pl-3 border-l-2 border-primary">
-                  {ann.type === AnnotationType.REPLACEMENT ? 'â†’ ' : ''}{ann.text}
+                  {ann.type === AnnotationType.REPLACEMENT ? '→ ' : ''}{ann.text}
                 </div>
               )}
             </div>
           ))
         )}
       </div>
-    </aside>
+    </div>
   );
 };

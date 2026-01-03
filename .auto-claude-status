@@ -1,25 +1,25 @@
 {
   "active": true,
-  "spec": "007-add-visible-focus-indicators-for-keyboard-navigati",
+  "spec": "008-fix-character-encoding-issues-in-portuguese-ui-tex",
   "state": "building",
   "subtasks": {
-    "completed": 10,
-    "total": 12,
+    "completed": 7,
+    "total": 9,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Sidebar and Landing Components",
+    "current": "Verification and testing",
     "id": null,
-    "total": 2
+    "total": 3
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 12,
-    "started_at": "2026-01-01T18:51:37.535257"
+    "number": 9,
+    "started_at": "2026-01-01T18:51:41.123654"
   },
-  "last_update": "2026-01-01T19:53:31.663481"
+  "last_update": "2026-01-01T19:17:02.003931"
 }

@@ -1,4 +1,4 @@
-﻿import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
+import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import Highlighter from 'web-highlighter';
 import hljs from 'highlight.js';
@@ -11,7 +11,6 @@ import * as LucideIcons from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import mermaid from 'mermaid';
-import DOMPurify from 'dompurify';
 
 interface ViewerProps {
   blocks: Block[];
@@ -491,7 +490,6 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(({
           onClick={handleCopyPlan}
           className="absolute top-3 right-3 md:top-5 md:right-5 flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted rounded-md transition-colors"
           title={copied ? 'Copiado!' : 'Copiar nota'}
-          aria-label={copied ? 'Copiado!' : 'Copiar nota'}
         >
           {copied ? (
             <>
@@ -698,20 +696,6 @@ function getLucideIcon(iconName: string): React.ComponentType<{ size?: number; c
 }
 
 /**
- * Security: Sanitize Mermaid SVG output to prevent XSS attacks
- * Removes dangerous tags and attributes while preserving SVG functionality
- */
-function sanitizeMermaidSVG(svg: string): string {
-  return DOMPurify.sanitize(svg, {
-    USE_PROFILES: { svg: true },
-    FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form'],
-    FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur'],
-    ALLOWED_TAGS: ['svg', 'g', 'path', 'rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'text', 'tspan', 'defs', 'marker', 'use', 'foreignObject', 'style'],
-    KEEP_CONTENT: false
-  });
-}
-
-/**
  * Custom code renderer for Mermaid diagrams
  */
 const MermaidRenderer: React.FC<any> = (props) => {
@@ -760,9 +744,7 @@ const MermaidRenderer: React.FC<any> = (props) => {
           const id = `mermaid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
           const result = await mermaid.render(id, code);
 
-          // Security: Sanitize SVG before rendering to prevent XSS
-          const cleanSvg = sanitizeMermaidSVG(result.svg);
-          setSvg(cleanSvg);
+          setSvg(result.svg);
           setError(null);
         } catch (err) {
           console.error('Mermaid rendering error:', err);
@@ -982,7 +964,6 @@ const BlockRenderer: React.FC<{
               onClick={() => setIsEditing(true)}
               className="absolute -right-8 top-0 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity"
               title="Editar este título"
-              aria-label="Editar este título"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -1096,7 +1077,6 @@ const BlockRenderer: React.FC<{
               onClick={() => setIsEditing(true)}
               className="absolute -right-8 top-0 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity"
               title="Editar este parágrafo"
-              aria-label="Editar este parágrafo"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -1161,7 +1141,6 @@ const CodeBlock: React.FC<CodeBlockProps> = ({ block, onHover, onLeave, isHovere
         onClick={handleCopy}
         className="absolute top-2 right-2 p-1.5 rounded-md bg-muted/80 hover:bg-muted text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity z-10"
         title={copied ? 'Copiado!' : 'Copiar código'}
-        aria-label={copied ? 'Copiado!' : 'Copiar código'}
       >
         {copied ? (
           <svg className="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1264,8 +1243,7 @@ const CodeBlockToolbar: React.FC<{
         <div className="flex items-center p-1 gap-0.5">
           <button
             onClick={() => onAnnotate(AnnotationType.DELETION)}
-            title="Excluir"
-            aria-label="Excluir"
+            title="Delete"
             className="p-1.5 rounded-md transition-colors text-destructive hover:bg-destructive/10"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1274,8 +1252,7 @@ const CodeBlockToolbar: React.FC<{
           </button>
           <button
             onClick={() => setStep('input')}
-            title="Comentar"
-            aria-label="Comentar"
+            title="Comment"
             className="p-1.5 rounded-md transition-colors text-accent hover:bg-accent/10"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1285,8 +1262,7 @@ const CodeBlockToolbar: React.FC<{
           <div className="w-px h-5 bg-border mx-0.5" />
           <button
             onClick={onClose}
-            title="Cancelar"
-            aria-label="Cancelar"
+            title="Cancel"
             className="p-1.5 rounded-md transition-colors text-muted-foreground hover:bg-muted"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1300,8 +1276,7 @@ const CodeBlockToolbar: React.FC<{
             ref={inputRef}
             type="text"
             className="bg-transparent border-none outline-none text-sm w-44 placeholder:text-muted-foreground"
-            placeholder="Adicione um comentário..."
-            aria-label="Adicione um comentário"
+            placeholder="Add a comment..."
             value={inputValue}
             onChange={e => setInputValue(e.target.value)}
             onKeyDown={e => e.key === 'Escape' && setStep('menu')}
@@ -1309,15 +1284,13 @@ const CodeBlockToolbar: React.FC<{
           <button
             type="submit"
             disabled={!inputValue.trim()}
-            aria-label="Salvar comentário"
             className="px-2 py-1 text-xs font-medium rounded bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity"
           >
-            Salvar
+            Save
           </button>
           <button
             type="button"
             onClick={() => setStep('menu')}
-            aria-label="Voltar ao menu"
             className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
