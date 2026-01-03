@@ -2,7 +2,7 @@
 
 **Timeline:** 12 semanas (3 meses)
 **Início:** HOJE
-**Meta:** Transformar Plannotator de 5.95/10 para 10/10
+**Meta:** Transformar obsidian-note-reviewer de 5.95/10 para 10/10
 
 ---
 

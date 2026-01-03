@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pricing Preview</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState } = React;
+
+    // Pricing Data
+    const PLANS = {
+      free: {
+        id: 'free',
+        name: 'Free',
+        description: 'Perfect for individual note-takers getting started',
+        popular: false,
+        price: { monthly: 0, yearly: 0, yearlyMonthly: 0 },
+        features: {
+          maxNotes: 100,
+          maxStorageGB: 1,
+          maxTeamMembers: 1,
+          advancedSearch: false,
+          realtimeCollaboration: false,
+          aiSummaries: false,
+          sso: false,
+          prioritySupport: false,
+        },
+        trialDays: 0,
+      },
+      pro: {
+        id: 'pro',
+        name: 'Pro',
+        description: 'For professionals and small teams who need more power',
+        popular: true,
+        price: { monthly: 12, yearly: 120, yearlyMonthly: 10 },
+        features: {
+          maxNotes: 10000,
+          maxStorageGB: 50,
+          maxTeamMembers: 10,
+          advancedSearch: true,
+          realtimeCollaboration: true,
+          aiSummaries: true,
+          sso: false,
+          prioritySupport: true,
+        },
+        trialDays: 14,
+      },
+      enterprise: {
+        id: 'enterprise',
+        name: 'Enterprise',
+        description: 'For large organizations with custom needs',
+        popular: false,
+        price: { monthly: 49, yearly: 490, yearlyMonthly: 41 },
+        features: {
+          maxNotes: -1,
+          maxStorageGB: -1,
+          maxTeamMembers: -1,
+          advancedSearch: true,
+          realtimeCollaboration: true,
+          aiSummaries: true,
+          sso: true,
+          prioritySupport: true,
+        },
+        trialDays: 30,
+      },
+    };
+
+    const FEATURE_COMPARISON = [
+      {
+        category: 'Storage & Limits',
+        features: [
+          { name: 'Notes', free: '100', pro: '10,000', enterprise: 'Unlimited' },
+          { name: 'Storage', free: '1 GB', pro: '50 GB', enterprise: 'Unlimited' },
+          { name: 'Team Members', free: '1', pro: '10', enterprise: 'Unlimited' },
+        ],
+      },
+      {
+        category: 'Core Features',
+        features: [
+          { name: 'Advanced Search', free: false, pro: true, enterprise: true },
+          { name: 'API Access', free: false, pro: true, enterprise: true },
+          { name: 'SSO', free: false, pro: false, enterprise: true },
+        ],
+      },
+      {
+        category: 'Collaboration',
+        features: [
+          { name: 'Real-time Collaboration', free: false, pro: true, enterprise: true },
+          { name: 'Version History', free: false, pro: true, enterprise: true },
+        ],
+      },
+      {
+        category: 'AI & Analytics',
+        features: [
+          { name: 'AI Summaries', free: false, pro: true, enterprise: true },
+          { name: 'Analytics Reports', free: false, pro: true, enterprise: true },
+        ],
+      },
+    ];
+
+    // Icons
+    const CheckIcon = () => (
+      <svg className="h-5 w-5 text-indigo-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+      </svg>
+    );
+
+    const CheckIconGreen = () => (
+      <svg className="h-5 w-5 text-green-600 mx-auto" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+      </svg>
+    );
+
+    const XIcon = () => (
+      <svg className="h-5 w-5 text-gray-300 mx-auto" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    );
+
+    function Pricing() {
+      const [interval, setInterval] = useState('month');
+
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+            <div className="text-center">
+              <h1 className="text-5xl font-bold text-gray-900 mb-4">
+                Simple, transparent pricing
+              </h1>
+              <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+                Choose the plan that's right for you. All plans include a free trial.
+              </p>
+
+              {/* Billing Toggle */}
+              <div className="mt-8 flex items-center justify-center space-x-4">
+                <span className={`text-sm font-medium ${interval === 'month' ? 'text-gray-900' : 'text-gray-500'}`}>
+                  Monthly
+                </span>
+                <button
+                  type="button"
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 ${interval === 'year' ? 'bg-indigo-600' : 'bg-gray-200'}`}
+                  onClick={() => setInterval(interval === 'month' ? 'year' : 'month')}
+                >
+                  <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${interval === 'year' ? 'translate-x-5' : 'translate-x-0'}`} />
+                </button>
+                <span className={`text-sm font-medium ${interval === 'year' ? 'text-gray-900' : 'text-gray-500'}`}>
+                  Yearly
+                  <span className="ml-1 inline-block px-2 py-0.5 text-xs font-semibold bg-green-100 text-green-800 rounded-full">
+                    Save 17%
+                  </span>
+                </span>
+              </div>
+            </div>
+
+            {/* Pricing Cards */}
+            <div className="mt-16 grid grid-cols-1 gap-8 lg:grid-cols-3">
+              {Object.keys(PLANS).map((tier) => {
+                const plan = PLANS[tier];
+                const price = interval === 'month' ? plan.price.monthly : plan.price.yearlyMonthly;
+                const billedPrice = interval === 'month' ? plan.price.monthly : plan.price.yearly;
+
+                return (
+                  <div
+                    key={tier}
+                    className={`relative flex flex-col rounded-2xl shadow-xl ${plan.popular ? 'border-2 border-indigo-600 bg-white ring-2 ring-indigo-600' : 'border border-gray-200 bg-white'}`}
+                  >
+                    {plan.popular && (
+                      <div className="absolute -top-4 left-0 right-0 mx-auto w-fit">
+                        <span className="inline-block px-4 py-1 text-sm font-semibold text-white bg-indigo-600 rounded-full">
+                          Most Popular
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="p-8">
+                      <h3 className="text-2xl font-bold text-gray-900">{plan.name}</h3>
+                      <p className="mt-2 text-sm text-gray-600">{plan.description}</p>
+
+                      <div className="mt-8">
+                        <div className="flex items-baseline">
+                          <span className="text-5xl font-bold text-gray-900">${price}</span>
+                          {price > 0 && <span className="ml-2 text-base text-gray-500">/month</span>}
+                        </div>
+                        {interval === 'year' && billedPrice > 0 && (
+                          <p className="mt-1 text-sm text-gray-500">Billed ${billedPrice}/year</p>
+                        )}
+                      </div>
+
+                      {plan.trialDays > 0 && (
+                        <p className="mt-2 text-sm text-indigo-600 font-medium">
+                          {plan.trialDays}-day free trial
+                        </p>
+                      )}
+
+                      <button className={`mt-8 w-full rounded-lg px-4 py-3 text-sm font-semibold shadow-sm transition-colors ${plan.popular ? 'bg-indigo-600 text-white hover:bg-indigo-500' : 'bg-gray-900 text-white hover:bg-gray-800'}`}>
+                        {tier === 'free' ? 'Get Started' : `Start ${plan.trialDays}-day trial`}
+                      </button>
+                    </div>
+
+                    {/* Features */}
+                    <div className="border-t border-gray-200 p-8 pt-6">
+                      <p className="text-sm font-semibold text-gray-900">What's included:</p>
+                      <ul className="mt-4 space-y-3">
+                        <li className="flex items-start">
+                          <CheckIcon />
+                          <span className="ml-3 text-sm text-gray-700">
+                            {plan.features.maxNotes === -1 ? 'Unlimited' : plan.features.maxNotes.toLocaleString()} notes
+                          </span>
+                        </li>
+                        <li className="flex items-start">
+                          <CheckIcon />
+                          <span className="ml-3 text-sm text-gray-700">
+                            {plan.features.maxStorageGB === -1 ? 'Unlimited' : `${plan.features.maxStorageGB} GB`} storage
+                          </span>
+                        </li>
+                        <li className="flex items-start">
+                          <CheckIcon />
+                          <span className="ml-3 text-sm text-gray-700">
+                            {plan.features.maxTeamMembers === -1 ? 'Unlimited' : plan.features.maxTeamMembers} team {plan.features.maxTeamMembers === 1 ? 'member' : 'members'}
+                          </span>
+                        </li>
+                        {plan.features.advancedSearch && (
+                          <li className="flex items-start">
+                            <CheckIcon />
+                            <span className="ml-3 text-sm text-gray-700">Advanced search</span>
+                          </li>
+                        )}
+                        {plan.features.realtimeCollaboration && (
+                          <li className="flex items-start">
+                            <CheckIcon />
+                            <span className="ml-3 text-sm text-gray-700">Real-time collaboration</span>
+                          </li>
+                        )}
+                        {plan.features.aiSummaries && (
+                          <li className="flex items-start">
+                            <CheckIcon />
+                            <span className="ml-3 text-sm text-gray-700">AI summaries & suggestions</span>
+                          </li>
+                        )}
+                        {plan.features.sso && (
+                          <li className="flex items-start">
+                            <CheckIcon />
+                            <span className="ml-3 text-sm text-gray-700">SSO & SAML</span>
+                          </li>
+                        )}
+                        {plan.features.prioritySupport && (
+                          <li className="flex items-start">
+                            <CheckIcon />
+                            <span className="ml-3 text-sm text-gray-700">Priority support</span>
+                          </li>
+                        )}
+                      </ul>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Feature Comparison Table */}
+            <div className="mt-24">
+              <h2 className="text-3xl font-bold text-gray-900 text-center mb-12">
+                Compare all features
+              </h2>
+
+              <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Features</th>
+                      <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">Free</th>
+                      <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">Pro</th>
+                      <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">Enterprise</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 bg-white">
+                    {FEATURE_COMPARISON.map((category, categoryIdx) => (
+                      <React.Fragment key={categoryIdx}>
+                        <tr className="bg-gray-50">
+                          <td colSpan={4} className="px-6 py-3 text-sm font-semibold text-gray-900">
+                            {category.category}
+                          </td>
+                        </tr>
+                        {category.features.map((feature, featureIdx) => (
+                          <tr key={featureIdx}>
+                            <td className="px-6 py-4 text-sm text-gray-700">{feature.name}</td>
+                            {['free', 'pro', 'enterprise'].map((tier) => (
+                              <td key={tier} className="px-6 py-4 text-center">
+                                {typeof feature[tier] === 'boolean' ? (
+                                  feature[tier] ? <CheckIconGreen /> : <XIcon />
+                                ) : (
+                                  <span className="text-sm text-gray-700">{feature[tier]}</span>
+                                )}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </React.Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* FAQ */}
+            <div className="mt-24">
+              <h2 className="text-3xl font-bold text-gray-900 text-center mb-12">
+                Frequently asked questions
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">Can I change my plan later?</h3>
+                  <p className="text-sm text-gray-600">Yes! You can upgrade or downgrade your plan at any time. Changes are prorated.</p>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">How does the free trial work?</h3>
+                  <p className="text-sm text-gray-600">Start your trial with no credit card required. You'll only be charged after the trial ends.</p>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">What payment methods do you accept?</h3>
+                  <p className="text-sm text-gray-600">We accept all major credit cards, debit cards, and ACH transfers for Enterprise plans.</p>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">Can I cancel anytime?</h3>
+                  <p className="text-sm text-gray-600">Absolutely. Cancel anytime, no questions asked.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* CTA */}
+            <div className="mt-24 text-center">
+              <h2 className="text-3xl font-bold text-gray-900 mb-4">Ready to get started?</h2>
+              <p className="text-lg text-gray-600 mb-8">Join thousands of users organizing their notes with ease.</p>
+              <button className="inline-flex items-center px-8 py-3 text-base font-semibold text-white bg-indigo-600 rounded-lg shadow-lg hover:bg-indigo-500 transition-colors">
+                Start your free trial
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<Pricing />);
+  </script>
+</body>
+</html>

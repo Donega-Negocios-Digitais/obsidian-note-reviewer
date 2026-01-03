@@ -1,6 +1,6 @@
 # ⚡ QUICK WINS - Guia de Implementação
 
-**Projeto:** Plannotator (Obsidian Note Reviewer)
+**Projeto:** obsidian-note-reviewer (Obsidian Note Reviewer)
 **Data:** 2026-01-01
 **Tempo Total Estimado:** 2 horas
 **Impacto:** Resolve 3 CVEs críticos + 30% performance boost

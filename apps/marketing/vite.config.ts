@@ -23,8 +23,8 @@ export default defineConfig({
     target: 'esnext',
     rollupOptions: {
       input: {
-        main: path.resolve(__dirname, 'index.html'),
-        ptbr: path.resolve(__dirname, 'index.pt-br.html'),
+        salesv1: path.resolve(__dirname, 'index.pt-br.html'),
+        salesv2: path.resolve(__dirname, 'sales-v2.html'),
       },
     },
   },

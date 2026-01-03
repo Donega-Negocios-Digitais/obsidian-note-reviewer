@@ -1,6 +1,6 @@
 # Configuração do Obsidian Note Reviewer
 
-Este é o Plannotator adaptado para revisar notas do Obsidian em português.
+Este é o obsidian-note-reviewer adaptado para revisar notas do Obsidian em português.
 
 ## Alterações Implementadas
 
@@ -69,7 +69,7 @@ Após adicionar o hook, reinicie o Claude Code para que as alterações tenham e
 
 1. No Claude Code, quando estiver planejando uma nota, use `/plan` ou `EnterPlanMode`
 2. Quando terminar o plano, use `ExitPlanMode`
-3. O Plannotator abrirá automaticamente no navegador
+3. O obsidian-note-reviewer abrirá automaticamente no navegador
 4. Revise a nota, adicione anotações
 5. Aprove ou solicite alterações
 

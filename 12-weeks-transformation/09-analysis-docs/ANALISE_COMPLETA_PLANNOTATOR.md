@@ -311,7 +311,7 @@ if (origin && ALLOWED_ORIGINS.includes(origin)) {
 
 #### Comparação com Concorrentes
 
-| Feature                 | Plannotator | PR Reviews (GitHub) | Linear/Jira |
+| Feature                 | obsidian-note-reviewer | PR Reviews (GitHub) | Linear/Jira |
 |-------------------------|-------------|---------------------|-------------|
 | AI Agent Integration    | ✅ Nativo   | ❌                  | ❌          |
 | Visual Annotations      | ✅          | ⚠️ Limitado         | ❌          |

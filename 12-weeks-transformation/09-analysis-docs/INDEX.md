@@ -6,7 +6,7 @@ Documentos de análise e summaries executivos do projeto.
 
 ### Análise Completa
 - **ANALISE_COMPLETA_PLANNOTATOR.md** (23 KB)
-  - Análise detalhada do projeto original (Plannotator)
+  - Análise detalhada do projeto original (obsidian-note-reviewer)
   - Pontos fortes e fracos identificados
   - Oportunidades de melhoria
   - Recomendações estratégicas

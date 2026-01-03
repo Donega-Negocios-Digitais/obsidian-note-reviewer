@@ -1,4 +1,4 @@
--- Plannotator Database Schema
+-- obsidian-note-reviewer Database Schema
 -- Multi-tenancy with Row Level Security (RLS)
 
 -- Organizations (multi-tenancy)
@@ -23,7 +23,7 @@ CREATE TABLE users (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Notes (plans from Plannotator)
+-- Notes (plans from obsidian-note-reviewer)
 CREATE TABLE notes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id UUID REFERENCES organizations(id) ON DELETE CASCADE,

@@ -584,8 +584,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'robots.txt', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Plannotator - Visual Plan Review',
-        short_name: 'Plannotator',
+        name: 'obsidian-note-reviewer - Visual Plan Review',
+        short_name: 'obsidian-note-reviewer',
         description: 'Interactive Plan Review for AI Coding Agents',
         theme_color: '#8b5cf6',
         background_color: '#1f2937',

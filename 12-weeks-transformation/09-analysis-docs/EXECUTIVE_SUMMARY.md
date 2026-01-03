@@ -76,7 +76,7 @@
 5. **410 testes** (excelente qualidade)
 
 ### vs Concorrentes
-| Feature | Plannotator | GitHub PRs | Jira |
+| Feature | obsidian-note-reviewer | GitHub PRs | Jira |
 |---------|-------------|------------|------|
 | AI Agent Native | ✅ | ❌ | ❌ |
 | Visual Annotations | ✅ | ⚠️ | ❌ |

@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="apps/marketing/public/og-image.webp" alt="Plannotator" width="80%" />
+  <img src="apps/marketing/public/og-image.webp" alt="obsidian-note-reviewer" width="80%" />
 </p>
 
-# Plannotator
+# obsidian-note-reviewer
 
 Interactive Plan Review for AI Coding Agents. Mark up and refine your plans using a visual UI, share for team collaboration, and seamlessly integrate with **Claude Code**.
 
@@ -47,9 +47,9 @@ See [apps/hook/README.md](apps/hook/README.md) for detailed installation instruc
 
 ## How It Works
 
-When your AI agent finishes planning, Plannotator:
+When your AI agent finishes planning, obsidian-note-reviewer:
 
-1. Opens the Plannotator UI in your browser
+1. Opens the obsidian-note-reviewer UI in your browser
 2. Lets you annotate the plan visually (delete, insert, replace, comment)
 3. **Approve** → Agent proceeds with implementation
 4. **Request changes** → Your annotations are sent back as structured feedback

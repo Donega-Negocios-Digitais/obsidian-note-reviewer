@@ -1,12 +1,11 @@
 import React from "react";
-// import logoImage from "../obsidian-note-reviewer.webp"; // Temporarily disabled - image not found
-import { ModeToggle } from "./ModeToggle";
+import { ModeToggle } from "@obsidian-note-reviewer/ui/components/ModeToggle";
 
-interface LandingProps {
+interface SalesPageV2Props {
   onEnter?: () => void;
 }
 
-export const LandingPtBr: React.FC<LandingProps> = ({ onEnter }) => {
+export const SalesPageV2: React.FC<SalesPageV2Props> = ({ onEnter }) => {
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Nav */}
@@ -22,7 +21,7 @@ export const LandingPtBr: React.FC<LandingProps> = ({ onEnter }) => {
               href="https://github.com/alexdonega/obsidian-note-reviewer"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-muted-foreground hover:text-foreground transition-colors"
+              className="text-muted-foreground hover:text-foreground transition-colors rounded focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
               GitHub
             </a>
@@ -31,7 +30,7 @@ export const LandingPtBr: React.FC<LandingProps> = ({ onEnter }) => {
               href="https://github.com/alexdonega/obsidian-note-reviewer#instalacao"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-muted-foreground hover:text-foreground transition-colors"
+              className="text-muted-foreground hover:text-foreground transition-colors rounded focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
               Instalar
             </a>
@@ -58,17 +57,11 @@ export const LandingPtBr: React.FC<LandingProps> = ({ onEnter }) => {
                   Não no terminal.
                 </span>
               </h1>
-              {/* Logo temporarily disabled - image not found */}
-              {/* <img
-                src={logoImage}
-                alt="Note Reviewer logo"
-                className="w-20 h-20 md:w-24 md:h-24 object-contain shrink-0 -scale-x-100"
-              /> */}
             </div>
 
             <p className="text-lg text-muted-foreground mb-8 max-w-lg">
-              Interface visual que renderiza markdown perfeitamente, integra com AI agents automaticamente,
-              e salva no Obsidian sem fricção. Do terminal para a interface em 30 segundos.
+              Revisão visual interativa para agentes de código. Marque e refine planos visualmente,
+              compartilhe para colaboração em equipe. Funciona com Claude Code.
             </p>
 
             <div className="flex flex-col gap-3">
@@ -78,7 +71,7 @@ export const LandingPtBr: React.FC<LandingProps> = ({ onEnter }) => {
                   href="https://www.youtube.com/watch?v=a_AT7cEN_9I"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-secondary text-white font-medium hover:opacity-90 transition-opacity"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-secondary text-white font-medium hover:opacity-90 transition-opacity focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-offset-2"
                 >
                   <svg
                     className="w-5 h-5"
@@ -94,7 +87,7 @@ export const LandingPtBr: React.FC<LandingProps> = ({ onEnter }) => {
                 {onEnter ? (
                   <button
                     onClick={onEnter}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-offset-2"
                   >
                     Abrir Demo
                     <svg
@@ -114,7 +107,7 @@ export const LandingPtBr: React.FC<LandingProps> = ({ onEnter }) => {
                 ) : (
                   <a
                     href="https://obsidian-note-reviewer.vercel.app"
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-offset-2"
                   >
                     Abrir Demo
                     <svg
@@ -146,9 +139,9 @@ export const LandingPtBr: React.FC<LandingProps> = ({ onEnter }) => {
                 O Problema
               </h3>
               <p className="text-foreground/90">
-                Claude Code gera notas no terminal. Você copia e cola no Obsidian,
-                perde formatação, callouts quebram, Mermaid vira texto.
-                Workflow de 10 minutos que deveria ser instantâneo.
+                Agentes de código mostram planos no terminal. Você aprova ou nega, mas
+                dar feedback específico significa digitar tudo. Difícil de
+                referenciar seções exatas. Zero funcionalidades de colaboração.
               </p>
             </div>
             <div>
@@ -156,9 +149,9 @@ export const LandingPtBr: React.FC<LandingProps> = ({ onEnter }) => {
                 A Solução
               </h3>
               <p className="text-foreground/90">
-                Renderização perfeita de markdown, callouts e Mermaid. Revise visualmente,
-                use templates inteligentes, salve direto no Obsidian.
-                Do terminal para sua vault em 30 segundos.
+                Selecione as partes exatas do plano que você quer mudar. Marque para
+                deletar, adicione um comentário, ou sugira uma substituição. Compartilhe planos
+                com sua equipe. O feedback volta para seu agente automaticamente.
               </p>
             </div>
           </div>
@@ -186,8 +179,8 @@ export const LandingPtBr: React.FC<LandingProps> = ({ onEnter }) => {
               <div>
                 <h3 className="font-semibold mb-1">Roda localmente.</h3>
                 <p className="text-muted-foreground text-sm">
-                  Aplicação local. Sem requisições de rede. Note Reviewer roda inteiramente
-                  na sua máquina. Suas notas nunca saem do seu computador.
+                  Plugin local. Sem requisições de rede. Note Reviewer roda inteiramente
+                  no seu navegador. Seus planos nunca saem da sua máquina.
                 </p>
               </div>
             </div>
@@ -208,11 +201,11 @@ export const LandingPtBr: React.FC<LandingProps> = ({ onEnter }) => {
                 </svg>
               </div>
               <div>
-                <h3 className="font-semibold mb-1">Salva no Obsidian.</h3>
+                <h3 className="font-semibold mb-1">Compartilhe com privacidade.</h3>
                 <p className="text-muted-foreground text-sm">
-                  Integração nativa com sua vault. Escolha templates, customize frontmatter,
-                  salve com um clique. Suporta todos os recursos do Obsidian:
-                  callouts, Mermaid, syntax highlighting.
+                  Colabore sem backend. Planos e anotações comprimem
+                  na própria URL — compartilhe um link. Sem contas, sem banco de dados,
+                  sem terceiros.
                 </p>
               </div>
             </div>
@@ -327,7 +320,7 @@ export const LandingPtBr: React.FC<LandingProps> = ({ onEnter }) => {
           </div>
 
           <p className="text-center text-sm text-muted-foreground mt-6">
-            Visualize → revise → salve no Obsidian
+            Selecione texto → anote → exporte feedback
           </p>
         </section>
 
@@ -336,20 +329,20 @@ export const LandingPtBr: React.FC<LandingProps> = ({ onEnter }) => {
           <h2 className="text-xl font-semibold mb-8">Como funciona</h2>
 
           <div className="space-y-6 max-w-2xl">
-            <Step num={1} title="Agente gera nota no terminal">
+            <Step num={1} title="Agente dispara o Note Reviewer">
               <span className="text-xs">
-                <strong>Claude Code:</strong> Skill /nota gera markdown formatado
+                <strong>Claude Code:</strong> Hook ExitPlanMode abre a interface
               </span>
             </Step>
 
-            <Step num={2} title="Revise visualmente na interface">
-              Markdown renderizado perfeitamente. Callouts coloridos, Mermaid interativo,
-              syntax highlighting. Escolha template e customize frontmatter.
+            <Step num={2} title="Anote visualmente">
+              Selecione texto → escolha ação (deletar, comentar, substituir) → anotações aparecem
+              na barra lateral
             </Step>
 
-            <Step num={3} title="Salve direto no Obsidian">
-              Um clique salva na sua vault. Sem copiar/colar. Sem perder formatação.
-              Workflow de 10 minutos vira 30 segundos.
+            <Step num={3} title="Aprove ou solicite mudanças">
+              Clique em aprovar para prosseguir, ou forneça feedback com anotações.
+              O feedback volta para seu agente automaticamente.
             </Step>
           </div>
         </section>
@@ -360,15 +353,15 @@ export const LandingPtBr: React.FC<LandingProps> = ({ onEnter }) => {
           <ul className="space-y-2 text-sm text-muted-foreground max-w-2xl mb-6">
             <li className="flex items-center gap-2">
               <span className="text-primary">•</span>
-              Aplicação web local — roda em servidor Bun na porta 3001
+              Build em arquivo HTML único — roda do servidor Bun em porta aleatória
             </li>
             <li className="flex items-center gap-2">
               <span className="text-primary">•</span>
-              <strong>Claude Code:</strong> Skill /nota com hook que abre interface
+              <strong>Claude Code:</strong> Binário + plugin com hook PermissionRequest
             </li>
             <li className="flex items-center gap-2">
               <span className="text-primary">•</span>
-              12 templates prontos + renderização de callouts e Mermaid
+              Compartilhamento via URL com compressão deflate — sem backend necessário
             </li>
           </ul>
 
@@ -376,7 +369,7 @@ export const LandingPtBr: React.FC<LandingProps> = ({ onEnter }) => {
             href="https://github.com/alexdonega/obsidian-note-reviewer"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors rounded focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             <span className="inline-flex items-center rounded overflow-hidden">
               <span className="bg-[#121011] text-white px-2 py-1 flex items-center gap-1.5">
@@ -403,7 +396,7 @@ export const LandingPtBr: React.FC<LandingProps> = ({ onEnter }) => {
               href="https://github.com/alexdonega"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-foreground hover:text-primary transition-colors"
+              className="inline-flex items-center gap-1 text-foreground hover:text-primary transition-colors rounded focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
               <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
@@ -415,7 +408,7 @@ export const LandingPtBr: React.FC<LandingProps> = ({ onEnter }) => {
               href="https://x.com/alexdonega"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-foreground hover:text-primary transition-colors"
+              className="text-foreground hover:text-primary transition-colors rounded focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
               @alexdonega
             </a>

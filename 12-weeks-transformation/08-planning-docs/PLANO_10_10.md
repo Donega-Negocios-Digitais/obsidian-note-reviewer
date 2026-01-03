@@ -1,6 +1,6 @@
 # 🚀 PLANO MESTRE: PLANNOTATOR 5.95 → 10/10
 
-**Objetivo:** Transformar Plannotator em produto de classe mundial
+**Objetivo:** Transformar obsidian-note-reviewer em produto de classe mundial
 **Timeline:** 12 semanas (3 meses)
 **Status Atual:** 5.95/10 (NÃO production-ready)
 **Meta Final:** 10/10 (World-class, revenue-ready, exit-ready)
@@ -632,7 +632,7 @@ CREATE TABLE users (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Notes (planos do Plannotator)
+-- Notes (planos do obsidian-note-reviewer)
 CREATE TABLE notes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
@@ -1524,7 +1524,7 @@ export function LoginForm() {
 
   return (
     <div className="w-full max-w-md p-8 bg-card border border-border rounded-xl">
-      <h2 className="text-2xl font-semibold mb-6">Login to Plannotator</h2>
+      <h2 className="text-2xl font-semibold mb-6">Login to obsidian-note-reviewer</h2>
 
       {error && (
         <div className="mb-4 p-3 bg-destructive/10 border border-destructive rounded text-destructive text-sm">
