@@ -1,498 +1,332 @@
 import { describe, test, expect, mock } from 'bun:test';
-import { render, screen, fireEvent, within } from '@testing-library/react';
-import { AnnotationPanel, typeConfig } from '../AnnotationPanel';
-import { Annotation, AnnotationType, Block } from '../../types';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { AnnotationPanel } from '../AnnotationPanel';
+import { Annotation, AnnotationType } from '../../types';
 
 // Helper to create test annotations
 const createAnnotation = (overrides: Partial<Annotation> = {}): Annotation => ({
-  id: 'test-id',
+  id: crypto.randomUUID(),
   blockId: 'block-1',
   startOffset: 0,
   endOffset: 10,
   type: AnnotationType.COMMENT,
   originalText: 'test text',
+  text: 'test comment',
   createdA: Date.now(),
+  author: 'TestUser',
+  isGlobal: false,
   ...overrides,
 });
 
-// Create diverse set of annotations for testing filters
-const createTestAnnotations = (): Annotation[] => [
-  createAnnotation({
-    id: 'deletion-1',
-    type: AnnotationType.DELETION,
-    originalText: 'deleted text',
-    text: undefined,
-  }),
-  createAnnotation({
-    id: 'insertion-1',
-    type: AnnotationType.INSERTION,
-    originalText: '',
-    text: 'inserted text',
-  }),
-  createAnnotation({
-    id: 'replacement-1',
-    type: AnnotationType.REPLACEMENT,
-    originalText: 'old text',
-    text: 'new text',
-  }),
-  createAnnotation({
-    id: 'comment-1',
-    type: AnnotationType.COMMENT,
-    originalText: 'commented text',
-    text: 'This is a comment',
-  }),
-  createAnnotation({
-    id: 'global-1',
-    type: AnnotationType.GLOBAL_COMMENT,
-    originalText: '',
-    text: 'Global comment here',
-    isGlobal: true,
-  }),
-];
-
-const mockBlocks: Block[] = [];
-
-// Helper to get filter button title based on active state
-const getFilterButtonTitle = (type: AnnotationType, isActive: boolean = true) => {
-  const config = typeConfig[type];
-  return `${config.label}${isActive ? ' (ativo)' : ' (oculto)'}`;
+const defaultProps = {
+  isOpen: true,
+  blocks: [],
+  onSelect: mock(() => {}),
+  onDelete: mock(() => {}),
+  selectedId: null,
 };
 
 describe('AnnotationPanel', () => {
-  describe('Filter Button Rendering', () => {
-    test('renderiza todos os botões de filtro', () => {
-      const mockSelect = mock(() => {});
-      const mockDelete = mock(() => {});
-
+  describe('Search Input', () => {
+    test('renderiza campo de busca', () => {
       render(
         <AnnotationPanel
-          isOpen={true}
-          annotations={createTestAnnotations()}
-          blocks={mockBlocks}
-          onSelect={mockSelect}
-          onDelete={mockDelete}
-          selectedId={null}
+          {...defaultProps}
+          annotations={[createAnnotation()]}
         />
       );
 
-      // Check all filter buttons are rendered with their type labels as titles
-      Object.values(AnnotationType).forEach(type => {
-        expect(screen.getByTitle(getFilterButtonTitle(type, true))).toBeDefined();
-      });
+      const searchInput = screen.getByPlaceholderText('Buscar anotações...');
+      expect(searchInput).toBeDefined();
+      expect(searchInput.getAttribute('aria-label')).toBe('Buscar anotações');
     });
 
-    test('botões de filtro começam ativos', () => {
-      const mockSelect = mock(() => {});
-      const mockDelete = mock(() => {});
+    test('filtra por originalText', () => {
+      const annotations = [
+        createAnnotation({ id: '1', originalText: 'primeiro texto' }),
+        createAnnotation({ id: '2', originalText: 'segundo texto' }),
+        createAnnotation({ id: '3', originalText: 'outro conteudo' }),
+      ];
 
-      render(
-        <AnnotationPanel
-          isOpen={true}
-          annotations={createTestAnnotations()}
-          blocks={mockBlocks}
-          onSelect={mockSelect}
-          onDelete={mockDelete}
-          selectedId={null}
-        />
-      );
+      render(<AnnotationPanel {...defaultProps} annotations={annotations} />);
 
-      // All filter buttons should have aria-pressed="true" initially
-      Object.values(AnnotationType).forEach(type => {
-        const button = screen.getByTitle(getFilterButtonTitle(type, true));
-        expect(button.getAttribute('aria-pressed')).toBe('true');
-      });
+      const searchInput = screen.getByPlaceholderText('Buscar anotações...');
+      fireEvent.change(searchInput, { target: { value: 'primeiro' } });
+
+      // Should show filtered count
+      expect(screen.getByText('1 / 3')).toBeDefined();
     });
 
-    test('não renderiza painel quando isOpen é false', () => {
-      const mockSelect = mock(() => {});
-      const mockDelete = mock(() => {});
+    test('filtra por texto do comentário', () => {
+      const annotations = [
+        createAnnotation({ id: '1', text: 'corrigir ortografia' }),
+        createAnnotation({ id: '2', text: 'adicionar vírgula' }),
+        createAnnotation({ id: '3', text: 'remover palavra' }),
+      ];
 
-      const { container } = render(
-        <AnnotationPanel
-          isOpen={false}
-          annotations={createTestAnnotations()}
-          blocks={mockBlocks}
-          onSelect={mockSelect}
-          onDelete={mockDelete}
-          selectedId={null}
-        />
-      );
+      render(<AnnotationPanel {...defaultProps} annotations={annotations} />);
 
-      expect(container.querySelector('aside')).toBeNull();
-    });
-  });
+      const searchInput = screen.getByPlaceholderText('Buscar anotações...');
+      fireEvent.change(searchInput, { target: { value: 'ortografia' } });
 
-  describe('Toggle Behavior', () => {
-    test('clicar no botão de filtro alterna aria-pressed', () => {
-      const mockSelect = mock(() => {});
-      const mockDelete = mock(() => {});
-
-      render(
-        <AnnotationPanel
-          isOpen={true}
-          annotations={createTestAnnotations()}
-          blocks={mockBlocks}
-          onSelect={mockSelect}
-          onDelete={mockDelete}
-          selectedId={null}
-        />
-      );
-
-      // Get button by active title initially
-      let button = screen.getByTitle(getFilterButtonTitle(AnnotationType.DELETION, true));
-
-      // Initially active
-      expect(button.getAttribute('aria-pressed')).toBe('true');
-
-      // Click to toggle off - title changes
-      fireEvent.click(button);
-      button = screen.getByTitle(getFilterButtonTitle(AnnotationType.DELETION, false));
-      expect(button.getAttribute('aria-pressed')).toBe('false');
-
-      // Click to toggle back on - title changes back
-      fireEvent.click(button);
-      button = screen.getByTitle(getFilterButtonTitle(AnnotationType.DELETION, true));
-      expect(button.getAttribute('aria-pressed')).toBe('true');
+      expect(screen.getByText('1 / 3')).toBeDefined();
     });
 
-    test('múltiplos filtros podem ser desativados', () => {
-      const mockSelect = mock(() => {});
-      const mockDelete = mock(() => {});
+    test('filtra por autor', () => {
+      const annotations = [
+        createAnnotation({ id: '1', author: 'Maria' }),
+        createAnnotation({ id: '2', author: 'João' }),
+        createAnnotation({ id: '3', author: 'Maria' }),
+      ];
 
-      render(
-        <AnnotationPanel
-          isOpen={true}
-          annotations={createTestAnnotations()}
-          blocks={mockBlocks}
-          onSelect={mockSelect}
-          onDelete={mockDelete}
-          selectedId={null}
-        />
-      );
+      render(<AnnotationPanel {...defaultProps} annotations={annotations} />);
 
-      let deletionButton = screen.getByTitle(getFilterButtonTitle(AnnotationType.DELETION, true));
-      let insertionButton = screen.getByTitle(getFilterButtonTitle(AnnotationType.INSERTION, true));
+      const searchInput = screen.getByPlaceholderText('Buscar anotações...');
+      fireEvent.change(searchInput, { target: { value: 'Maria' } });
 
-      // Toggle off both
-      fireEvent.click(deletionButton);
-      fireEvent.click(insertionButton);
-
-      // Re-query with updated titles
-      deletionButton = screen.getByTitle(getFilterButtonTitle(AnnotationType.DELETION, false));
-      insertionButton = screen.getByTitle(getFilterButtonTitle(AnnotationType.INSERTION, false));
-
-      expect(deletionButton.getAttribute('aria-pressed')).toBe('false');
-      expect(insertionButton.getAttribute('aria-pressed')).toBe('false');
-    });
-  });
-
-  describe('Annotation Filtering Logic', () => {
-    test('anotações filtradas não aparecem na lista', () => {
-      const mockSelect = mock(() => {});
-      const mockDelete = mock(() => {});
-
-      render(
-        <AnnotationPanel
-          isOpen={true}
-          annotations={createTestAnnotations()}
-          blocks={mockBlocks}
-          onSelect={mockSelect}
-          onDelete={mockDelete}
-          selectedId={null}
-        />
-      );
-
-      // Verify deletion annotation is visible initially
-      expect(screen.getByText('"deleted text"')).toBeDefined();
-
-      // Toggle off deletion type
-      const deletionButton = screen.getByTitle(getFilterButtonTitle(AnnotationType.DELETION, true));
-      fireEvent.click(deletionButton);
-
-      // Deletion annotation should be hidden
-      expect(screen.queryByText('"deleted text"')).toBeNull();
+      expect(screen.getByText('2 / 3')).toBeDefined();
     });
 
-    test('filtrar comentários globais oculta a seção', () => {
-      const mockSelect = mock(() => {});
-      const mockDelete = mock(() => {});
+    test('filtra por label do tipo (Excluir)', () => {
+      const annotations = [
+        createAnnotation({ id: '1', type: AnnotationType.DELETION }),
+        createAnnotation({ id: '2', type: AnnotationType.INSERTION }),
+        createAnnotation({ id: '3', type: AnnotationType.REPLACEMENT }),
+      ];
 
-      render(
-        <AnnotationPanel
-          isOpen={true}
-          annotations={createTestAnnotations()}
-          blocks={mockBlocks}
-          onSelect={mockSelect}
-          onDelete={mockDelete}
-          selectedId={null}
-        />
-      );
+      render(<AnnotationPanel {...defaultProps} annotations={annotations} />);
 
-      // Initially global comment section should be visible
-      expect(screen.getByText('Global comment here')).toBeDefined();
-      expect(screen.getByText('Comentários Globais')).toBeDefined();
+      const searchInput = screen.getByPlaceholderText('Buscar anotações...');
+      fireEvent.change(searchInput, { target: { value: 'excluir' } });
 
-      // Toggle off global comment type
-      const globalButton = screen.getByTitle(getFilterButtonTitle(AnnotationType.GLOBAL_COMMENT, true));
-      fireEvent.click(globalButton);
-
-      // Global comment should be hidden
-      expect(screen.queryByText('Global comment here')).toBeNull();
-      expect(screen.queryByText('Comentários Globais')).toBeNull();
+      expect(screen.getByText('1 / 3')).toBeDefined();
     });
 
-    test('mostra mensagem quando todas anotações são filtradas', () => {
-      const mockSelect = mock(() => {});
-      const mockDelete = mock(() => {});
+    test('filtra por label do tipo (Inserir)', () => {
+      const annotations = [
+        createAnnotation({ id: '1', type: AnnotationType.DELETION }),
+        createAnnotation({ id: '2', type: AnnotationType.INSERTION }),
+        createAnnotation({ id: '3', type: AnnotationType.INSERTION }),
+      ];
 
-      render(
-        <AnnotationPanel
-          isOpen={true}
-          annotations={createTestAnnotations()}
-          blocks={mockBlocks}
-          onSelect={mockSelect}
-          onDelete={mockDelete}
-          selectedId={null}
-        />
-      );
+      render(<AnnotationPanel {...defaultProps} annotations={annotations} />);
 
-      // Toggle off all types - need to get each button fresh as titles change
-      Object.values(AnnotationType).forEach(type => {
-        const button = screen.getByTitle(getFilterButtonTitle(type, true));
-        fireEvent.click(button);
-      });
+      const searchInput = screen.getByPlaceholderText('Buscar anotações...');
+      fireEvent.change(searchInput, { target: { value: 'inserir' } });
 
-      // Should show empty state message
-      expect(screen.getByText('Todas anotações ocultas pelo filtro')).toBeDefined();
+      expect(screen.getByText('2 / 3')).toBeDefined();
     });
 
-    test('reativar filtro mostra anotações novamente', () => {
-      const mockSelect = mock(() => {});
-      const mockDelete = mock(() => {});
+    test('filtra por label do tipo (Substituir)', () => {
+      const annotations = [
+        createAnnotation({ id: '1', type: AnnotationType.REPLACEMENT }),
+        createAnnotation({ id: '2', type: AnnotationType.COMMENT }),
+      ];
 
-      render(
-        <AnnotationPanel
-          isOpen={true}
-          annotations={createTestAnnotations()}
-          blocks={mockBlocks}
-          onSelect={mockSelect}
-          onDelete={mockDelete}
-          selectedId={null}
-        />
-      );
+      render(<AnnotationPanel {...defaultProps} annotations={annotations} />);
 
-      let deletionButton = screen.getByTitle(getFilterButtonTitle(AnnotationType.DELETION, true));
+      const searchInput = screen.getByPlaceholderText('Buscar anotações...');
+      fireEvent.change(searchInput, { target: { value: 'substituir' } });
 
-      // Toggle off
-      fireEvent.click(deletionButton);
-      expect(screen.queryByText('"deleted text"')).toBeNull();
-
-      // Toggle back on - get button with updated title
-      deletionButton = screen.getByTitle(getFilterButtonTitle(AnnotationType.DELETION, false));
-      fireEvent.click(deletionButton);
-      expect(screen.getByText('"deleted text"')).toBeDefined();
-    });
-  });
-
-  describe('Count Updates', () => {
-    test('mostra contagem total quando sem filtro ativo', () => {
-      const mockSelect = mock(() => {});
-      const mockDelete = mock(() => {});
-
-      render(
-        <AnnotationPanel
-          isOpen={true}
-          annotations={createTestAnnotations()}
-          blocks={mockBlocks}
-          onSelect={mockSelect}
-          onDelete={mockDelete}
-          selectedId={null}
-        />
-      );
-
-      // Header should show total count (5 annotations)
-      expect(screen.getByText('5')).toBeDefined();
+      expect(screen.getByText('1 / 2')).toBeDefined();
     });
 
-    test('mostra contagem filtrada/total quando filtro está ativo', () => {
-      const mockSelect = mock(() => {});
-      const mockDelete = mock(() => {});
+    test('filtra por label do tipo (Comentario)', () => {
+      const annotations = [
+        createAnnotation({ id: '1', type: AnnotationType.COMMENT }),
+        createAnnotation({ id: '2', type: AnnotationType.COMMENT }),
+        createAnnotation({ id: '3', type: AnnotationType.DELETION }),
+      ];
 
-      render(
-        <AnnotationPanel
-          isOpen={true}
-          annotations={createTestAnnotations()}
-          blocks={mockBlocks}
-          onSelect={mockSelect}
-          onDelete={mockDelete}
-          selectedId={null}
-        />
-      );
+      render(<AnnotationPanel {...defaultProps} annotations={annotations} />);
 
-      // Toggle off deletion type (removes 1 annotation)
-      const deletionButton = screen.getByTitle(getFilterButtonTitle(AnnotationType.DELETION, true));
-      fireEvent.click(deletionButton);
+      const searchInput = screen.getByPlaceholderText('Buscar anotações...');
+      fireEvent.change(searchInput, { target: { value: 'comentario' } });
 
-      // Should show 4/5 format
-      expect(screen.getByText('4/5')).toBeDefined();
+      expect(screen.getByText('2 / 3')).toBeDefined();
     });
 
-    test('contagem atualiza ao filtrar múltiplos tipos', () => {
-      const mockSelect = mock(() => {});
-      const mockDelete = mock(() => {});
+    test('filtra por label do tipo (Global)', () => {
+      const annotations = [
+        createAnnotation({ id: '1', type: AnnotationType.GLOBAL_COMMENT, isGlobal: true }),
+        createAnnotation({ id: '2', type: AnnotationType.COMMENT }),
+      ];
 
-      render(
-        <AnnotationPanel
-          isOpen={true}
-          annotations={createTestAnnotations()}
-          blocks={mockBlocks}
-          onSelect={mockSelect}
-          onDelete={mockDelete}
-          selectedId={null}
-        />
-      );
+      render(<AnnotationPanel {...defaultProps} annotations={annotations} />);
 
-      // Toggle off deletion and insertion (removes 2 annotations)
-      fireEvent.click(screen.getByTitle(getFilterButtonTitle(AnnotationType.DELETION, true)));
-      fireEvent.click(screen.getByTitle(getFilterButtonTitle(AnnotationType.INSERTION, true)));
+      const searchInput = screen.getByPlaceholderText('Buscar anotações...');
+      fireEvent.change(searchInput, { target: { value: 'global' } });
 
-      // Should show 3/5 format
-      expect(screen.getByText('3/5')).toBeDefined();
+      expect(screen.getByText('1 / 2')).toBeDefined();
     });
 
-    test('contagem volta ao total quando todos filtros são reativados', () => {
-      const mockSelect = mock(() => {});
-      const mockDelete = mock(() => {});
+    test('busca é case-insensitive', () => {
+      const annotations = [
+        createAnnotation({ id: '1', originalText: 'TESTE MAIUSCULO' }),
+        createAnnotation({ id: '2', originalText: 'teste minusculo' }),
+        createAnnotation({ id: '3', originalText: 'TeSte MiXaDo' }),
+      ];
 
-      render(
-        <AnnotationPanel
-          isOpen={true}
-          annotations={createTestAnnotations()}
-          blocks={mockBlocks}
-          onSelect={mockSelect}
-          onDelete={mockDelete}
-          selectedId={null}
-        />
-      );
+      render(<AnnotationPanel {...defaultProps} annotations={annotations} />);
 
-      let deletionButton = screen.getByTitle(getFilterButtonTitle(AnnotationType.DELETION, true));
+      const searchInput = screen.getByPlaceholderText('Buscar anotações...');
 
-      // Toggle off
-      fireEvent.click(deletionButton);
-      expect(screen.getByText('4/5')).toBeDefined();
+      // Search lowercase
+      fireEvent.change(searchInput, { target: { value: 'teste' } });
+      expect(screen.getByText('3 / 3')).toBeDefined();
 
-      // Toggle back on - get button with updated title
-      deletionButton = screen.getByTitle(getFilterButtonTitle(AnnotationType.DELETION, false));
-      fireEvent.click(deletionButton);
-      expect(screen.getByText('5')).toBeDefined();
+      // Search uppercase
+      fireEvent.change(searchInput, { target: { value: 'TESTE' } });
+      expect(screen.getByText('3 / 3')).toBeDefined();
+
+      // Search mixed
+      fireEvent.change(searchInput, { target: { value: 'TeSte' } });
+      expect(screen.getByText('3 / 3')).toBeDefined();
     });
-  });
 
-  describe('Empty State', () => {
-    test('mostra mensagem para adicionar anotações quando lista vazia', () => {
-      const mockSelect = mock(() => {});
-      const mockDelete = mock(() => {});
+    test('query vazia mostra todas as anotações', () => {
+      const annotations = [
+        createAnnotation({ id: '1' }),
+        createAnnotation({ id: '2' }),
+        createAnnotation({ id: '3' }),
+      ];
 
-      render(
-        <AnnotationPanel
-          isOpen={true}
-          annotations={[]}
-          blocks={mockBlocks}
-          onSelect={mockSelect}
-          onDelete={mockDelete}
-          selectedId={null}
-        />
-      );
+      render(<AnnotationPanel {...defaultProps} annotations={annotations} />);
+
+      // Initially shows total count (no search active)
+      expect(screen.getByText('3')).toBeDefined();
+
+      const searchInput = screen.getByPlaceholderText('Buscar anotações...');
+
+      // Type something
+      fireEvent.change(searchInput, { target: { value: 'test' } });
+
+      // Clear the search
+      fireEvent.change(searchInput, { target: { value: '' } });
+
+      // Should show total count again (no filtered format)
+      expect(screen.getByText('3')).toBeDefined();
+    });
+
+    test('query com espaços é tratada corretamente', () => {
+      const annotations = [
+        createAnnotation({ id: '1', originalText: 'primeiro texto' }),
+        createAnnotation({ id: '2', originalText: 'segundo texto' }),
+      ];
+
+      render(<AnnotationPanel {...defaultProps} annotations={annotations} />);
+
+      const searchInput = screen.getByPlaceholderText('Buscar anotações...');
+
+      // Query with leading/trailing spaces should be trimmed
+      fireEvent.change(searchInput, { target: { value: '  primeiro  ' } });
+      expect(screen.getByText('1 / 2')).toBeDefined();
+    });
+
+    test('mostra mensagem quando busca não retorna resultados', () => {
+      const annotations = [
+        createAnnotation({ id: '1', originalText: 'texto existente' }),
+      ];
+
+      render(<AnnotationPanel {...defaultProps} annotations={annotations} />);
+
+      const searchInput = screen.getByPlaceholderText('Buscar anotações...');
+      fireEvent.change(searchInput, { target: { value: 'inexistente' } });
+
+      expect(screen.getByText('Nenhuma anotação encontrada')).toBeDefined();
+      expect(screen.getByText('Tente uma busca diferente')).toBeDefined();
+    });
+
+    test('mostra mensagem diferente quando não há anotações', () => {
+      render(<AnnotationPanel {...defaultProps} annotations={[]} />);
 
       expect(screen.getByText('Selecione texto para adicionar anotações')).toBeDefined();
     });
+
+    test('botão de limpar aparece quando há texto', () => {
+      render(
+        <AnnotationPanel
+          {...defaultProps}
+          annotations={[createAnnotation()]}
+        />
+      );
+
+      const searchInput = screen.getByPlaceholderText('Buscar anotações...');
+
+      // Clear button should not exist initially
+      expect(screen.queryByLabelText('Limpar busca')).toBeNull();
+
+      // Type something
+      fireEvent.change(searchInput, { target: { value: 'test' } });
+
+      // Clear button should appear
+      expect(screen.getByLabelText('Limpar busca')).toBeDefined();
+    });
+
+    test('botão de limpar funciona corretamente', () => {
+      const annotations = [
+        createAnnotation({ id: '1', originalText: 'primeiro' }),
+        createAnnotation({ id: '2', originalText: 'segundo' }),
+      ];
+
+      render(<AnnotationPanel {...defaultProps} annotations={annotations} />);
+
+      const searchInput = screen.getByPlaceholderText('Buscar anotações...');
+
+      // Type to filter
+      fireEvent.change(searchInput, { target: { value: 'primeiro' } });
+      expect(screen.getByText('1 / 2')).toBeDefined();
+
+      // Click clear button
+      const clearButton = screen.getByLabelText('Limpar busca');
+      fireEvent.click(clearButton);
+
+      // Should show all annotations again
+      expect(screen.getByText('2')).toBeDefined();
+      expect((searchInput as HTMLInputElement).value).toBe('');
+    });
   });
 
-  describe('Accessibility', () => {
-    test('botões de filtro têm aria-label descritivo', () => {
-      const mockSelect = mock(() => {});
-      const mockDelete = mock(() => {});
-
-      render(
+  describe('Panel States', () => {
+    test('não renderiza quando isOpen é false', () => {
+      const { container } = render(
         <AnnotationPanel
-          isOpen={true}
-          annotations={createTestAnnotations()}
-          blocks={mockBlocks}
-          onSelect={mockSelect}
-          onDelete={mockDelete}
-          selectedId={null}
+          {...defaultProps}
+          isOpen={false}
+          annotations={[createAnnotation()]}
         />
       );
 
-      // Check active buttons have "Ocultar" and type description in aria-label
-      const deletionConfig = typeConfig[AnnotationType.DELETION];
-      const activeButton = screen.getByTitle(`${deletionConfig.label} (ativo)`);
-      expect(activeButton.getAttribute('aria-label')).toBe(`Ocultar anotações do tipo ${deletionConfig.label}`);
-
-      // Toggle off and check "Mostrar" in aria-label
-      fireEvent.click(activeButton);
-      expect(activeButton.getAttribute('aria-label')).toBe(`Mostrar anotações do tipo ${deletionConfig.label}`);
+      expect(container.innerHTML).toBe('');
     });
 
-    test('botões de filtro são acessíveis por teclado', () => {
-      const mockSelect = mock(() => {});
-      const mockDelete = mock(() => {});
+    test('mostra contador total quando não há busca ativa', () => {
+      const annotations = [
+        createAnnotation({ id: '1' }),
+        createAnnotation({ id: '2' }),
+        createAnnotation({ id: '3' }),
+        createAnnotation({ id: '4' }),
+        createAnnotation({ id: '5' }),
+      ];
 
-      render(
-        <AnnotationPanel
-          isOpen={true}
-          annotations={createTestAnnotations()}
-          blocks={mockBlocks}
-          onSelect={mockSelect}
-          onDelete={mockDelete}
-          selectedId={null}
-        />
-      );
+      render(<AnnotationPanel {...defaultProps} annotations={annotations} />);
 
-      // Filter buttons should be focusable (they are <button> elements)
-      const deletionConfig = typeConfig[AnnotationType.DELETION];
-      const button = screen.getByTitle(`${deletionConfig.label} (ativo)`);
-
-      // Verify button is a proper button element (keyboard accessible by default)
-      expect(button.tagName).toBe('BUTTON');
-      expect(button.getAttribute('type')).toBe('button');
-
-      // Verify button can receive focus
-      button.focus();
-      expect(document.activeElement).toBe(button);
-
-      // Simulate keyboard activation (Enter key triggers click on buttons)
-      fireEvent.keyDown(button, { key: 'Enter', code: 'Enter' });
-      fireEvent.keyUp(button, { key: 'Enter', code: 'Enter' });
-      // Note: fireEvent.click is triggered by Enter/Space on buttons natively,
-      // but we test the state change to verify keyboard interaction works
+      expect(screen.getByText('5')).toBeDefined();
     });
 
-    test('botões de filtro mostram status no title', () => {
-      const mockSelect = mock(() => {});
-      const mockDelete = mock(() => {});
+    test('mostra contador filtrado/total quando busca está ativa', () => {
+      const annotations = [
+        createAnnotation({ id: '1', originalText: 'match' }),
+        createAnnotation({ id: '2', originalText: 'match' }),
+        createAnnotation({ id: '3', originalText: 'other' }),
+      ];
 
-      render(
-        <AnnotationPanel
-          isOpen={true}
-          annotations={createTestAnnotations()}
-          blocks={mockBlocks}
-          onSelect={mockSelect}
-          onDelete={mockDelete}
-          selectedId={null}
-        />
-      );
+      render(<AnnotationPanel {...defaultProps} annotations={annotations} />);
 
-      const deletionConfig = typeConfig[AnnotationType.DELETION];
+      const searchInput = screen.getByPlaceholderText('Buscar anotações...');
+      fireEvent.change(searchInput, { target: { value: 'match' } });
 
-      // Active button shows "(ativo)" in title
-      let button = screen.getByTitle(`${deletionConfig.label} (ativo)`);
-      expect(button).toBeDefined();
-
-      // After toggle, shows "(oculto)" in title
-      fireEvent.click(button);
-      button = screen.getByTitle(`${deletionConfig.label} (oculto)`);
-      expect(button).toBeDefined();
+      expect(screen.getByText('2 / 3')).toBeDefined();
     });
   });
 });

@@ -1,25 +1,25 @@
 {
   "active": true,
-  "spec": "015-missing-content-security-policy-headers",
+  "spec": "016-add-annotation-search-to-panel",
   "state": "building",
   "subtasks": {
-    "completed": 10,
-    "total": 14,
+    "completed": 4,
+    "total": 6,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "HTML Meta Tag Fallback",
+    "current": "UX Enhancements",
     "id": null,
-    "total": 3
+    "total": 2
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 12,
-    "started_at": "2026-01-01T18:52:35.167673"
+    "number": 6,
+    "started_at": "2026-01-02T13:13:52.023198"
   },
-  "last_update": "2026-01-01T20:04:54.965639"
+  "last_update": "2026-01-02T13:32:33.104554"
 }
