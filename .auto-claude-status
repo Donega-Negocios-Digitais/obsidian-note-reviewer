@@ -1,25 +1,25 @@
 {
   "active": true,
-  "spec": "004-add-more-keyboard-shortcuts-save-export-global-com",
+  "spec": "005-add-settings-import-export-as-json",
   "state": "building",
   "subtasks": {
-    "completed": 8,
-    "total": 9,
+    "completed": 0,
+    "total": 0,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Testing and Verification",
+    "current": "SettingsPanel UI Integration",
     "id": null,
-    "total": 2
+    "total": 4
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 10,
-    "started_at": "2026-01-01T18:51:31.222958"
+    "number": 7,
+    "started_at": "2026-01-01T18:51:32.429398"
   },
-  "last_update": "2026-01-01T19:39:52.235573"
+  "last_update": "2026-01-01T19:28:44.390525"
 }
