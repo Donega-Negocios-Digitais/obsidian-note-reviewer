@@ -14,147 +14,33 @@
  */
 
 import { $ } from "bun";
-import path from 'path';
-import os from 'os';
-import { Ratelimit } from '@upstash/ratelimit';
-import { Redis } from '@upstash/redis';
+import { validatePath, validatePathWithAllowedDirs } from "./pathValidation";
+
+// Parse ALLOWED_SAVE_PATHS environment variable for vault restriction (defense-in-depth)
+// Format: comma-separated list of allowed directories, e.g., "/path/to/vault,/another/vault"
+function parseAllowedSavePaths(): string[] {
+  const envValue = process.env.ALLOWED_SAVE_PATHS;
+  if (!envValue || envValue.trim() === "") {
+    return [];
+  }
+  // Split by comma, trim whitespace, filter empty strings
+  return envValue
+    .split(",")
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0);
+}
+
+const allowedSavePaths = parseAllowedSavePaths();
+
+// Log configuration status at startup
+if (allowedSavePaths.length > 0) {
+  console.error(`[Server] [SECURITY] Allowed save paths configured: ${allowedSavePaths.join(", ")}`);
+} else {
+  console.error("[Server] [SECURITY] Warning: ALLOWED_SAVE_PATHS not configured. Files can be saved to any path. Set this environment variable for defense-in-depth.");
+}
 
 // Embed the built HTML at compile time
 import indexHtml from "../dist/index.html" with { type: "text" };
-
-// Security: Allowed directories for file operations
-const ALLOWED_DIRS = [
-  path.join(os.homedir(), 'Documents'),
-  path.join(os.homedir(), 'Obsidian'),
-  path.join(os.homedir(), 'ObsidianVault'),
-  process.env.VAULT_PATH || path.join(os.homedir(), 'vault')
-].filter(Boolean);
-
-/**
- * Security check: Prevents path traversal attacks
- * Only allows writing to specific whitelisted directories
- */
-function isPathSafe(userPath: string): boolean {
-  try {
-    const resolved = path.resolve(userPath);
-    return ALLOWED_DIRS.some(dir => resolved.startsWith(path.resolve(dir)));
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Security: Rate limiting configuration
- * Uses Upstash Redis in production, in-memory fallback for development
- */
-let ratelimit: Ratelimit | null = null;
-
-// In-memory fallback for development (when Upstash credentials not available)
-const inMemoryRateLimitCache = new Map<string, { count: number; resetAt: number }>();
-
-function createRateLimiter(): Ratelimit | null {
-  const upstashUrl = process.env.UPSTASH_REDIS_URL;
-  const upstashToken = process.env.UPSTASH_REDIS_TOKEN;
-
-  if (upstashUrl && upstashToken) {
-    const redis = new Redis({
-      url: upstashUrl,
-      token: upstashToken
-    });
-
-    return new Ratelimit({
-      redis,
-      limiter: Ratelimit.slidingWindow(10, '10 s'), // 10 requests per 10 seconds
-      analytics: true,
-      prefix: '@obsidian-note-reviewer/ratelimit'
-    });
-  }
-
-  console.warn('[Server] ⚠️ Upstash not configured, using in-memory rate limiting (dev only)');
-  return null;
-}
-
-/**
- * Check rate limit for a given identifier (IP address)
- * Returns true if allowed, false if rate limited
- */
-async function checkRateLimit(identifier: string): Promise<boolean> {
-  // Production: Use Upstash
-  if (ratelimit) {
-    const { success } = await ratelimit.limit(identifier);
-    return success;
-  }
-
-  // Development fallback: In-memory rate limiting
-  const now = Date.now();
-  const cached = inMemoryRateLimitCache.get(identifier);
-
-  if (!cached || now > cached.resetAt) {
-    // First request or window expired
-    inMemoryRateLimitCache.set(identifier, {
-      count: 1,
-      resetAt: now + 10000 // 10 seconds window
-    });
-    return true;
-  }
-
-  if (cached.count >= 10) {
-    // Rate limit exceeded
-    return false;
-  }
-
-  // Increment count
-  cached.count++;
-  return true;
-}
-
-// Initialize rate limiter
-ratelimit = createRateLimiter();
-
-/**
- * Security: Add comprehensive security headers to responses
- * Protects against XSS, clickjacking, MIME sniffing, and other attacks
- */
-function addSecurityHeaders(response: Response): Response {
-  const headers = new Headers(response.headers);
-
-  // Content Security Policy - prevents XSS attacks
-  headers.set('Content-Security-Policy',
-    "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " + // Mermaid + React need inline/eval
-    "style-src 'self' 'unsafe-inline'; " +
-    "img-src 'self' data: https:; " +
-    "font-src 'self'; " +
-    "connect-src 'self' http://localhost:* ws://localhost:*; " + // Dev + WebSocket
-    "frame-ancestors 'none';"
-  );
-
-  // Prevent clickjacking attacks
-  headers.set('X-Frame-Options', 'DENY');
-
-  // Prevent MIME type sniffing
-  headers.set('X-Content-Type-Options', 'nosniff');
-
-  // Enable XSS filter in older browsers
-  headers.set('X-XSS-Protection', '1; mode=block');
-
-  // Control referrer information
-  headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-
-  // Disable dangerous browser features
-  headers.set('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
-
-  // HSTS - Force HTTPS (only in production)
-  if (process.env.NODE_ENV === 'production') {
-    headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
-  }
-
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers
-  });
-}
 
 // Read hook event from stdin
 const eventJson = await Bun.stdin.text();
@@ -187,35 +73,15 @@ const server = Bun.serve({
 
     console.log(`[Server] ${req.method} ${url.pathname}`);
 
-    // Security: Rate limiting (except for static assets)
-    if (!url.pathname.startsWith('/assets/') && url.pathname !== '/') {
-      const identifier = req.headers.get('x-forwarded-for') ||
-                        req.headers.get('x-real-ip') ||
-                        'localhost'; // Fallback for development
-
-      const allowed = await checkRateLimit(identifier);
-
-      if (!allowed) {
-        console.warn(`[Server] 🚨 Rate limit exceeded for ${identifier}`);
-        return addSecurityHeaders(Response.json(
-          { error: 'Rate limit exceeded. Please try again later.' },
-          {
-            status: 429,
-            headers: { 'Retry-After': '10' } // Tell client to retry after 10 seconds
-          }
-        ));
-      }
-    }
-
     // API: Get note content
     if (url.pathname === "/api/content" || url.pathname === "/api/plan") {
-      return addSecurityHeaders(Response.json({ content: noteContent, plan: noteContent }));
+      return Response.json({ content: noteContent, plan: noteContent });
     }
 
     // API: Approve note
     if (url.pathname === "/api/approve" && req.method === "POST") {
       resolveDecision({ approved: true });
-      return addSecurityHeaders(Response.json({ ok: true }));
+      return Response.json({ ok: true });
     }
 
     // API: Deny with feedback
@@ -226,7 +92,7 @@ const server = Bun.serve({
       } catch {
         resolveDecision({ approved: false, feedback: "Plan rejected by user" });
       }
-      return addSecurityHeaders(Response.json({ ok: true }));
+      return Response.json({ ok: true });
     }
 
     // API: Save note to vault
@@ -234,194 +100,48 @@ const server = Bun.serve({
       try {
         const body = await req.json() as { content: string; path: string };
 
-        // Security: Validate path to prevent path traversal
-        if (!isPathSafe(body.path)) {
-          console.warn(`[Server] 🚨 Path traversal attempt blocked: ${body.path}`);
-          return addSecurityHeaders(Response.json(
-            { ok: false, error: "Invalid path: access denied" },
-            { status: 403 }
-          ));
+        // Security: Validate path to prevent path traversal attacks (CWE-22)
+        // If ALLOWED_SAVE_PATHS is configured, also validate path is within allowed directories
+        const pathValidation = allowedSavePaths.length > 0
+          ? validatePathWithAllowedDirs(body.path, allowedSavePaths)
+          : validatePath(body.path);
+
+        if (!pathValidation.valid) {
+          console.error(`[Server] [SECURITY] Path validation failed for path: ${pathValidation.error}`);
+          return Response.json(
+            { ok: false, error: pathValidation.error || "Invalid path" },
+            { status: 400 }
+          );
         }
 
         const fs = await import("fs/promises");
         const pathModule = await import("path");
 
+        // Use the normalized path for file operations
+        const safePath = pathValidation.normalizedPath!;
+
         // Ensure directory exists
-        const dir = pathModule.dirname(body.path);
+        const dir = pathModule.dirname(safePath);
         await fs.mkdir(dir, { recursive: true });
 
         // Save file
-        await fs.writeFile(body.path, body.content, "utf-8");
+        await fs.writeFile(safePath, body.content, "utf-8");
 
-        console.log(`[Server] ✅ Nota salva: ${body.path}`);
-        return addSecurityHeaders(Response.json({ ok: true, message: "Nota salva com sucesso", path: body.path }));
+        console.log(`[Server] ✅ Nota salva: ${safePath}`);
+        return Response.json({ ok: true, message: "Nota salva com sucesso", path: safePath });
       } catch (error) {
         console.error(`[Server] ❌ Erro ao salvar:`, error);
-        return addSecurityHeaders(Response.json(
+        return Response.json(
           { ok: false, error: error instanceof Error ? error.message : "Erro ao salvar nota" },
-          { status: 500 }
-        ));
-      }
-    }
-
-    // API: List configuration files
-    if (url.pathname === "/api/config/list" && req.method === "GET") {
-      try {
-        const fs = await import("fs/promises");
-        const pathModule = await import("path");
-
-        // Get project root (2 levels up from server directory)
-        const projectRoot = pathModule.join(import.meta.dir, "../..");
-        const configDir = pathModule.join(projectRoot, "references");
-
-        // Ensure directory exists
-        try {
-          await fs.access(configDir);
-        } catch {
-          return Response.json({ ok: true, files: [] });
-        }
-
-        const files = await fs.readdir(configDir);
-        const mdFiles = files
-          .filter(f => f.endsWith('.md'))
-          .map(f => ({
-            name: f,
-            displayName: f.replace('.md', '').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-            path: pathModule.join(configDir, f)
-          }));
-
-        return Response.json({ ok: true, files: mdFiles });
-      } catch (error) {
-        return Response.json(
-          { ok: false, error: error instanceof Error ? error.message : "Erro ao listar configurações" },
-          { status: 500 }
-        );
-      }
-    }
-
-    // API: Read configuration file
-    if (url.pathname === "/api/config/read" && req.method === "GET") {
-      try {
-        const fileName = url.searchParams.get("file");
-        if (!fileName) {
-          return Response.json(
-            { ok: false, error: "Parâmetro 'file' é obrigatório" },
-            { status: 400 }
-          );
-        }
-
-        const fs = await import("fs/promises");
-        const pathModule = await import("path");
-
-        const projectRoot = pathModule.join(import.meta.dir, "../..");
-        const configDir = pathModule.join(projectRoot, "references");
-        const filePath = pathModule.join(configDir, fileName);
-
-        // Security: Ensure file is within references directory
-        if (!filePath.startsWith(configDir)) {
-          return Response.json(
-            { ok: false, error: "Caminho de arquivo inválido" },
-            { status: 403 }
-          );
-        }
-
-        const content = await fs.readFile(filePath, "utf-8");
-
-        return Response.json({ ok: true, content, fileName });
-      } catch (error) {
-        return Response.json(
-          { ok: false, error: error instanceof Error ? error.message : "Erro ao ler configuração" },
-          { status: 500 }
-        );
-      }
-    }
-
-    // API: Save configuration file
-    if (url.pathname === "/api/config/save" && req.method === "POST") {
-      try {
-        const body = await req.json() as { fileName: string; content: string };
-
-        if (!body.fileName || body.content === undefined) {
-          return Response.json(
-            { ok: false, error: "Parâmetros 'fileName' e 'content' são obrigatórios" },
-            { status: 400 }
-          );
-        }
-
-        const fs = await import("fs/promises");
-        const pathModule = await import("path");
-
-        const projectRoot = pathModule.join(import.meta.dir, "../..");
-        const configDir = pathModule.join(projectRoot, "references");
-        const filePath = pathModule.join(configDir, body.fileName);
-
-        // Security: Ensure file is within references directory
-        if (!filePath.startsWith(configDir)) {
-          return Response.json(
-            { ok: false, error: "Caminho de arquivo inválido" },
-            { status: 403 }
-          );
-        }
-
-        // Ensure directory exists
-        await fs.mkdir(configDir, { recursive: true });
-
-        // Create backup before saving
-        const backupPath = `${filePath}.bak`;
-        try {
-          await fs.access(filePath);
-          await fs.copyFile(filePath, backupPath);
-        } catch {
-          // File doesn't exist yet, skip backup
-        }
-
-        // Save file
-        await fs.writeFile(filePath, body.content, "utf-8");
-
-        return Response.json({ ok: true, message: "Configuração salva com sucesso" });
-      } catch (error) {
-        return Response.json(
-          { ok: false, error: error instanceof Error ? error.message : "Erro ao salvar configuração" },
-          { status: 500 }
-        );
-      }
-    }
-
-    // API: Validate config paths
-    if (url.pathname === "/api/config/validate-paths" && req.method === "POST") {
-      try {
-        const body = await req.json() as { content: string };
-        const fs = await import("fs/promises");
-
-        // Extract paths from content
-        const pathRegex = /(?:template|Template|pasta|Pasta|Atlas|Work)[^\n]*?([A-Z]:[\\\/][^\s`"'\n]+(?:\.md)?)/g;
-        const matches = [...body.content.matchAll(pathRegex)];
-
-        const validationResults: { path: string; exists: boolean }[] = [];
-
-        for (const match of matches) {
-          const path = match[1].replace(/`$/, '');
-          try {
-            await fs.access(path);
-            validationResults.push({ path, exists: true });
-          } catch {
-            validationResults.push({ path, exists: false });
-          }
-        }
-
-        return Response.json({ ok: true, validationResults });
-      } catch (error) {
-        return Response.json(
-          { ok: false, error: error instanceof Error ? error.message : "Erro na validação" },
           { status: 500 }
         );
       }
     }
 
     // Serve embedded HTML for all other routes (SPA)
-    return addSecurityHeaders(new Response(indexHtml, {
+    return new Response(indexHtml, {
       headers: { "Content-Type": "text/html" }
-    }));
+    });
   },
 });
 

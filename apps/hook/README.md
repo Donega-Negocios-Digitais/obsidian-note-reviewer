@@ -69,3 +69,21 @@ When Claude Code calls `ExitPlanMode`, this hook intercepts and:
 2. Lets you annotate the plan visually
 3. Approve → Claude proceeds with implementation
 4. Request changes → Your annotations are sent back to Claude
+
+## Security
+
+The `/api/save` endpoint includes protection against **path traversal attacks** (CWE-22). All file paths are validated before save operations.
+
+### Optional: Restrict Save Locations
+
+For defense-in-depth, set the `ALLOWED_SAVE_PATHS` environment variable to restrict saves to specific directories:
+
+```bash
+# Single vault
+export ALLOWED_SAVE_PATHS="/path/to/your/obsidian/vault"
+
+# Multiple vaults (comma-separated)
+export ALLOWED_SAVE_PATHS="/vault1,/vault2"
+```
+
+See [CONFIGURACAO.md](../../CONFIGURACAO.md) for detailed security documentation.
