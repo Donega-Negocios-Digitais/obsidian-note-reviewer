@@ -1,25 +1,25 @@
 {
   "active": true,
-  "spec": "002-add-json-export-tab-to-exportmodal",
+  "spec": "003-add-annotation-type-filter-to-panel",
   "state": "building",
   "subtasks": {
-    "completed": 3,
-    "total": 7,
+    "completed": 2,
+    "total": 8,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Update ExportModal Component",
+    "current": "Implement Filter Buttons UI",
     "id": null,
-    "total": 4
+    "total": 2
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 5,
-    "started_at": "2026-01-01T18:51:30.304005"
+    "number": 4,
+    "started_at": "2026-01-01T18:51:30.316449"
   },
-  "last_update": "2026-01-01T19:12:30.163134"
+  "last_update": "2026-01-01T19:07:09.393952"
 }
