@@ -1,9 +1,10 @@
-﻿import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+﻿import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { parseMarkdownToBlocks, exportDiff } from '@obsidian-note-reviewer/ui/utils/parser';
 import { Viewer, ViewerHandle } from '@obsidian-note-reviewer/ui/components/Viewer';
 import { AnnotationPanel } from '@obsidian-note-reviewer/ui/components/AnnotationPanel';
 import { ExportModal } from '@obsidian-note-reviewer/ui/components/ExportModal';
 import { GlobalCommentInput } from '@obsidian-note-reviewer/ui/components/GlobalCommentInput';
+import { KeyboardShortcutsModal } from '@obsidian-note-reviewer/ui/components/KeyboardShortcutsModal';
 import { Annotation, Block, EditorMode, AnnotationType } from '@obsidian-note-reviewer/ui/types';
 import { ThemeProvider } from '@obsidian-note-reviewer/ui/components/ThemeProvider';
 import { ModeToggle } from '@obsidian-note-reviewer/ui/components/ModeToggle';
@@ -18,6 +19,7 @@ import {
   setNotePath,
   getNoteType
 } from '@obsidian-note-reviewer/ui/utils/storage';
+import { isInputFocused, formatTooltipWithShortcut } from '@obsidian-note-reviewer/ui/utils/shortcuts';
 import { type TipoNota } from '@obsidian-note-reviewer/ui/utils/notePaths';
 
 const PLAN_CONTENT = `---
@@ -195,6 +197,7 @@ const App: React.FC = () => {
   const [showExport, setShowExport] = useState(false);
   const [showFeedbackPrompt, setShowFeedbackPrompt] = useState(false);
   const [showGlobalCommentModal, setShowGlobalCommentModal] = useState(false);
+  const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
   const [isPanelOpen, setIsPanelOpen] = useState(true);
   const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<EditorMode>('selection');
@@ -288,10 +291,9 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Keyboard shortcuts: Ctrl+Z (undo), Ctrl+S (save), Ctrl+E (export), Ctrl+G (global comment)
+  // Ctrl+Z to undo last annotation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl+Z: Undo last annotation
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
         e.preventDefault();
         if (annotationHistory.length > 0) {
@@ -304,31 +306,29 @@ const App: React.FC = () => {
           viewerRef.current?.removeHighlight(lastAnnotationId);
         }
       }
+    };
 
-      // Ctrl+S: Save to Vault
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-        e.preventDefault();
-        if (savePath && !isSaving) {
-          handleSaveToVault();
-        }
-      }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [annotationHistory]);
 
-      // Ctrl+E: Open Export Modal
-      if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
-        e.preventDefault();
-        setShowExport(true);
-      }
+  // '?' key or Cmd/Ctrl+? to open keyboard shortcuts modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger when focused on input/textarea elements
+      if (isInputFocused()) return;
 
-      // Ctrl+G: Open Global Comment Modal
-      if ((e.ctrlKey || e.metaKey) && e.key === 'g') {
+      // Check for '?' key (Shift+/ on most keyboards)
+      // Also support Cmd+? or Ctrl+?
+      if (e.key === '?') {
         e.preventDefault();
-        setShowGlobalCommentModal(true);
+        setShowKeyboardShortcuts(true);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [annotationHistory, savePath, isSaving, handleSaveToVault]);
+  }, []);
 
   // API mode handlers
   const handleApprove = async () => {
@@ -425,9 +425,7 @@ const App: React.FC = () => {
     }).join('\n\n');
   };
 
-  const diffOutput = useMemo(() => exportDiff(blocks, annotations), [blocks, annotations]);
-
-  const handleSaveToVault = useCallback(async () => {
+  const handleSaveToVault = async () => {
     if (!savePath.trim()) {
       setSaveError('Configure o caminho nas configurações');
       return;
@@ -492,7 +490,9 @@ const App: React.FC = () => {
     } finally {
       setIsSaving(false);
     }
-  }, [savePath, annotations, blocks, diffOutput, isApiMode]);
+  };
+
+  const diffOutput = useMemo(() => exportDiff(blocks, annotations), [blocks, annotations]);
 
   return (
     <ThemeProvider defaultTheme="dark">
@@ -509,21 +509,8 @@ const App: React.FC = () => {
           />
         ) : (
           <>
-        {/* Status message region for screen reader announcements */}
-        <div
-          role="status"
-          aria-live="polite"
-          aria-atomic="true"
-          className="sr-only"
-        >
-          {saveError && `Erro: ${saveError}`}
-          {isSaving && 'Salvando nota...'}
-          {submitted === 'approved' && 'Nota aprovada com sucesso'}
-          {submitted === 'denied' && 'Alterações solicitadas com sucesso'}
-        </div>
-
         {/* Minimal Header */}
-        <header role="banner" className="h-12 flex items-center justify-between px-2 md:px-4 border-b border-border/50 bg-card/50 backdrop-blur-xl z-50">
+        <header className="h-12 flex items-center justify-between px-2 md:px-4 border-b border-border/50 bg-card/50 backdrop-blur-xl z-50">
           <div className="flex items-center gap-2 md:gap-3">
             <a
               href="https://plannotator.ai"
@@ -556,7 +543,6 @@ const App: React.FC = () => {
                       : 'bg-accent/15 text-accent hover:bg-accent/25 border border-accent/30'
                   }`}
                   title="Solicitar Alterações"
-                  aria-label="Solicitar alterações na nota"
                 >
                   <svg className="w-4 h-4 md:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -572,7 +558,7 @@ const App: React.FC = () => {
                       ? 'opacity-50 cursor-not-allowed bg-muted text-muted-foreground'
                       : 'bg-green-600 text-white hover:bg-green-500'
                   }`}
-                  aria-label="Aprovar nota e continuar"
+                  title="Aprovar Nota"
                 >
                   <span className="md:hidden">{isSubmitting ? '...' : 'OK'}</span>
                   <span className="hidden md:inline">{isSubmitting ? 'Aprovando...' : 'Aprovar'}</span>
@@ -600,13 +586,6 @@ const App: React.FC = () => {
                 !savePath
                   ? 'Configure o caminho nas configurações'
                   : annotations.length > 0
-                    ? 'Fazer alterações no Claude Code (Ctrl+S)'
-                    : 'Salvar nota no Obsidian (Ctrl+S)'
-              }
-              aria-label={
-                !savePath
-                  ? 'Botão desabilitado - configure o caminho nas configurações'
-                  : annotations.length > 0
                     ? 'Fazer alterações no Claude Code'
                     : 'Salvar nota no Obsidian'
               }
@@ -617,7 +596,6 @@ const App: React.FC = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                   </svg>
                   <span className="hidden md:inline">{isSaving ? 'Processando...' : 'Fazer Alterações'}</span>
-                  <kbd className="hidden md:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono bg-background/50 border border-current/20 rounded opacity-60">Ctrl+S</kbd>
                 </>
               ) : (
                 <>
@@ -625,30 +603,31 @@ const App: React.FC = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
                   </svg>
                   <span className="hidden md:inline">{isSaving ? 'Salvando...' : 'Salvar no Obsidian'}</span>
-                  <kbd className="hidden md:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono bg-background/50 border border-current/20 rounded opacity-60">Ctrl+S</kbd>
                 </>
               )}
             </button>
 
             <button
               onClick={() => setShowGlobalCommentModal(true)}
-<<<<<<< HEAD
-              className="flex items-center gap-2 p-1.5 md:px-2.5 md:py-1 rounded-md text-xs font-medium bg-blue-500/20 text-blue-600 hover:bg-blue-500/30 border border-blue-500/40 transition-all"
-              title="Adicionar Comentário Global (Ctrl+G)"
-=======
               className="p-1.5 md:px-2.5 md:py-1 rounded-md text-xs font-medium bg-blue-500/20 text-blue-600 hover:bg-blue-500/30 border border-blue-500/40 transition-all"
               title="Adicionar Comentário Global"
-              aria-label="Adicionar comentário global à nota"
->>>>>>> auto-claude/006-add-comprehensive-aria-labels-and-roles-for-access
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <span className="hidden md:inline">Comentário Global</span>
-              <kbd className="hidden md:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono bg-background/50 border border-current/20 rounded opacity-60">Ctrl+G</kbd>
             </button>
 
             <ModeToggle />
+            <button
+              onClick={() => setShowKeyboardShortcuts(true)}
+              className="p-1.5 rounded-md text-xs font-medium transition-all text-muted-foreground hover:text-foreground hover:bg-muted"
+              title={formatTooltipWithShortcut('Atalhos de Teclado', 'show-shortcuts')}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </button>
             <button
               onClick={() => setIsSettingsPanelOpen(!isSettingsPanelOpen)}
               className={`p-1.5 rounded-md text-xs font-medium transition-all ${
@@ -657,8 +636,6 @@ const App: React.FC = () => {
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted'
               }`}
               title="Configurações"
-              aria-label="Abrir configurações"
-              aria-expanded={isSettingsPanelOpen}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -673,8 +650,7 @@ const App: React.FC = () => {
                   ? 'bg-primary/15 text-primary'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted'
               }`}
-              aria-label={isPanelOpen ? 'Fechar painel de anotações' : 'Abrir painel de anotações'}
-              aria-expanded={isPanelOpen}
+              title={isPanelOpen ? 'Ocultar Painel de Anotações' : 'Mostrar Painel de Anotações'}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
@@ -683,20 +659,13 @@ const App: React.FC = () => {
 
             <button
               onClick={() => setShowExport(true)}
-<<<<<<< HEAD
-              className="flex items-center gap-2 p-1.5 md:px-2.5 md:py-1 rounded-md text-xs font-medium bg-muted hover:bg-muted/80 transition-colors"
-              title="Exportar (Ctrl+E)"
-=======
               className="p-1.5 md:px-2.5 md:py-1 rounded-md text-xs font-medium bg-muted hover:bg-muted/80 transition-colors"
               title="Exportar"
-              aria-label="Exportar nota e anotações"
->>>>>>> auto-claude/006-add-comprehensive-aria-labels-and-roles-for-access
             >
               <svg className="w-4 h-4 md:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
               </svg>
               <span className="hidden md:inline">Exportar</span>
-              <kbd className="hidden md:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono bg-background/50 border border-current/20 rounded opacity-60">Ctrl+E</kbd>
             </button>
           </div>
         </header>
@@ -704,7 +673,7 @@ const App: React.FC = () => {
         {/* Main Content */}
         <div className="flex-1 flex overflow-hidden">
           {/* Document Area */}
-          <main role="main" aria-label="Área principal do documento" className="flex-1 overflow-y-auto bg-grid">
+          <main className="flex-1 overflow-y-auto bg-grid">
             <div className="min-h-full flex flex-col items-center p-3 md:p-8">
               {/* Mode Switcher */}
               <div className="w-full max-w-3xl mb-3 md:mb-4 flex justify-start">
@@ -755,22 +724,23 @@ const App: React.FC = () => {
           onSubmit={handleAddGlobalComment}
         />
 
+        {/* Keyboard Shortcuts Modal */}
+        <KeyboardShortcutsModal
+          isOpen={showKeyboardShortcuts}
+          onClose={() => setShowKeyboardShortcuts(false)}
+        />
+
         {/* Feedback prompt dialog */}
         {showFeedbackPrompt && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="feedback-prompt-title"
-          >
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
             <div className="bg-card border border-border rounded-xl w-full max-w-sm shadow-2xl p-6">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center">
-                  <svg className="w-5 h-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                  <svg className="w-5 h-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
                   </svg>
                 </div>
-                <h3 id="feedback-prompt-title" className="font-semibold">Adicione Anotações</h3>
+                <h3 className="font-semibold">Adicione Anotações</h3>
               </div>
               <p className="text-sm text-muted-foreground mb-6">
                 Para solicitar alterações, selecione texto na nota e adicione anotações.
@@ -779,7 +749,6 @@ const App: React.FC = () => {
                 <button
                   onClick={() => setShowFeedbackPrompt(false)}
                   className="px-4 py-2 rounded-md text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
-                  aria-label="Fechar aviso e continuar"
                 >
                   Entendi
                 </button>
@@ -790,13 +759,7 @@ const App: React.FC = () => {
 
         {/* Completion overlay - shown after approve/deny */}
         {submitted && (
-          <div
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="completion-overlay-title"
-            aria-describedby="completion-overlay-description"
-            className="fixed inset-0 z-[100] bg-background flex items-center justify-center"
-          >
+          <div className="fixed inset-0 z-[100] bg-background flex items-center justify-center">
             <div className="text-center space-y-6 max-w-md px-8">
               <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center ${
                 submitted === 'approved'
@@ -804,21 +767,21 @@ const App: React.FC = () => {
                   : 'bg-accent/20 text-accent'
               }`}>
                 {submitted === 'approved' ? (
-                  <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
+                  <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
                 ) : (
-                  <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
+                  <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                   </svg>
                 )}
               </div>
 
               <div className="space-y-2">
-                <h2 id="completion-overlay-title" className="text-xl font-semibold text-foreground">
+                <h2 className="text-xl font-semibold text-foreground">
                   {submitted === 'approved' ? 'Nota Aprovada' : 'Alterações Solicitadas'}
                 </h2>
-                <p id="completion-overlay-description" className="text-muted-foreground">
+                <p className="text-muted-foreground">
                   {submitted === 'approved'
                     ? 'A nota será salva no Obsidian.'
                     : 'Claude irá revisar a nota com base nas suas anotações.'}

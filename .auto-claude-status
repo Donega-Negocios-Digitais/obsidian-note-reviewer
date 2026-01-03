@@ -1,15 +1,15 @@
 {
   "active": true,
-  "spec": "009-implement-proper-focus-trapping-in-modal-dialogs",
+  "spec": "010-add-keyboard-shortcuts-panel-and-improve-shortcut-",
   "state": "complete",
   "subtasks": {
-    "completed": 18,
-    "total": 18,
+    "completed": 9,
+    "total": 9,
     "in_progress": 0,
     "failed": 0
   },
   "phase": {
-    "current": "Integration Testing and Documentation",
+    "current": "Testing and Polish",
     "id": null,
     "total": 3
   },
@@ -18,8 +18,8 @@
     "max": 1
   },
   "session": {
-    "number": 13,
-    "started_at": "2026-01-01T19:34:39.860752"
+    "number": 10,
+    "started_at": "2026-01-01T18:51:57.790242"
   },
-  "last_update": "2026-01-01T20:26:25.721105"
+  "last_update": "2026-01-01T19:59:34.225438"
 }
