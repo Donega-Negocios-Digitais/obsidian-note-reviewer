@@ -1,0 +1,9 @@
+{
+  "name": "@obsidian-note-reviewer/security",
+  "version": "0.0.1",
+  "type": "module",
+  "exports": {
+    "./csp": "./csp.ts",
+    "./vite-plugin-csp": "./vite-plugin-csp.ts"
+  }
+}

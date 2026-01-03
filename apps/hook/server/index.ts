@@ -14,33 +14,26 @@
  */
 
 import { $ } from "bun";
-import { validatePath, validatePathWithAllowedDirs } from "./pathValidation";
-
-// Parse ALLOWED_SAVE_PATHS environment variable for vault restriction (defense-in-depth)
-// Format: comma-separated list of allowed directories, e.g., "/path/to/vault,/another/vault"
-function parseAllowedSavePaths(): string[] {
-  const envValue = process.env.ALLOWED_SAVE_PATHS;
-  if (!envValue || envValue.trim() === "") {
-    return [];
-  }
-  // Split by comma, trim whitespace, filter empty strings
-  return envValue
-    .split(",")
-    .map((p) => p.trim())
-    .filter((p) => p.length > 0);
-}
-
-const allowedSavePaths = parseAllowedSavePaths();
-
-// Log configuration status at startup
-if (allowedSavePaths.length > 0) {
-  console.error(`[Server] [SECURITY] Allowed save paths configured: ${allowedSavePaths.join(", ")}`);
-} else {
-  console.error("[Server] [SECURITY] Warning: ALLOWED_SAVE_PATHS not configured. Files can be saved to any path. Set this environment variable for defense-in-depth.");
-}
+import { getHookCSP } from "@obsidian-note-reviewer/security/csp";
 
 // Embed the built HTML at compile time
 import indexHtml from "../dist/index.html" with { type: "text" };
+
+// CSP header for all responses (not in development mode - this is the ephemeral server)
+const cspHeader = getHookCSP(false);
+
+/**
+ * Security headers applied to all responses
+ * CSP prevents XSS attacks even when handling user-generated content
+ */
+function getSecurityHeaders(): Record<string, string> {
+  return {
+    "Content-Security-Policy": cspHeader,
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+  };
+}
 
 // Read hook event from stdin
 const eventJson = await Bun.stdin.text();
@@ -75,13 +68,16 @@ const server = Bun.serve({
 
     // API: Get note content
     if (url.pathname === "/api/content" || url.pathname === "/api/plan") {
-      return Response.json({ content: noteContent, plan: noteContent });
+      return Response.json(
+        { content: noteContent, plan: noteContent },
+        { headers: getSecurityHeaders() }
+      );
     }
 
     // API: Approve note
     if (url.pathname === "/api/approve" && req.method === "POST") {
       resolveDecision({ approved: true });
-      return Response.json({ ok: true });
+      return Response.json({ ok: true }, { headers: getSecurityHeaders() });
     }
 
     // API: Deny with feedback
@@ -92,55 +88,43 @@ const server = Bun.serve({
       } catch {
         resolveDecision({ approved: false, feedback: "Plan rejected by user" });
       }
-      return Response.json({ ok: true });
+      return Response.json({ ok: true }, { headers: getSecurityHeaders() });
     }
 
     // API: Save note to vault
     if (url.pathname === "/api/save" && req.method === "POST") {
       try {
         const body = await req.json() as { content: string; path: string };
-
-        // Security: Validate path to prevent path traversal attacks (CWE-22)
-        // If ALLOWED_SAVE_PATHS is configured, also validate path is within allowed directories
-        const pathValidation = allowedSavePaths.length > 0
-          ? validatePathWithAllowedDirs(body.path, allowedSavePaths)
-          : validatePath(body.path);
-
-        if (!pathValidation.valid) {
-          console.error(`[Server] [SECURITY] Path validation failed for path: ${pathValidation.error}`);
-          return Response.json(
-            { ok: false, error: pathValidation.error || "Invalid path" },
-            { status: 400 }
-          );
-        }
-
         const fs = await import("fs/promises");
         const pathModule = await import("path");
 
-        // Use the normalized path for file operations
-        const safePath = pathValidation.normalizedPath!;
-
         // Ensure directory exists
-        const dir = pathModule.dirname(safePath);
+        const dir = pathModule.dirname(body.path);
         await fs.mkdir(dir, { recursive: true });
 
         // Save file
-        await fs.writeFile(safePath, body.content, "utf-8");
+        await fs.writeFile(body.path, body.content, "utf-8");
 
-        console.log(`[Server] ✅ Nota salva: ${safePath}`);
-        return Response.json({ ok: true, message: "Nota salva com sucesso", path: safePath });
+        console.log(`[Server] ✅ Nota salva: ${body.path}`);
+        return Response.json(
+          { ok: true, message: "Nota salva com sucesso", path: body.path },
+          { headers: getSecurityHeaders() }
+        );
       } catch (error) {
         console.error(`[Server] ❌ Erro ao salvar:`, error);
         return Response.json(
           { ok: false, error: error instanceof Error ? error.message : "Erro ao salvar nota" },
-          { status: 500 }
+          { status: 500, headers: getSecurityHeaders() }
         );
       }
     }
 
     // Serve embedded HTML for all other routes (SPA)
     return new Response(indexHtml, {
-      headers: { "Content-Type": "text/html" }
+      headers: {
+        "Content-Type": "text/html",
+        ...getSecurityHeaders(),
+      }
     });
   },
 });

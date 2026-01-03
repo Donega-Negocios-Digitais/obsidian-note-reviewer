@@ -1,11 +1,32 @@
 /**
  * Development server for Obsidian Note Reviewer Portal
  * Serves config API endpoints for local development
+ *
+ * Security: This server includes CSP headers on all API responses.
+ * While the main Vite dev server handles CSP for HTML/static assets,
+ * this API server also enforces security headers for defense-in-depth.
  */
 
 import { join } from "path";
+import { getPortalCSP } from "@obsidian-note-reviewer/security/csp";
 
 const projectRoot = join(import.meta.dir, "../..");
+
+// CSP header for API responses (development mode)
+const cspHeader = getPortalCSP(true);
+
+/**
+ * Security headers applied to all API responses
+ * CSP prevents XSS attacks even when handling user-generated content
+ */
+function getSecurityHeaders(): Record<string, string> {
+  return {
+    "Content-Security-Policy": cspHeader,
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+  };
+}
 
 const server = Bun.serve({
   port: 3002,
@@ -28,7 +49,7 @@ const server = Bun.serve({
         try {
           await fs.access(configDir);
         } catch {
-          return Response.json({ ok: true, files: [] });
+          return Response.json({ ok: true, files: [] }, { headers: getSecurityHeaders() });
         }
 
         const files = await fs.readdir(configDir);
@@ -40,11 +61,11 @@ const server = Bun.serve({
             path: pathModule.join(configDir, f)
           }));
 
-        return Response.json({ ok: true, files: mdFiles });
+        return Response.json({ ok: true, files: mdFiles }, { headers: getSecurityHeaders() });
       } catch (error) {
         return Response.json(
           { ok: false, error: error instanceof Error ? error.message : "Erro ao listar configurações" },
-          { status: 500 }
+          { status: 500, headers: getSecurityHeaders() }
         );
       }
     }
@@ -56,7 +77,7 @@ const server = Bun.serve({
         if (!fileName) {
           return Response.json(
             { ok: false, error: "Parâmetro 'file' é obrigatório" },
-            { status: 400 }
+            { status: 400, headers: getSecurityHeaders() }
           );
         }
 
@@ -70,17 +91,17 @@ const server = Bun.serve({
         if (!filePath.startsWith(configDir)) {
           return Response.json(
             { ok: false, error: "Caminho de arquivo inválido" },
-            { status: 403 }
+            { status: 403, headers: getSecurityHeaders() }
           );
         }
 
         const content = await fs.readFile(filePath, "utf-8");
 
-        return Response.json({ ok: true, content, fileName });
+        return Response.json({ ok: true, content, fileName }, { headers: getSecurityHeaders() });
       } catch (error) {
         return Response.json(
           { ok: false, error: error instanceof Error ? error.message : "Erro ao ler configuração" },
-          { status: 500 }
+          { status: 500, headers: getSecurityHeaders() }
         );
       }
     }
@@ -93,7 +114,7 @@ const server = Bun.serve({
         if (!body.fileName || body.content === undefined) {
           return Response.json(
             { ok: false, error: "Parâmetros 'fileName' e 'content' são obrigatórios" },
-            { status: 400 }
+            { status: 400, headers: getSecurityHeaders() }
           );
         }
 
@@ -107,7 +128,7 @@ const server = Bun.serve({
         if (!filePath.startsWith(configDir)) {
           return Response.json(
             { ok: false, error: "Caminho de arquivo inválido" },
-            { status: 403 }
+            { status: 403, headers: getSecurityHeaders() }
           );
         }
 
@@ -128,11 +149,11 @@ const server = Bun.serve({
         // Save file
         await fs.writeFile(filePath, body.content, "utf-8");
 
-        return Response.json({ ok: true, message: "Configuração salva com sucesso" });
+        return Response.json({ ok: true, message: "Configuração salva com sucesso" }, { headers: getSecurityHeaders() });
       } catch (error) {
         return Response.json(
           { ok: false, error: error instanceof Error ? error.message : "Erro ao salvar configuração" },
-          { status: 500 }
+          { status: 500, headers: getSecurityHeaders() }
         );
       }
     }
@@ -159,16 +180,16 @@ const server = Bun.serve({
           }
         }
 
-        return Response.json({ ok: true, validationResults });
+        return Response.json({ ok: true, validationResults }, { headers: getSecurityHeaders() });
       } catch (error) {
         return Response.json(
           { ok: false, error: error instanceof Error ? error.message : "Erro na validação" },
-          { status: 500 }
+          { status: 500, headers: getSecurityHeaders() }
         );
       }
     }
 
-    return Response.json({ ok: false, error: "Not found" }, { status: 404 });
+    return Response.json({ ok: false, error: "Not found" }, { status: 404, headers: getSecurityHeaders() });
   },
 });
 

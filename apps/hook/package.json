@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@obsidian-note-reviewer/editor": "workspace:*",
+    "@obsidian-note-reviewer/security": "workspace:*",
     "@obsidian-note-reviewer/ui": "workspace:*",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
