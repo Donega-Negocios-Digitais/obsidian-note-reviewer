@@ -187,8 +187,38 @@ pre code.hljs {
   transition-duration: 150ms;
 }
 
-/* Focus states */
+/* Focus states - Enhanced for keyboard navigation accessibility */
+/* Remove default outline for mouse users */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Global focus-visible rule for all elements */
 :focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Specific selectors for interactive elements to ensure consistent focus rings */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible,
+[role="tab"]:focus-visible,
+[role="link"]:focus-visible,
+[role="menuitem"]:focus-visible,
+[tabindex]:focus-visible:not([tabindex="-1"]) {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Ensure focus ring is visible against various backgrounds */
+.bg-background button:focus-visible,
+.bg-card button:focus-visible,
+.bg-muted button:focus-visible,
+.bg-popover button:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
 }

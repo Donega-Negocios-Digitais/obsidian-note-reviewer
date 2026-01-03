@@ -20,7 +20,7 @@ export function ModeToggle() {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+        className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         title="Toggle theme"
         aria-label="Alternar tema"
         aria-haspopup="menu"
@@ -61,7 +61,7 @@ export function ModeToggle() {
             <button
               key={t}
               onClick={() => { setTheme(t); setIsOpen(false); }}
-              className={`w-full px-3 py-1.5 text-left text-xs capitalize transition-colors ${
+              className={`w-full px-3 py-1.5 text-left text-xs capitalize transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none ${
                 theme === t
                   ? 'text-primary bg-primary/10 font-medium'
                   : 'text-popover-foreground hover:bg-muted'

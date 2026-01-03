@@ -234,8 +234,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     );
   };
 
-  console.log('[SettingsPanel] Rendering - isOpen:', isOpen, 'activeTab:', activeTab);
-
   return (
     <div className="w-full h-full bg-background flex flex-col overflow-hidden">
       {/* Header */}
@@ -272,7 +270,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             />
             <button
               onClick={handleLoadDefaults}
-              className="px-2 py-1 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-md transition-colors flex items-center gap-1"
+              className="px-2 py-1 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-md transition-colors flex items-center gap-1 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               title="Carregar valores padrão"
               aria-label="Carregar valores padrão"
             >
@@ -284,7 +282,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             {onClose && (
               <button
                 onClick={onClose}
-                className="p-1.5 text-muted-foreground hover:text-foreground transition-colors"
+                className="p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 title="Fechar configurações"
                 aria-label="Fechar configurações"
               >
@@ -310,7 +308,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               aria-controls={`settings-panel-content-${id}`}
               onClick={() => setActiveTab(id)}
               className={`
-                flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-all relative whitespace-nowrap
+                flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-all relative whitespace-nowrap rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none
                 ${activeTab === id
                   ? 'text-primary border-b-2 border-primary'
                   : 'text-muted-foreground hover:text-foreground'
@@ -355,8 +353,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 </div>
                 <button
                   onClick={handleRegenerateIdentity}
+<<<<<<< HEAD
                   className="w-full px-2 py-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-md transition-colors"
                   aria-label="Gerar nova identidade de revisor"
+=======
+                  className="w-full px-2 py-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+>>>>>>> auto-claude/007-add-visible-focus-indicators-for-keyboard-navigati
                 >
                   Gerar Nova Identidade
                 </button>

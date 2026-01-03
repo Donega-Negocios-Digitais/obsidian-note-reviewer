@@ -85,11 +85,15 @@ export const GlobalCommentInput: React.FC<GlobalCommentInputProps> = ({
             <button
               onClick={onClose}
 <<<<<<< HEAD
+<<<<<<< HEAD
               className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
 =======
               aria-label="Fechar modal de comentário global"
               className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
 >>>>>>> auto-claude/006-add-comprehensive-aria-labels-and-roles-for-access
+=======
+              className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+>>>>>>> auto-claude/007-add-visible-focus-indicators-for-keyboard-navigati
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -140,16 +144,24 @@ export const GlobalCommentInput: React.FC<GlobalCommentInputProps> = ({
         <div className="p-4 border-t border-border flex justify-end gap-2">
           <button
             onClick={onClose}
+<<<<<<< HEAD
             aria-label="Cancelar e fechar modal"
             className="px-4 py-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+=======
+            className="px-4 py-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+>>>>>>> auto-claude/007-add-visible-focus-indicators-for-keyboard-navigati
           >
             Cancelar
           </button>
           <button
             onClick={handleSubmit}
             disabled={!comment.trim()}
+<<<<<<< HEAD
             aria-label="Adicionar comentário global ao documento"
             className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+=======
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
+>>>>>>> auto-claude/007-add-visible-focus-indicators-for-keyboard-navigati
               comment.trim()
                 ? 'bg-blue-500 text-white hover:bg-blue-600'
                 : 'bg-muted text-muted-foreground cursor-not-allowed'

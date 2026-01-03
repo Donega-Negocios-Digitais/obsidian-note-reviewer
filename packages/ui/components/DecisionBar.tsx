@@ -103,6 +103,7 @@ export const DecisionBar: React.FC<DecisionBarProps> = ({
             aria-label="Solicitar alterações na nota"
             className={`
               px-4 py-2 rounded-lg text-sm font-medium transition-all
+              focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none
               ${isSubmitting
                 ? 'opacity-50 cursor-not-allowed bg-muted text-muted-foreground'
                 : 'bg-accent/15 text-accent hover:bg-accent/25 border border-accent/30'
@@ -118,6 +119,7 @@ export const DecisionBar: React.FC<DecisionBarProps> = ({
             aria-label="Aprovar nota e salvar no Obsidian"
             className={`
               px-4 py-2 rounded-lg text-sm font-medium transition-all
+              focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none
               ${isSubmitting
                 ? 'opacity-50 cursor-not-allowed bg-muted text-muted-foreground'
                 : 'bg-green-600 text-white hover:bg-green-500'
