@@ -63,9 +63,10 @@ export function isPathTraversal(inputPath: string): boolean {
     /%252e/i,                  // Double encoded dot
     /\.%c0%ae/i,               // Unicode overlong encoding for .
     /%c0%ae\./i,               // Unicode overlong encoding for .
-    /%c0%ae%c0%ae/i,           // Double Unicode overlong
-    /\.%e0%80%ae/i,            // 3-byte Unicode overlong
-    /%e0%80%ae\./i,            // 3-byte Unicode overlong
+    /%c0%ae%c0%ae/i,           // Double Unicode overlong (2-byte)
+    /\.%e0%80%ae/i,            // 3-byte Unicode overlong mixed
+    /%e0%80%ae\./i,            // 3-byte Unicode overlong mixed
+    /%e0%80%ae%e0%80%ae/i,     // Double 3-byte Unicode overlong
   ];
 
   // Test against original input for encoded patterns

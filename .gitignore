@@ -28,8 +28,26 @@ dist-ssr
 
 # Auto Claude data directory
 .auto-claude/
+.auto-claude-status
+.claude_settings.json
+
+# Temporary files
+.temp/
+
+# MCP config (contains sensitive tokens)
+.mcp.json
+
+# Environment variables
+.env
+.env.local
+.env.*.local
 
 # Executables
 *.exe
 obsreview.exe
 obsidian-note-reviewer.exe
+
+# Project-specific folders
+Documentação Alex/
+12-weeks-transformation/
+.context/

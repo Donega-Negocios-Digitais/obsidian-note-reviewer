@@ -34,6 +34,8 @@ CREATE TABLE notes (
   created_by UUID REFERENCES users(id) ON DELETE SET NULL,
   updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
   is_public BOOLEAN NOT NULL DEFAULT false,
+  is_archived BOOLEAN NOT NULL DEFAULT false,
+  archived_at TIMESTAMPTZ,
   share_hash TEXT UNIQUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

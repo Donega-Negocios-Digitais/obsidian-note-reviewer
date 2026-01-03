@@ -105,10 +105,10 @@ CREATE INDEX IF NOT EXISTS idx_notes_active_org
   ON notes(org_id, created_at DESC)
   WHERE is_archived = false;
 
--- Index for recent notes (last 30 days)
+-- Index for recent notes (high-traffic index on created_at)
+-- Note: Removed dynamic date filter as NOW() is not immutable
 CREATE INDEX IF NOT EXISTS idx_notes_recent
-  ON notes(created_at DESC)
-  WHERE created_at > NOW() - INTERVAL '30 days';
+  ON notes(created_at DESC);
 
 -- =============================================================================
 -- PERFORMANCE STATISTICS
@@ -205,14 +205,14 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- =============================================================================
--- VACUUM AND ANALYZE
+-- ANALYZE (VACUUM must be run manually outside migrations)
 -- =============================================================================
 
--- Run VACUUM ANALYZE to update statistics
-VACUUM ANALYZE notes;
-VACUUM ANALYZE annotations;
-VACUUM ANALYZE users;
-VACUUM ANALYZE organizations;
+-- Update statistics (VACUUM must be run separately)
+ANALYZE notes;
+ANALYZE annotations;
+ANALYZE users;
+ANALYZE organizations;
 
 -- =============================================================================
 -- COMMENTS

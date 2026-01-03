@@ -22,6 +22,17 @@ export interface NoteConfig {
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
 
 /**
+ * Check if we're in a secure context (HTTPS or localhost)
+ */
+export function isSecureContext(): boolean {
+  try {
+    return window.isSecureContext ?? false;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Get a value from cookie storage
  */
 export function getItem(key: string): string | null {
