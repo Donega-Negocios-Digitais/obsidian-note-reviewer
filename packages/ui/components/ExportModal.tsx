@@ -5,7 +5,8 @@
  * Raw Diff tab: Shows human-readable diff output with copy/download
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { Annotation } from '../types';
 
 interface ExportModalProps {
   isOpen: boolean;
@@ -14,10 +15,11 @@ interface ExportModalProps {
   shareUrlSize: string;
   diffOutput: string;
   annotationCount: number;
+  annotations: Annotation[];
   taterSprite?: React.ReactNode;
 }
 
-type Tab = 'share' | 'diff';
+type Tab = 'share' | 'diff' | 'json';
 
 export const ExportModal: React.FC<ExportModalProps> = ({
   isOpen,
@@ -26,10 +28,33 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   shareUrlSize,
   diffOutput,
   annotationCount,
+  annotations,
   taterSprite,
 }) => {
   const [activeTab, setActiveTab] = useState<Tab>('share');
   const [copied, setCopied] = useState(false);
+
+  const jsonOutput = useMemo(() => {
+    const exportData = annotations.map(annotation => {
+      const entry: {
+        type: string;
+        originalText: string;
+        text?: string;
+        author?: string;
+      } = {
+        type: annotation.type,
+        originalText: annotation.originalText,
+      };
+      if (annotation.text) {
+        entry.text = annotation.text;
+      }
+      if (annotation.author) {
+        entry.author = annotation.author;
+      }
+      return entry;
+    });
+    return JSON.stringify(exportData, null, 2);
+  }, [annotations]);
 
   if (!isOpen) return null;
 
@@ -59,6 +84,26 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     const a = document.createElement('a');
     a.href = url;
     a.download = 'annotations.diff';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleCopyJson = async () => {
+    try {
+      await navigator.clipboard.writeText(jsonOutput);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (e) {
+      console.error('Failed to copy:', e);
+    }
+  };
+
+  const handleDownloadJson = () => {
+    const blob = new Blob([jsonOutput], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'annotations.json';
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -115,10 +160,20 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             >
               Diff Bruto
             </button>
+            <button
+              onClick={() => setActiveTab('json')}
+              className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                activeTab === 'json'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              JSON
+            </button>
           </div>
 
           {/* Tab content */}
-          {activeTab === 'share' ? (
+          {activeTab === 'share' && (
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-2">
@@ -161,9 +216,15 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 Esta URL contém o plano completo e todas as anotações. Qualquer pessoa com este link pode visualizar e adicionar às suas anotações.
               </p>
             </div>
-          ) : (
+          )}
+          {activeTab === 'diff' && (
             <pre className="bg-muted rounded-lg p-4 text-xs font-mono leading-relaxed overflow-x-auto whitespace-pre-wrap">
               {diffOutput}
+            </pre>
+          )}
+          {activeTab === 'json' && (
+            <pre className="bg-muted rounded-lg p-4 text-xs font-mono leading-relaxed overflow-x-auto whitespace-pre-wrap">
+              {jsonOutput}
             </pre>
           )}
         </div>
@@ -182,6 +243,24 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               className="px-3 py-1.5 rounded-md text-xs font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
             >
               Baixar .diff
+            </button>
+          </div>
+        )}
+
+        {/* Footer actions - only show for JSON tab */}
+        {activeTab === 'json' && (
+          <div className="p-4 border-t border-border flex justify-end gap-2">
+            <button
+              onClick={handleCopyJson}
+              className="px-3 py-1.5 rounded-md text-xs font-medium bg-muted hover:bg-muted/80 transition-colors"
+            >
+              {copied ? 'Copied!' : 'Copy'}
+            </button>
+            <button
+              onClick={handleDownloadJson}
+              className="px-3 py-1.5 rounded-md text-xs font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
+            >
+              Download .json
             </button>
           </div>
         )}
