@@ -68,7 +68,7 @@ export const SalesPageV2: React.FC<SalesPageV2Props> = ({ onEnter }) => {
               <div className="flex items-center gap-3">
                 {/* YouTube button - Claude Code */}
                 <a
-                  href="https://www.youtube.com/watch?v=a_AT7cEN_9I"
+                  href="https://www.youtube.com/watch?v=bCkCWnmAD-o"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-secondary text-white font-medium hover:opacity-90 transition-opacity focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-offset-2"

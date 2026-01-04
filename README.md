@@ -7,11 +7,11 @@
 Interactive Plan Review for AI Coding Agents. Mark up and refine your plans using a visual UI, share for team collaboration, and seamlessly integrate with **Claude Code**.
 
 <p align="center">
-<a href="https://www.youtube.com/watch?v=a_AT7cEN_9I">
+<a href="https://www.youtube.com/watch?v=bCkCWnmAD-o">
 <img src="apps/marketing/public/youtube.png" alt="Claude Code Demo" width="60%" />
 </a>
 <br />
-<a href="https://www.youtube.com/watch?v=a_AT7cEN_9I">Watch Demo</a>
+<a href="https://www.youtube.com/watch?v=bCkCWnmAD-o">Watch Demo</a>
 </p>
 
 ---

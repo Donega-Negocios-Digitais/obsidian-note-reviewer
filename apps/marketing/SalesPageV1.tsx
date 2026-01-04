@@ -785,7 +785,7 @@ export const SalesPageV1: React.FC<SalesPageV1Props> = ({ onEnter }) => {
       <VideoModal
         isOpen={isVideoOpen}
         onClose={() => setIsVideoOpen(false)}
-        videoId="a_AT7cEN_9I"
+        videoId="bCkCWnmAD-o"
       />
 
       {/* Terms Modal */}

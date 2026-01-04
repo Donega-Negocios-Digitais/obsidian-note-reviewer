@@ -544,6 +544,25 @@ const App: React.FC = () => {
     if (selectedAnnotationId === id) setSelectedAnnotationId(null);
   };
 
+  const handleSelectAnnotation = (id: string | null) => {
+    setSelectedAnnotationId(id);
+
+    if (id) {
+      // Find the highlighted element in the document
+      const element = document.querySelector(`[data-bind-id="${id}"]`) as HTMLElement;
+      if (element) {
+        // Scroll to the element
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        // Add a brief highlight animation
+        element.classList.add('annotation-flash');
+        setTimeout(() => {
+          element.classList.remove('annotation-flash');
+        }, 1500);
+      }
+    }
+  };
+
   const handleAddGlobalComment = (comment: string, author: string) => {
     const newAnnotation: Annotation = {
       id: `global-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -890,10 +909,10 @@ const App: React.FC = () => {
 
             <button
               onClick={() => setShowExport(true)}
-              className="p-1.5 md:px-2.5 md:py-1 rounded-md text-xs font-medium bg-muted hover:bg-muted/80 transition-colors"
+              className="p-1.5 md:px-2.5 md:py-1 rounded-md text-xs font-medium bg-muted hover:bg-muted/80 transition-colors flex items-center gap-1.5"
               title="Exportar"
             >
-              <svg className="w-4 h-4 md:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
               </svg>
               <span className="hidden md:inline">Exportar</span>
@@ -945,12 +964,13 @@ const App: React.FC = () => {
                 {/* Exportar */}
                 <button
                   onClick={() => setShowExport(true)}
-                  className="p-1.5 rounded-md text-xs font-medium bg-muted hover:bg-muted/80 transition-colors"
+                  className="p-1.5 md:px-2.5 md:py-1 rounded-md text-xs font-medium bg-muted hover:bg-muted/80 transition-colors flex items-center gap-1.5"
                   title="Exportar"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                   </svg>
+                  <span className="hidden md:inline">Exportar</span>
                 </button>
 
                 {/* Configurações */}
@@ -1019,7 +1039,7 @@ const App: React.FC = () => {
             blocks={blocks}
             annotations={annotations}
             selectedId={selectedAnnotationId}
-            onSelect={setSelectedAnnotationId}
+            onSelect={handleSelectAnnotation}
             onDelete={handleDeleteAnnotation}
             shareUrl={shareUrl}
           />
@@ -1071,7 +1091,7 @@ const App: React.FC = () => {
                 <iframe
                   width="100%"
                   height="100%"
-                  src="https://www.youtube.com/embed/a_AT7cEN_9I?autoplay=1"
+                  src="https://www.youtube.com/embed/bCkCWnmAD-o?autoplay=1"
                   title="Como o Obsidian Note Reviewer Funciona"
                   frameBorder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

@@ -217,6 +217,26 @@ pre code.hljs {
   cursor: pointer;
 }
 
+/* Annotation flash animation - when clicking on annotation in panel */
+@keyframes annotation-flash {
+  0% {
+    box-shadow: 0 0 0 0 oklch(0.75 0.18 280 / 0.6);
+    background-color: oklch(0.75 0.18 280 / 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px 4px oklch(0.75 0.18 280 / 0.4);
+    background-color: oklch(0.75 0.18 280 / 0.4);
+  }
+  100% {
+    box-shadow: 0 0 0 0 oklch(0.75 0.18 280 / 0);
+    background-color: transparent;
+  }
+}
+
+.annotation-flash {
+  animation: annotation-flash 1.5s ease-out;
+}
+
 /* ============================================
    CALLOUTS
    ============================================ */

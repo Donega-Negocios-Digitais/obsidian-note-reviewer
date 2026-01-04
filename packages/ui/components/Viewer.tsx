@@ -114,6 +114,13 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(({
       highlighter.addClass('comment', source.id);
     }
 
+    // Add data-bind-id to DOM elements for scroll-to-annotation feature
+    if (doms?.length > 0) {
+      doms.forEach((dom: HTMLElement) => {
+        dom.dataset.bindId = source.id;
+      });
+    }
+
     onAddAnnotationRef.current(newAnnotation);
   };
 
@@ -1285,27 +1292,33 @@ const CodeBlockToolbar: React.FC<{
           </button>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="flex items-center gap-1.5 p-1.5 pl-3">
-          <input
-            ref={inputRef}
-            type="text"
-            className="bg-transparent border-none outline-none text-sm w-44 placeholder:text-muted-foreground"
-            placeholder="Add a comment..."
+        <form onSubmit={handleSubmit} className="flex items-start gap-1.5 p-1.5 pl-3">
+          <textarea
+            ref={inputRef as React.RefObject<HTMLTextAreaElement>}
+            className="bg-transparent border-none outline-none text-sm w-52 placeholder:text-muted-foreground resize-none"
+            placeholder="Adicione um comentário..."
+            rows={2}
             value={inputValue}
             onChange={e => setInputValue(e.target.value)}
-            onKeyDown={e => e.key === 'Escape' && setStep('menu')}
+            onKeyDown={e => {
+              if (e.key === 'Escape') setStep('menu');
+              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                if (inputValue.trim()) handleSubmit(e as unknown as React.FormEvent);
+              }
+            }}
           />
           <button
             type="submit"
             disabled={!inputValue.trim()}
             className="px-2 py-1 text-xs font-medium rounded bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity"
           >
-            Save
+            Salvar
           </button>
           <button
             type="button"
             onClick={() => setStep('menu')}
-            className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/15 transition-colors"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />

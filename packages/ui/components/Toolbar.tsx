@@ -119,16 +119,22 @@ export const Toolbar: React.FC<ToolbarProps> = ({ highlightElement, onAnnotate, 
           />
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="flex items-center gap-1.5 p-1.5 pl-3">
-          <input
-            ref={inputRef}
-            type="text"
-            className="bg-transparent border-none outline-none text-sm w-80 placeholder:text-muted-foreground"
+        <form onSubmit={handleSubmit} className="flex items-start gap-1.5 p-1.5 pl-3">
+          <textarea
+            ref={inputRef as React.RefObject<HTMLTextAreaElement>}
+            className="bg-transparent border-none outline-none text-sm w-80 placeholder:text-muted-foreground resize-none"
             placeholder="Adicione um comentário..."
             aria-label="Adicione um comentário"
+            rows={2}
             value={inputValue}
             onChange={e => setInputValue(e.target.value)}
-            onKeyDown={e => e.key === 'Escape' && setStep('menu')}
+            onKeyDown={e => {
+              if (e.key === 'Escape') setStep('menu');
+              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                if (inputValue.trim()) handleSubmit(e as unknown as React.FormEvent);
+              }
+            }}
           />
           <button
             type="submit"
@@ -139,7 +145,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ highlightElement, onAnnotate, 
             type="button"
             onClick={() => setStep('menu')}
             aria-label="Voltar ao menu"
-            className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/15 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
