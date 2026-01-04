@@ -30,7 +30,7 @@ interface SettingsPanelProps {
   onNotePathChange?: (path: string) => void;
 }
 
-type CategoryTab = 'atomica' | 'terceiros' | 'organizacional' | 'alex' | 'regras';
+type CategoryTab = 'atomica' | 'terceiros' | 'organizacional' | 'alex' | 'regras' | 'identidade';
 
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   isOpen,
@@ -213,7 +213,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     { id: 'terceiros', emoji: '📚', label: 'Conteúdo de Terceiros' },
     { id: 'atomica', emoji: '⚛️', label: 'Notas Atômicas' },
     { id: 'organizacional', emoji: '🗺️', label: 'Notas Organizacionais' },
-    { id: 'alex', emoji: '✍️', label: 'Conteúdo Próprio' }
+    { id: 'alex', emoji: '✍️', label: 'Conteúdo Próprio' },
+    { id: 'identidade', emoji: '👤', label: 'Identidade do Revisor' }
   ];
 
   const CategoryContent = ({ category }: { category: CategoryTab }) => {
@@ -348,24 +349,18 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         id={`settings-panel-content-${activeTab}`}
         role="tabpanel"
         aria-labelledby={`settings-panel-tab-${activeTab}`}
-        className={`${activeTab === 'regras' ? '' : 'p-4'} overflow-y-auto flex-1`}
+        className={`${activeTab === 'regras' || activeTab === 'identidade' ? '' : 'p-4'} overflow-y-auto flex-1`}
       >
         {activeTab === 'regras' ? (
-          <ConfigEditor />
-        ) : (
-          <CategoryContent category={activeTab} />
-        )}
-
-        {activeTab !== 'regras' && (
-          <>
-            <div className="border-t border-border mt-4 pt-4" />
-
-            {/* Seção: Identidade */}
+          <div className="flex flex-col h-full">
+            <ConfigEditor />
+          </div>
+        ) : activeTab === 'identidade' ? (
+          <div className="p-4">
             <section>
-              <h4 className="text-xs font-semibold mb-2 text-primary">👤 Identidade do Revisor</h4>
-              <div className="space-y-3">
+              <div className="flex flex-wrap gap-4 items-start">
                 {/* Campo de Nome de Usuário */}
-                <div>
+                <div className="flex-1 min-w-[200px]">
                   <label className="text-xs font-medium text-muted-foreground block mb-1">
                     Nome de Usuário (opcional)
                   </label>
@@ -382,39 +377,40 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 </div>
 
                 {/* Identidade Atual */}
-                <div>
+                <div className="flex-1 min-w-[200px]">
                   <label className="text-xs text-muted-foreground block mb-1">
                     Identidade ativa
                   </label>
                   <div className="px-2 py-1.5 bg-muted rounded-md text-xs font-mono text-muted-foreground break-all">
                     {identity}
                   </div>
+                  {displayName.trim() && (
+                    <div className="mt-2">
+                      <label className="text-[10px] text-muted-foreground/60 block mb-0.5">
+                        Backup anônimo
+                      </label>
+                      <div className="px-2 py-1 bg-muted/50 rounded text-[10px] font-mono text-muted-foreground/50 break-all">
+                        {anonymousIdentity}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {/* Identidade Anônima (mostrar apenas se tem displayName) */}
-                {displayName.trim() && (
-                  <div>
-                    <label className="text-xs text-muted-foreground block mb-1">
-                      Identidade anônima (backup)
-                    </label>
-                    <div className="px-2 py-1.5 bg-muted/50 rounded-md text-[10px] font-mono text-muted-foreground/60 break-all">
-                      {anonymousIdentity}
-                    </div>
-                  </div>
-                )}
-
-                <button
-                  onClick={handleRegenerateIdentity}
-                  className="w-full px-2 py-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                >
-                  Gerar Nova Identidade Anônima
-                </button>
-                <p className="text-xs text-muted-foreground">
-                  A identidade será incluída nas anotações que você criar.
-                </p>
+                {/* Botão Regenerar */}
+                <div className="flex items-end">
+                  <button
+                    onClick={handleRegenerateIdentity}
+                    className="px-3 py-2 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none whitespace-nowrap"
+                  >
+                    Gerar Nova Identidade
+                  </button>
+                </div>
               </div>
             </section>
-
+          </div>
+        ) : (
+          <>
+            <CategoryContent category={activeTab} />
             <div className="mt-3 p-3 bg-muted/50 rounded-md">
               <p className="text-xs text-muted-foreground">
                 <strong>💡 Dica:</strong> Você pode usar URLs do Obsidian (obsidian://...) ou caminhos completos de arquivo
