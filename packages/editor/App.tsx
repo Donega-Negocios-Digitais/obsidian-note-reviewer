@@ -5,9 +5,8 @@ import { ViewerSkeleton } from '@obsidian-note-reviewer/ui/components/ViewerSkel
 import { AnnotationPanel } from '@obsidian-note-reviewer/ui/components/AnnotationPanel';
 import { ExportModal } from '@obsidian-note-reviewer/ui/components/ExportModal';
 import { GlobalCommentInput } from '@obsidian-note-reviewer/ui/components/GlobalCommentInput';
-import { KeyboardShortcutsModal } from '@obsidian-note-reviewer/ui/components/KeyboardShortcutsModal';
 import { Annotation, Block, EditorMode, AnnotationType } from '@obsidian-note-reviewer/ui/types';
-import { ThemeProvider } from '@obsidian-note-reviewer/ui/components/ThemeProvider';
+import { ThemeProvider, useTheme } from '@obsidian-note-reviewer/ui/components/ThemeProvider';
 import { ModeToggle } from '@obsidian-note-reviewer/ui/components/ModeToggle';
 import { ModeSwitcher } from '@obsidian-note-reviewer/ui/components/ModeSwitcher';
 import { SettingsPanel } from '@obsidian-note-reviewer/ui/components/SettingsPanel';
@@ -200,7 +199,7 @@ const App: React.FC = () => {
   const [showExport, setShowExport] = useState(false);
   const [showFeedbackPrompt, setShowFeedbackPrompt] = useState(false);
   const [showGlobalCommentModal, setShowGlobalCommentModal] = useState(false);
-  const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
+  const [showHelpVideo, setShowHelpVideo] = useState(false);
   const [isPanelOpen, setIsPanelOpen] = useState(true);
   const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<EditorMode>('selection');
@@ -424,23 +423,66 @@ const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [annotationHistory]);
 
-  // '?' key or Cmd/Ctrl+? to open keyboard shortcuts modal
+  // Global keyboard shortcuts for main actions
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't trigger when focused on input/textarea elements
       if (isInputFocused()) return;
 
-      // Check for '?' key (Shift+/ on most keyboards)
-      // Also support Cmd+? or Ctrl+?
+      // Number keys for editor modes (1-4)
+      if (!e.ctrlKey && !e.metaKey && e.key === '1') {
+        e.preventDefault();
+        setEditorMode('selection');
+      }
+      if (!e.ctrlKey && !e.metaKey && e.key === '2') {
+        e.preventDefault();
+        setEditorMode('edit');
+      }
+      if (!e.ctrlKey && !e.metaKey && e.key === '3') {
+        e.preventDefault();
+        handleEnterFullEditMode();
+      }
+      if (!e.ctrlKey && !e.metaKey && e.key === '4') {
+        e.preventDefault();
+        setEditorMode('redline');
+      }
+
+      // C for global comment (without modifiers)
+      if (!e.ctrlKey && !e.metaKey && !e.shiftKey && (e.key === 'c' || e.key === 'C')) {
+        e.preventDefault();
+        setShowGlobalCommentModal(true);
+      }
+
+      // E for export (without modifiers)
+      if (!e.ctrlKey && !e.metaKey && !e.shiftKey && (e.key === 'e' || e.key === 'E')) {
+        e.preventDefault();
+        setShowExport(true);
+      }
+
+      // Ctrl+S to save
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 's') {
+        e.preventDefault();
+        if (savePath) handleSaveToVault();
+      }
+
+      // Ctrl+L to share (copy link)
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'l') {
+        e.preventDefault();
+        if (shareUrl) {
+          navigator.clipboard.writeText(shareUrl);
+        }
+      }
+
+      // ? to open settings (shortcuts tab)
       if (e.key === '?') {
         e.preventDefault();
-        setShowKeyboardShortcuts(true);
+        setIsSettingsPanelOpen(true);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [savePath, editorMode, shareUrl]);
 
   // Full edit mode keyboard shortcuts
   useEffect(() => {
@@ -669,8 +711,33 @@ const App: React.FC = () => {
 
   const diffOutput = useMemo(() => exportDiff(blocks, annotations), [blocks, annotations]);
 
+  // Theme shortcut component (must be inside ThemeProvider)
+  const ThemeShortcut = () => {
+    const { theme, setTheme } = useTheme();
+
+    useEffect(() => {
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (isInputFocused()) return;
+
+        // D for dark/light toggle
+        if (!e.ctrlKey && !e.metaKey && !e.shiftKey && (e.key === 'd' || e.key === 'D')) {
+          e.preventDefault();
+          // Toggle between light and dark
+          const newTheme = theme === 'dark' ? 'light' : 'dark';
+          setTheme(newTheme);
+        }
+      };
+
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [theme, setTheme]);
+
+    return null;
+  };
+
   return (
     <ThemeProvider defaultTheme="dark">
+      <ThemeShortcut />
       <div className="h-screen flex flex-col bg-background overflow-hidden">
         {/* Show ONLY Settings when open */}
         {isSettingsPanelOpen ? (
@@ -744,18 +811,6 @@ const App: React.FC = () => {
             )}
 
 
-            {/* Botão Editar - Abre editor de texto completo */}
-            <button
-              onClick={handleEnterFullEditMode}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-all bg-blue-500/20 text-blue-600 hover:bg-blue-500/30 border border-blue-500/40"
-              title="Editar nota completa"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-              <span className="hidden md:inline">Editar</span>
-            </button>
-
             {/* Botão Salvar/Alterações - Condicional */}
             <button
               onClick={handleSaveToVault}
@@ -794,22 +849,11 @@ const App: React.FC = () => {
               )}
             </button>
 
+            {/* Help Button - Opens video directly */}
             <button
-              onClick={() => setShowGlobalCommentModal(true)}
-              className="p-1.5 md:px-2.5 md:py-1 rounded-md text-xs font-medium bg-blue-500/20 text-blue-600 hover:bg-blue-500/30 border border-blue-500/40 transition-all"
-              title="Adicionar Comentário Global"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span className="hidden md:inline">Comentário Global</span>
-            </button>
-
-            <ModeToggle />
-            <button
-              onClick={() => setShowKeyboardShortcuts(true)}
+              onClick={() => setShowHelpVideo(true)}
               className="p-1.5 rounded-md text-xs font-medium transition-all text-muted-foreground hover:text-foreground hover:bg-muted"
-              title={formatTooltipWithShortcut('Atalhos de Teclado', 'show-shortcuts')}
+              title="Como funciona?"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -944,11 +988,11 @@ const App: React.FC = () => {
         <div className="flex-1 flex overflow-hidden">
           {/* Document Area */}
           <main className="flex-1 overflow-y-auto bg-grid">
-            <div className="min-h-full flex flex-col items-center p-3 md:p-8">
-              {/* Mode Switcher */}
-              <div className="w-full max-w-3xl mb-3 md:mb-4 flex justify-start">
-                <ModeSwitcher mode={editorMode} onChange={setEditorMode} />
-              </div>
+            {/* Mode Switcher - Floating */}
+            <div className="sticky top-3 z-[60] mx-3 md:mx-8 w-fit">
+              <ModeSwitcher mode={editorMode} onChange={setEditorMode} onEditMarkdown={handleEnterFullEditMode} onGlobalComment={() => setShowGlobalCommentModal(true)} />
+            </div>
+            <div className="min-h-full flex flex-col items-center p-3 md:p-8 pt-3">
 
               {/* Show skeleton during initial load or large content parsing */}
               {(isLoading || isLoadingShared || isParsing) ? (
@@ -999,11 +1043,44 @@ const App: React.FC = () => {
           onSubmit={handleAddGlobalComment}
         />
 
-        {/* Keyboard Shortcuts Modal */}
-        <KeyboardShortcutsModal
-          isOpen={showKeyboardShortcuts}
-          onClose={() => setShowKeyboardShortcuts(false)}
-        />
+        {/* Help Video Modal */}
+        {showHelpVideo && (
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4"
+            onClick={() => setShowHelpVideo(false)}
+          >
+            <div
+              className="bg-card border border-border rounded-xl w-full max-w-2xl shadow-2xl relative"
+              onClick={e => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="help-video-title"
+            >
+              <div className="flex items-center justify-between p-4 border-b border-border">
+                <h3 id="help-video-title" className="font-semibold text-sm">Como o Obsidian Note Reviewer Funciona</h3>
+                <button
+                  onClick={() => setShowHelpVideo(false)}
+                  className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="aspect-video">
+                <iframe
+                  width="100%"
+                  height="100%"
+                  src="https://www.youtube.com/embed/a_AT7cEN_9I?autoplay=1"
+                  title="Como o Obsidian Note Reviewer Funciona"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Feedback prompt dialog */}
         {showFeedbackPrompt && (

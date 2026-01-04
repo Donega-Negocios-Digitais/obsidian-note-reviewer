@@ -14,7 +14,7 @@
 /**
  * Shortcut category for organizing shortcuts in the modal
  */
-export type ShortcutCategory = 'editing' | 'navigation' | 'general';
+export type ShortcutCategory = 'modes' | 'actions' | 'editing' | 'navigation' | 'general';
 
 /**
  * Shortcut definition
@@ -57,21 +57,91 @@ export function getModifierKey(): string {
  * All registered keyboard shortcuts
  */
 export const SHORTCUTS: Shortcut[] = [
+  // Mode shortcuts
+  {
+    id: 'mode-selection',
+    key: '1',
+    label: 'Modo Seleção',
+    description: 'Ativa o modo de seleção para adicionar anotações',
+    category: 'modes',
+  },
+  {
+    id: 'mode-edit',
+    key: '2',
+    label: 'Editar Nota',
+    description: 'Ativa o modo de edição inline por bloco',
+    category: 'modes',
+  },
+  {
+    id: 'mode-edit-md',
+    key: '3',
+    label: 'Editar MD',
+    description: 'Abre o editor markdown completo',
+    category: 'modes',
+  },
+  {
+    id: 'mode-redline',
+    key: '4',
+    label: 'Modo Exclusão',
+    description: 'Ativa o modo de exclusão para remover texto',
+    category: 'modes',
+  },
+
+  // Action shortcuts
+  {
+    id: 'global-comment',
+    key: 'C',
+    label: 'Comentário Global',
+    description: 'Adiciona um comentário geral à nota',
+    category: 'actions',
+  },
+  {
+    id: 'save-vault',
+    key: 'S',
+    modCtrl: true,
+    label: 'Salvar no Obsidian',
+    description: 'Salva as alterações no vault do Obsidian',
+    category: 'actions',
+  },
+  {
+    id: 'export',
+    key: 'E',
+    label: 'Exportar',
+    description: 'Abre o popup de exportação da nota',
+    category: 'actions',
+  },
+  {
+    id: 'share',
+    key: 'L',
+    modCtrl: true,
+    label: 'Compartilhar',
+    description: 'Copia o link de compartilhamento',
+    category: 'actions',
+  },
+
   // Editing shortcuts
   {
     id: 'undo-annotation',
     key: 'Z',
     modCtrl: true,
-    label: 'Desfazer Anotacao',
-    description: 'Desfaz a ultima anotacao adicionada',
+    label: 'Desfazer Anotação',
+    description: 'Desfaz a última anotação adicionada',
     category: 'editing',
   },
+
   // General shortcuts
+  {
+    id: 'toggle-theme',
+    key: 'D',
+    label: 'Alternar Tema',
+    description: 'Alterna entre modo claro e escuro',
+    category: 'general',
+  },
   {
     id: 'show-shortcuts',
     key: '?',
-    label: 'Atalhos de Teclado',
-    description: 'Abre o painel de atalhos de teclado',
+    label: 'Configurações',
+    description: 'Abre o painel de configurações',
     category: 'general',
   },
 ];
@@ -80,21 +150,25 @@ export const SHORTCUTS: Shortcut[] = [
  * Category labels for display in the modal (Portuguese)
  */
 export const CATEGORY_LABELS: Record<ShortcutCategory, string> = {
-  editing: 'Edicao',
-  navigation: 'Navegacao',
+  modes: 'Modos',
+  actions: 'Ações',
+  editing: 'Edição',
+  navigation: 'Navegação',
   general: 'Geral',
 };
 
 /**
  * Category order for display in the modal
  */
-export const CATEGORY_ORDER: ShortcutCategory[] = ['general', 'editing', 'navigation'];
+export const CATEGORY_ORDER: ShortcutCategory[] = ['modes', 'actions', 'editing', 'general', 'navigation'];
 
 /**
  * Get shortcuts grouped by category
  */
 export function getShortcutsByCategory(): Record<ShortcutCategory, Shortcut[]> {
   const grouped: Record<ShortcutCategory, Shortcut[]> = {
+    modes: [],
+    actions: [],
     editing: [],
     navigation: [],
     general: [],

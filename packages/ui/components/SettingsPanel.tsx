@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getIdentity, getAnonymousIdentity, regenerateIdentity, updateDisplayName } from '../utils/identity';
 import { getDisplayName } from '../utils/storage';
+import { ModeToggle } from './ModeToggle';
+import { CATEGORY_ORDER, CATEGORY_LABELS, getShortcutsByCategory, formatShortcutKey } from '../utils/shortcuts';
 import {
   getNoteTypePath,
   setNoteTypePath,
@@ -30,7 +32,7 @@ interface SettingsPanelProps {
   onNotePathChange?: (path: string) => void;
 }
 
-type CategoryTab = 'atomica' | 'terceiros' | 'organizacional' | 'alex' | 'regras' | 'identidade';
+type CategoryTab = 'atomica' | 'terceiros' | 'organizacional' | 'alex' | 'regras' | 'identidade' | 'atalhos';
 
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   isOpen,
@@ -214,7 +216,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     { id: 'atomica', emoji: '⚛️', label: 'Notas Atômicas' },
     { id: 'organizacional', emoji: '🗺️', label: 'Notas Organizacionais' },
     { id: 'alex', emoji: '✍️', label: 'Conteúdo Próprio' },
-    { id: 'identidade', emoji: '👤', label: 'Identidade do Revisor' }
+    { id: 'identidade', emoji: '👤', label: 'Identidade do Revisor' },
+    { id: 'atalhos', emoji: '⌨️', label: 'Atalhos de Teclado' }
   ];
 
   const CategoryContent = ({ category }: { category: CategoryTab }) => {
@@ -301,10 +304,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               </svg>
               Padrões
             </button>
+            <ModeToggle />
             {onClose && (
               <button
                 onClick={onClose}
-                className="p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/15 transition-colors rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 title="Fechar configurações"
                 aria-label="Fechar configurações"
               >
@@ -349,7 +353,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         id={`settings-panel-content-${activeTab}`}
         role="tabpanel"
         aria-labelledby={`settings-panel-tab-${activeTab}`}
-        className={`${activeTab === 'regras' || activeTab === 'identidade' ? '' : 'p-4'} overflow-y-auto flex-1`}
+        className={`${activeTab === 'regras' || activeTab === 'identidade' || activeTab === 'atalhos' ? '' : 'p-4'} overflow-y-auto flex-1`}
       >
         {activeTab === 'regras' ? (
           <div className="flex flex-col h-full">
@@ -407,6 +411,36 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 </div>
               </div>
             </section>
+          </div>
+        ) : activeTab === 'atalhos' ? (
+          <div className="p-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {CATEGORY_ORDER.filter(category => {
+                const shortcuts = getShortcutsByCategory()[category];
+                return shortcuts && shortcuts.length > 0;
+              }).map(category => (
+                <div key={category} className="bg-muted/20 rounded-lg p-3">
+                  <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                    {CATEGORY_LABELS[category]}
+                  </h4>
+                  <div className="space-y-1">
+                    {getShortcutsByCategory()[category].map(shortcut => (
+                      <div
+                        key={shortcut.id}
+                        className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50 transition-colors"
+                      >
+                        <span className="text-xs font-medium text-foreground truncate">
+                          {shortcut.label}
+                        </span>
+                        <kbd className="ml-2 px-1.5 py-0.5 text-[10px] font-mono bg-muted border border-border rounded text-muted-foreground shrink-0">
+                          {formatShortcutKey(shortcut)}
+                        </kbd>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         ) : (
           <>
