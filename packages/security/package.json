@@ -4,6 +4,16 @@
   "type": "module",
   "exports": {
     "./csp": "./csp.ts",
-    "./vite-plugin-csp": "./vite-plugin-csp.ts"
+    "./vite-plugin-csp": "./vite-plugin-csp.ts",
+    "./supabase": "./src/supabase/client.ts",
+    "./supabase/client": "./src/supabase/client.ts",
+    "./supabase/types": "./src/supabase/types.ts",
+    "./supabase/oauth": "./src/supabase/oauth.ts",
+    "./auth": "./src/auth/context.tsx",
+    "./auth/context": "./src/auth/context.tsx"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "react": "^19.2.3"
   }
 }

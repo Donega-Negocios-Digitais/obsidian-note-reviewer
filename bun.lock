@@ -114,6 +114,10 @@
     "packages/security": {
       "name": "@obsidian-note-reviewer/security",
       "version": "0.0.1",
+      "dependencies": {
+        "@supabase/supabase-js": "^2.39.0",
+        "react": "^19.2.3",
+      },
     },
     "packages/ui": {
       "name": "@obsidian-note-reviewer/ui",
@@ -123,6 +127,7 @@
         "isomorphic-dompurify": "^2.22.0",
         "lucide-react": "^0.460.0",
         "mermaid": "^11.12.2",
+        "perfect-freehand": "^1.2.2",
         "react": "^19.2.3",
         "react-dom": "^19.2.3",
         "react-markdown": "^10.1.0",
@@ -1584,6 +1589,8 @@
     "path-scurry": ["path-scurry@2.0.1", "", { "dependencies": { "lru-cache": "^11.0.0", "minipass": "^7.1.2" } }, "sha512-oWyT4gICAu+kaA7QWk/jvCHWarMKNs6pXOGWKDTr7cw4IGcUbW+PeTfbaQiLGheFRpjo6O9J0PmyMfQPjH71oA=="],
 
     "pathe": ["pathe@2.0.3", "", {}, "sha512-WUjGcAqP1gQacoQe+OBJsFA7Ld4DyXuUIjZ5cc75cLHvJ7dtNsTugphxIADwspS+AraAUePCKrSVtPLFj/F88w=="],
+
+    "perfect-freehand": ["perfect-freehand@1.2.3", "", {}, "sha512-bHZSfqDHGNlPpgH2yxXgPHlQSPpEbo+qg7li0M78J9vNAi2yjwLeA4x79BEQhX44lEWpCLSFCeRZwpw0niiXPA=="],
 
     "picocolors": ["picocolors@1.1.1", "", {}, "sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA=="],
 
