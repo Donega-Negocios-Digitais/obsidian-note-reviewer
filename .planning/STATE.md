@@ -10,27 +10,27 @@ See: .planning/PROJECT.md (updated 2025-02-04)
 ## Current Position
 
 Phase: 1 of 13 (Authentication)
-Plan: 2 of 6 in current phase
+Plan: 3 of 6 in current phase
 Status: In progress
-Last activity: 2026-02-05 — Completed Plan 01-02: Session management with auto-refresh and persistence verification
+Last activity: 2026-02-05 — Completed Plan 01-03: Auth UI with split-screen layout and OAuth buttons
 
-Progress: [██░░░░░░░░░] 33%
+Progress: [███░░░░░░░░] 50%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2
-- Average duration: 6.5 min
-- Total execution time: 0.2 hours
+- Total plans completed: 3
+- Average duration: 7 min
+- Total execution time: 0.3 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01    | 2     | 6     | 6.5 min  |
+| 01    | 3     | 6     | 7 min    |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (6 min), 01-02 (7 min)
+- Last 5 plans: 01-01 (6 min), 01-02 (7 min), 01-03 (8 min)
 - Trend: Fast execution, clean build
 
 *Updated after each plan completion*
@@ -55,6 +55,16 @@ Recent decisions affecting current work:
 - Session utilities provide proactive expiry warnings and validation
 - Debug hooks verify localStorage persistence works correctly
 
+**From 01-03 (Auth UI):**
+- Split-screen layout: branding left, form right (hidden on mobile)
+- Google is primary OAuth provider (button appears first)
+- OAuth button text: "Entrar com Google" and "Entrar com GitHub"
+- Dedicated auth pages at /auth/login and /auth/signup (not modals)
+- Toggle between login/signup via links ("Não tem conta? Cadastre-se" / "Já tem conta? Faça login")
+- ProtectedRoute wrapper redirects unauthenticated users to /auth/login
+- PublicRoute wrapper redirects authenticated users to /dashboard
+- Inline error display (not toast notifications) for simpler SPA UX
+
 ### Pending Todos
 
 None yet.
@@ -65,6 +75,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-05 02:07
-Stopped at: Completed 01-02 - Session management with auto-refresh and persistence verification
+Last session: 2026-02-05 02:23
+Stopped at: Completed 01-03 - Auth UI with split-screen layout and OAuth buttons
 Resume file: None
