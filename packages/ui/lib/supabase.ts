@@ -160,6 +160,44 @@ export type Database = {
           updated_at?: string;
         };
       };
+      document_versions: {
+        Row: {
+          id: string;
+          document_id: string;
+          content: string;
+          created_by: string;
+          change_description: string | null;
+          annotation_ids: string[];
+          version_number: number;
+          metadata: Record<string, unknown> | null;
+          deleted: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          document_id: string;
+          content: string;
+          created_by: string;
+          change_description?: string | null;
+          annotation_ids?: string[];
+          version_number?: number;
+          metadata?: Record<string, unknown> | null;
+          deleted?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          document_id?: string;
+          content?: string;
+          created_by?: string;
+          change_description?: string | null;
+          annotation_ids?: string[];
+          version_number?: number;
+          metadata?: Record<string, unknown> | null;
+          deleted?: boolean;
+          created_at?: string;
+        };
+      };
     };
   };
 };
@@ -168,3 +206,4 @@ export type Organization = Database['public']['Tables']['organizations']['Row'];
 export type User = Database['public']['Tables']['users']['Row'];
 export type Note = Database['public']['Tables']['notes']['Row'];
 export type Annotation = Database['public']['Tables']['annotations']['Row'];
+export type DocumentVersionRow = Database['public']['Tables']['document_versions']['Row'];

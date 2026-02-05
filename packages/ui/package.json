@@ -9,6 +9,7 @@
     "./types": "./types.ts"
   },
   "dependencies": {
+    "date-fns": "^4.1.0",
     "diff": "^8.0.3",
     "highlight.js": "^11.11.1",
     "isomorphic-dompurify": "^2.22.0",
