@@ -110,20 +110,62 @@ const decisionPromise = new Promise<{ approved: boolean; feedback?: string }>(
   (resolve) => { resolveDecision = resolve; }
 );
 
-// Set up timeout with warning
-let timeoutWarning: NodeJS.Timeout | null = null;
-let timeoutHandle: NodeJS.Timeout | null = null;
+// Inactivity timeout tracking (uses setTimeout, not setInterval)
+let lastActivityTime = Date.now();
+let timeoutWarningShown = false;
+let currentWarningTimer: NodeJS.Timeout | null = null;
+let currentTimeoutTimer: NodeJS.Timeout | null = null;
 
-// Warning at 20 minutes
-timeoutWarning = setTimeout(() => {
-  console.error("[ObsidianHook] ⚠️ 5 minutes remaining before auto-timeout");
-}, WARNING_TIMEOUT_MS);
+/**
+ * Clear all pending timeout timers
+ */
+function clearAllTimers(): void {
+  if (currentWarningTimer) {
+    clearTimeout(currentWarningTimer);
+    currentWarningTimer = null;
+  }
+  if (currentTimeoutTimer) {
+    clearTimeout(currentTimeoutTimer);
+    currentTimeoutTimer = null;
+  }
+}
 
-// Hard timeout at 25 minutes
-timeoutHandle = setTimeout(() => {
-  console.error("[ObsidianHook] ⏰ Timeout - no decision received");
-  resolveDecision({ approved: false, feedback: "Review timeout - no decision received" });
-}, DECISION_TIMEOUT_MS);
+/**
+ * Reset the inactivity timeout timers
+ * Called on each API request to reset the timeout countdown
+ */
+export function resetInactivityTimer(): void {
+  lastActivityTime = Date.now();
+
+  // Clear existing timers
+  clearAllTimers();
+
+  // Time until warning
+  const timeUntilWarning = WARNING_TIMEOUT_MS;
+  // Time until hard timeout
+  const timeUntilTimeout = DECISION_TIMEOUT_MS;
+
+  // Set warning timer
+  currentWarningTimer = setTimeout(() => {
+    const elapsed = Date.now() - lastActivityTime;
+    if (elapsed >= WARNING_TIMEOUT_MS) {
+      console.error("[ObsidianHook] ⚠️ 5 minutes remaining before auto-timeout");
+      timeoutWarningShown = true;
+    }
+  }, timeUntilWarning);
+
+  // Set hard timeout timer
+  currentTimeoutTimer = setTimeout(() => {
+    const elapsed = Date.now() - lastActivityTime;
+    if (elapsed >= DECISION_TIMEOUT_MS) {
+      console.error("[ObsidianHook] ⏰ Inactivity timeout - no decision received");
+      resolveDecision({ approved: false, feedback: "Review timeout - no decision received" });
+    }
+  }, timeUntilTimeout);
+}
+
+// Initialize the inactivity timer on startup
+resetInactivityTimer();
 
 const server = Bun.serve({
   port: 0, // Random available port (1024-65535)
@@ -133,6 +175,11 @@ const server = Bun.serve({
 
     console.log(`[ObsidianHook] ${req.method} ${url.pathname}`);
 
+    // Reset activity timer on any API request (except keepalive which handles its own reset)
+    if (url.pathname.startsWith("/api/") && url.pathname !== "/api/keepalive") {
+      resetInactivityTimer();
+    }
+
     // API: Get note content
     if (url.pathname === "/api/content") {
       return Response.json(
@@ -141,20 +188,27 @@ const server = Bun.serve({
       );
     }
 
+    // API: Keepalive - resets the inactivity timer
+    if (url.pathname === "/api/keepalive" && req.method === "POST") {
+      resetInactivityTimer();
+      return Response.json(
+        { ok: true, message: "Inactivity timer reset" },
+        { headers: getSecurityHeaders() }
+      );
+    }
+
     // API: Approve note
     if (url.pathname === "/api/approve" && req.method === "POST") {
-      // Clear timeout handlers
-      if (timeoutWarning) clearTimeout(timeoutWarning);
-      if (timeoutHandle) clearTimeout(timeoutHandle);
+      // Clear all timeout handlers
+      clearAllTimers();
       resolveDecision({ approved: true });
       return Response.json({ ok: true }, { headers: getSecurityHeaders() });
     }
 
     // API: Deny with feedback
     if (url.pathname === "/api/deny" && req.method === "POST") {
-      // Clear timeout handlers
-      if (timeoutWarning) clearTimeout(timeoutWarning);
-      if (timeoutHandle) clearTimeout(timeoutHandle);
+      // Clear all timeout handlers
+      clearAllTimers();
       try {
         const body = await req.json() as { feedback?: string };
         resolveDecision({ approved: false, feedback: body.feedback || "Changes requested" });
@@ -204,7 +258,8 @@ if (result.feedback) {
 // Give browser time to receive response
 await Bun.sleep(1500);
 
-// Cleanup
+// Cleanup - clear all timers and stop server
+clearAllTimers();
 server.stop();
 
 // Output structured JSON for PostToolUse hook
@@ -229,6 +284,9 @@ if (result.approved) {
 }
 
 process.exit(0);
+
+// Export inactivity timeout handler for testing/external use
+export { resetInactivityTimer as handleInactivityTimeout };
 
 // Export for testing
 export function handleObsidianHook(eventJson: string): { approved: boolean; feedback?: string } | null {
