@@ -10,6 +10,7 @@
     "./supabase/types": "./src/supabase/types.ts",
     "./supabase/oauth": "./src/supabase/oauth.ts",
     "./supabase/session": "./src/supabase/session.ts",
+    "./supabase/storage": "./src/supabase/storage.ts",
     "./auth": "./src/auth/context.tsx",
     "./auth/context": "./src/auth/context.tsx",
     "./auth/useSessionDebug": "./src/auth/useSessionDebug.ts"
