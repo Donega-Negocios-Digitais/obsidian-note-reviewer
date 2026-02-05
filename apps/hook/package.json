@@ -4,6 +4,7 @@
   "version": "0.0.1",
   "type": "module",
   "bin": {
+    "obsreview-plan": "dist/planModeHook.js",
     "obsreview-obsidian": "dist/obsidianHook.js"
   },
   "scripts": {
