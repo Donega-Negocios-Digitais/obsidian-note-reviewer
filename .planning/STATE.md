@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2025-02-04)
 ## Current Position
 
 Phase: 3 of 13 (Claude Code Integration)
-Plan: 01b of 9 in current phase
+Plan: 02b of 9 in current phase
 Status: In progress
-Last activity: 2026-02-05 — Completed Plan 03-01b: CLI Registration and Inactivity Timeout
+Last activity: 2026-02-05 — Completed Plan 03-02b: CLI Registration and Hook Priority Logic
 
 Progress: [██████████░] 70%
 
@@ -32,7 +32,7 @@ Progress: [██████████░] 70%
 | 03    | 4     | 9     | 8 min    |
 
 **Recent Trend:**
-- Last 5 plans: 03-01a (10 min), 03-01b (2 min), 03-02a (9 min), 03-03a (5 min)
+- Last 5 plans: 03-01a (10 min), 03-01b (2 min), 03-02a (9 min), 03-02b (8 min), 03-03a (5 min)
 - Trend: Consistent execution
 
 *Updated after each plan completion*
@@ -160,6 +160,24 @@ Recent decisions affecting current work:
 - Serves embedded HTML from apps/hook/dist/index.html for reviewer UI
 - API endpoints: /api/content (plan data), /api/approve, /api/deny
 
+**From 03-02b (CLI Registration and Hook Priority Logic):**
+- Created obsreview-plan.ts CLI entry point with SIGTERM/SIGINT graceful shutdown
+- Added "obsreview-plan": "dist/planModeHook.js" to package.json bin section
+- Hook priority uses ps aux heuristic instead of file locks (simpler, non-blocking)
+- checkWriteHookStatus() detects running hook servers via process list
+- Write hook (PostToolUse) takes precedence over ExitPlanMode to prevent double-opening
+- handleInactivityTimeout() with warning at 20 minutes, timeout at 25 minutes
+
+**From 03-03a (Claude Code Export Types and Annotation Transformation):**
+- ClaudeAnnotationType enum with 5 values: edit, comment_global, comment_individual, deletion, highlight
+- transformAnnotation() maps all 5 AnnotationType values explicitly (no default/else cases)
+- INSERTION and REPLACEMENT both map to 'edit' type (Claude Code single edit type)
+- COMMENT uses text field for original selection, comment field for the comment
+- Portuguese localization for summaries (anotações, edições, exclusões)
+- formatForPrompt() produces markdown with emoji icons and Portuguese labels
+- 31 unit tests cover all annotation types, status preservation, and edge cases
+- Ready for integration into planModeHook for CLAU-03 requirement
+
 ### Pending Todos
 
 None yet.
@@ -211,30 +229,14 @@ None yet.
 - obsidian-hooks.json configuration needs to be loaded by Claude Code
 - Command "obsreview-obsidian" needs to be registered in Claude Code's command registry
 
-**From 03-01b:**
-- CLI command obsreview-obsidian is registered in package.json bin field
-- Inactivity timeout prevents indefinite hook hangs with 25-minute limit and 20-minute warning
-- POST /api/keepalive endpoint allows frontend to reset inactivity timer
-- Ready for user verification testing: build project, create plan file in Obsidian, verify hook triggers
-
 **From 03-02a:**
 - planModeHook.js is ready to be registered as a Claude Code hook command
 - claude-hooks.json configuration needs to be loaded by Claude Code
 - Command "obsreview-plan" needs to be registered in Claude Code's command registry
 - Next: Integrate annotation export format into planModeHook for CLAU-03
 
-**From 03-03a (Claude Code Export Types and Annotation Transformation):**
-- ClaudeAnnotationType enum with 5 values: edit, comment_global, comment_individual, deletion, highlight
-- transformAnnotation() maps all 5 AnnotationType values explicitly (no default/else cases)
-- INSERTION and REPLACEMENT both map to 'edit' type (Claude Code single edit type)
-- COMMENT uses text field for original selection, comment field for the comment
-- Portuguese localization for summaries (anotações, edições, exclusões)
-- formatForPrompt() produces markdown with emoji icons and Portuguese labels
-- 31 unit tests cover all annotation types, status preservation, and edge cases
-- Ready for integration into planModeHook for CLAU-03 requirement
-
 ## Session Continuity
 
 Last session: 2026-02-05
-Stopped at: Completed 03-01b - CLI Registration and Inactivity Timeout (checkpoint task verified and approved)
+Stopped at: Completed 03-02b - CLI Registration and Hook Priority Logic
 Resume file: None
