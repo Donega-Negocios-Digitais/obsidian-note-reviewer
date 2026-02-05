@@ -1,19 +1,7 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
-
-export interface Annotation {
-  id: string;
-  blockId: string;
-  startOffset: number;
-  endOffset: number;
-  type: 'comment' | 'highlight' | 'delete' | 'insert' | 'replace';
-  text?: string;
-  originalText: string;
-  createdAt: number;
-  author: string;
-  startMeta?: unknown;
-  endMeta?: unknown;
-}
+import { Annotation, AnnotationStatus } from '../types';
+import { supabase } from '../lib/supabase';
 
 interface AnnotationState {
   annotations: Annotation[];
@@ -34,6 +22,10 @@ interface AnnotationState {
   clearSelection: () => void;
   getSelectedCount: () => number;
   deleteSelected: () => void;
+
+  // Status tracking actions
+  updateAnnotationStatus: (id: string, status: AnnotationStatus, userId: string) => Promise<void>;
+  updateAnnotationStatusSync: (id: string, status: AnnotationStatus, userId: string) => void;
 }
 
 export const useAnnotationStore = create<AnnotationState>()(
@@ -98,7 +90,68 @@ export const useAnnotationStore = create<AnnotationState>()(
             selectedIds: [],
             selectedId: selectedSet.has(state.selectedId ?? '') ? null : state.selectedId
           };
-        })
+        }),
+
+        // Status tracking actions
+        updateAnnotationStatusSync: (id, status, userId) => set((state) => {
+          const now = Date.now();
+          const isResolved = status === AnnotationStatus.RESOLVED;
+
+          return {
+            annotations: state.annotations.map((annotation) =>
+              annotation.id === id
+                ? {
+                    ...annotation,
+                    status,
+                    ...(isResolved ? { resolvedAt: now, resolvedBy: userId } : { resolvedAt: undefined, resolvedBy: undefined }),
+                  }
+                : annotation
+            ),
+          };
+        }),
+
+        updateAnnotationStatus: async (id, status, userId) => {
+          const now = Date.now();
+          const isResolved = status === AnnotationStatus.RESOLVED;
+
+          // Update local state immediately (optimistic update)
+          const updatedAnnotation = {
+            status,
+            ...(isResolved ? { resolvedAt: now, resolvedBy: userId } : { resolvedAt: null, resolvedBy: null }),
+            updated_at: new Date().toISOString(),
+          };
+
+          // Update local store
+          set((state) => ({
+            annotations: state.annotations.map((annotation) =>
+              annotation.id === id
+                ? {
+                    ...annotation,
+                    status,
+                    ...(isResolved ? { resolvedAt: now, resolvedBy: userId } : { resolvedAt: undefined, resolvedBy: undefined }),
+                  }
+                : annotation
+            ),
+          }));
+
+          // Persist to Supabase
+          try {
+            const { error } = await supabase
+              .from('annotations')
+              .update({
+                metadata: updatedAnnotation,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', id);
+
+            if (error) {
+              console.error('Failed to update annotation status:', error);
+              // Rollback on error (optional - you might want to keep the optimistic update)
+            }
+          } catch (err) {
+            console.error('Error updating annotation status:', err);
+          }
+        },
       }),
       { name: 'annotation-store' }
     )
