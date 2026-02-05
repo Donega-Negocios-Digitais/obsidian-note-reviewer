@@ -38,6 +38,108 @@ function getSecurityHeaders(): Record<string, string> {
 const INACTIVITY_TIMEOUT_MS = 25 * 60 * 1000; // 25 minutes
 const WARNING_TIMEOUT_MS = 20 * 60 * 1000; // 20 minutes (warning before timeout)
 
+/**
+ * Check if the PostToolUse Write hook (obsidianHook) is already active.
+ *
+ * This implements a simple heuristic: if another obsidian-note-reviewer server
+ * is running, the Write hook likely already opened a viewer.
+ *
+ * Priority system: Write hook (PostToolUse) takes precedence over ExitPlanMode hook.
+ * When creating a plan file in Obsidian, both hooks may fire. We want only ONE viewer.
+ *
+ * @returns true if Write hook is detected as active, false otherwise
+ */
+export async function checkWriteHookStatus(): Promise<boolean> {
+  try {
+    // Check for running Bun serve processes from our hook
+    // This is a simple heuristic - we look for bun processes with our server patterns
+    const result = Bun.spawn(["ps", "aux"], {
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+
+    const output = await new Response(result.stdout).text();
+    await result.exited;
+
+    // Look for bun processes that might be our hook servers
+    // We check for obsidianHook or planModeHook patterns in process args
+    const hasOtherHookServer = output.includes("obsidianHook") ||
+                                output.includes("planModeHook") ||
+                                output.includes("obsreview");
+
+    if (hasOtherHookServer) {
+      console.error("[PlanModeHook] Priority check: Write hook appears active, skipping viewer launch");
+      return true;
+    }
+
+    console.error("[PlanModeHook] Priority check: No Write hook detected, proceeding with viewer");
+    return false;
+  } catch (error) {
+    // If ps check fails, log but continue (don't block on heuristic failure)
+    console.error(`[PlanModeHook] Priority check failed: ${error}`);
+    return false;
+  }
+}
+
+/**
+ * Handle inactivity timeout with warning system.
+ * Uses setTimeout pattern (not setInterval) for cleaner timeout management.
+ *
+ * @param resolveCallback - Function to call when timeout occurs
+ * @param lastActivityTime - Reference to last activity timestamp
+ */
+export function handleInactivityTimeout(
+  resolveCallback: (result: { approved: boolean; feedback?: string }) => void,
+  lastActivityTimeRef: { value: number }
+): { clear: () => void; reset: () => void } {
+  let warningTimer: NodeJS.Timeout | null = null;
+  let timeoutTimer: NodeJS.Timeout | null = null;
+  let timeoutWarningShown = false;
+
+  function clearAllTimers(): void {
+    if (warningTimer) {
+      clearTimeout(warningTimer);
+      warningTimer = null;
+    }
+    if (timeoutTimer) {
+      clearTimeout(timeoutTimer);
+      timeoutTimer = null;
+    }
+  }
+
+  function reset(): void {
+    lastActivityTimeRef.value = Date.now();
+    clearAllTimers();
+
+    // Set warning timer (20 minutes)
+    warningTimer = setTimeout(() => {
+      const elapsed = Date.now() - lastActivityTimeRef.value;
+      if (elapsed >= WARNING_TIMEOUT_MS && !timeoutWarningShown) {
+        const remainingMinutes = Math.round((INACTIVITY_TIMEOUT_MS - elapsed) / 60000);
+        console.error(`[PlanModeHook] ⚠️ Warning: Review will timeout in ${remainingMinutes} minutes of inactivity`);
+        timeoutWarningShown = true;
+      }
+    }, WARNING_TIMEOUT_MS);
+
+    // Set hard timeout timer (25 minutes)
+    timeoutTimer = setTimeout(() => {
+      const elapsed = Date.now() - lastActivityTimeRef.value;
+      if (elapsed >= INACTIVITY_TIMEOUT_MS) {
+        console.error("[PlanModeHook] Inactivity timeout reached, closing reviewer");
+        resolveCallback({ approved: false, feedback: "Session timed out due to inactivity" });
+      }
+    }, INACTIVITY_TIMEOUT_MS);
+  }
+
+  // Initialize timer on startup
+  reset();
+
+  return {
+    clear: clearAllTimers,
+    reset
+  };
+}
+
 interface PlanModeEvent {
   tool_input?: {
     file_path?: string;
@@ -94,33 +196,31 @@ if (!planContent.content && !planContent.filePath) {
   process.exit(0);
 }
 
+// PRIORITY CHECK: If Write hook is already active, skip this hook
+// This prevents double-opening when both PostToolUse Write and ExitPlanMode hooks fire
+if (await checkWriteHookStatus()) {
+  console.error("[PlanModeHook] Write hook already handled this event, exiting");
+  process.exit(0);
+}
+
 // Promise that resolves when user makes a decision
 let resolveDecision: (result: { approved: boolean; feedback?: string }) => void;
 const decisionPromise = new Promise<{ approved: boolean; feedback?: string }>(
   (resolve) => { resolveDecision = resolve; }
 );
 
-// Inactivity timeout tracking
-let lastActivityTime = Date.now();
-let timeoutWarningShown = false;
+// Inactivity timeout tracking (uses exported handler for testability)
+const lastActivityRef = { value: Date.now() };
+const timeoutHandler = handleInactivityTimeout(
+  (result) => resolveDecision(result),
+  lastActivityRef
+);
 
 // Reset activity timer on any API call
 function resetActivity(): void {
-  lastActivityTime = Date.now();
+  lastActivityRef.value = Date.now();
+  timeoutHandler.reset();
 }
-
-// Start inactivity monitoring
-const inactivityTimer = setInterval(() => {
-  const inactiveTime = Date.now() - lastActivityTime;
-
-  if (inactiveTime > INACTIVITY_TIMEOUT_MS) {
-    console.error("[PlanModeHook] Inactivity timeout reached, closing reviewer");
-    resolveDecision({ approved: false, feedback: "Session timed out due to inactivity" });
-  } else if (inactiveTime > WARNING_TIMEOUT_MS && !timeoutWarningShown) {
-    console.error(`[PlanModeHook] ⚠️ Warning: Review will timeout in ${Math.round((INACTIVITY_TIMEOUT_MS - inactiveTime) / 60000)} minutes of inactivity`);
-    timeoutWarningShown = true;
-  }
-}, 30000); // Check every 30 seconds
 
 const server = Bun.serve({
   port: 0, // Random available port
@@ -198,7 +298,7 @@ try {
 const result = await decisionPromise;
 
 // Clear inactivity timer
-clearInterval(inactivityTimer);
+timeoutHandler.clear();
 
 // Give browser time to receive response
 await Bun.sleep(1500);
