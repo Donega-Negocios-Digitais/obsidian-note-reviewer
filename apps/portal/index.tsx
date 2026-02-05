@@ -1,8 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from '@obsidian-note-reviewer/editor';
+import { App } from './src/App';
 import '@obsidian-note-reviewer/editor/styles';
-import { AuthProvider } from '@obsidian-note-reviewer/security/auth';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -12,8 +11,6 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <AuthProvider>
-      <App />
-    </AuthProvider>
+    <App />
   </React.StrictMode>
 );
