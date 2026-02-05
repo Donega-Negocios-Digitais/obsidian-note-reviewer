@@ -337,6 +337,30 @@ describe('exportForClaude', () => {
     expect(result.metadata.types.comment_global).toBe(1);
     expect(result.metadata.types.highlight).toBe(0);
   });
+
+  test('includes coverage array in metadata', () => {
+    const annotations: Annotation[] = [
+      createAnnotation({ id: '1', createdA: 100, type: AnnotationType.INSERTION }),
+      createAnnotation({ id: '2', createdA: 100, type: AnnotationType.COMMENT }),
+      createAnnotation({ id: '3', createdA: 100, type: AnnotationType.GLOBAL_COMMENT }),
+    ];
+
+    const result = exportForClaude(annotations);
+
+    // Coverage should include only types with count > 0
+    expect(result.metadata.coverage).toBeDefined();
+    expect(result.metadata.coverage).toContain('edit');
+    expect(result.metadata.coverage).toContain('comment_individual');
+    expect(result.metadata.coverage).toContain('comment_global');
+    expect(result.metadata.coverage).not.toContain('deletion');
+    expect(result.metadata.coverage).not.toContain('highlight');
+  });
+
+  test('empty export has empty coverage array', () => {
+    const result = exportForClaude([]);
+
+    expect(result.metadata.coverage).toEqual([]);
+  });
 });
 
 describe('generateSummary', () => {

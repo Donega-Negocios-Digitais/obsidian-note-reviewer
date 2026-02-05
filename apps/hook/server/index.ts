@@ -11,6 +11,7 @@
  * - POST /api/approve - User approved (no changes)
  * - POST /api/deny - User requested changes (with feedback)
  * - POST /api/save - Save note to Obsidian vault
+ * - POST /api/send-annotations - Send annotations to Claude Code (CLAU-06)
  */
 
 import { $ } from "bun";
@@ -150,6 +151,74 @@ const server = Bun.serve({
         console.error(`[Server] ❌ Erro ao salvar:`, error);
         return Response.json(
           { ok: false, error: error instanceof Error ? error.message : "Erro ao salvar nota" },
+          { status: 500, headers: getSecurityHeaders() }
+        );
+      }
+    }
+
+    // API: Send annotations to Claude Code (CLAU-06)
+    if (url.pathname === "/api/send-annotations" && req.method === "POST") {
+      try {
+        const body = await req.json() as {
+          prompt?: string;
+          annotations: {
+            summary: string;
+            annotations: unknown[];
+            totalCount: number;
+            metadata: {
+              exportDate: string;
+              types: Record<string, number>;
+              coverage?: string[];
+            };
+          };
+        };
+
+        // Validate structure
+        if (!body.annotations || !Array.isArray(body.annotations.annotations)) {
+          console.error("[Server] ❌ Invalid annotations format");
+          return Response.json(
+            { ok: false, error: "Formato de anotações inválido" },
+            { status: 400, headers: getSecurityHeaders() }
+          );
+        }
+
+        const { annotations: exportData } = body;
+
+        // Log for debugging
+        console.error(`[Server] Received ${exportData.totalCount} annotations`);
+        console.error("[Server] Types breakdown:", exportData.metadata.types);
+        if (exportData.metadata.coverage) {
+          console.error("[Server] Coverage:", exportData.metadata.coverage);
+        }
+
+        // Output to stdout as hookSpecificOutput for Claude Code
+        console.log(JSON.stringify({
+          hookSpecificOutput: {
+            hookEventName: "PostToolUse",
+            result: "ANNOTATIONS_EXPORTED",
+            summary: exportData.summary,
+            totalCount: exportData.totalCount,
+            types: exportData.metadata.types,
+            coverage: exportData.metadata.coverage || [],
+            annotations: exportData.annotations,
+            prompt: body.prompt || "",
+          }
+        }));
+
+        // Schedule server shutdown after sending
+        setTimeout(() => {
+          console.error("[Server] Shutting down after sending annotations");
+          server.stop();
+        }, 500);
+
+        return Response.json(
+          { ok: true, message: "Anotações enviadas com sucesso" },
+          { headers: getSecurityHeaders() }
+        );
+      } catch (error) {
+        console.error("[Server] ❌ Error processing annotations:", error);
+        return Response.json(
+          { ok: false, error: error instanceof Error ? error.message : "Erro ao processar anotações" },
           { status: 500, headers: getSecurityHeaders() }
         );
       }

@@ -15,6 +15,16 @@ import { Annotation, AnnotationType, AnnotationStatus } from '../types';
 
 /**
  * Maps internal AnnotationType to ClaudeAnnotationType
+ *
+ * TYPE COVERAGE VERIFICATION (CLAU-06):
+ * All 5 AnnotationType values are explicitly mapped below:
+ * ✓ DELETION → 'deletion'
+ * ✓ INSERTION → 'edit'
+ * ✓ REPLACEMENT → 'edit'
+ * ✓ COMMENT → 'comment_individual'
+ * ✓ GLOBAL_COMMENT → 'comment_global'
+ *
+ * NOTE: No default/else case - TypeScript ensures all enum values are handled.
  */
 function getClaudeAnnotationType(internalType: AnnotationType): ClaudeAnnotationType {
   const typeMap: Record<AnnotationType, ClaudeAnnotationType> = {
@@ -191,6 +201,11 @@ export function exportForClaude(annotations: Annotation[]): ClaudeAnnotationExpo
     }
   );
 
+  // Calculate coverage (types present in this export)
+  const coverage = Object.entries(typeCounts)
+    .filter(([_, count]) => count > 0)
+    .map(([type]) => type) as ClaudeAnnotationType[];
+
   return {
     summary: generateSummary(transformed),
     annotations: transformed,
@@ -198,6 +213,7 @@ export function exportForClaude(annotations: Annotation[]): ClaudeAnnotationExpo
     metadata: {
       exportDate: new Date().toISOString(),
       types: typeCounts,
+      coverage,
     },
   };
 }

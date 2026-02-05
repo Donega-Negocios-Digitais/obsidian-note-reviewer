@@ -242,6 +242,20 @@ export function PromptEditor({ annotations, onTemplateChange, onSendSuccess, onS
     try {
       // Prepare the request body
       const exportData: ClaudeAnnotationExport = exportForClaude(annotations)
+
+      // VALIDATION LOGGING: Log annotation counts by type before sending
+      console.log('[PromptEditor] Sending annotations to Claude Code:')
+      console.log(`  Total count: ${exportData.totalCount}`)
+      console.log('  Types breakdown:', exportData.metadata.types)
+      console.log('  Coverage:', exportData.metadata.coverage)
+
+      // Assert count matches (catch filtering bugs)
+      if (exportData.totalCount !== annotations.length) {
+        console.warn(
+          `[PromptEditor] WARNING: totalCount (${exportData.totalCount}) != input array length (${annotations.length})`
+        )
+      }
+
       const requestBody = {
         prompt: formattedPrompt,
         annotations: exportData,
