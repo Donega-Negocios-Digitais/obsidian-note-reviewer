@@ -10,28 +10,28 @@ See: .planning/PROJECT.md (updated 2025-02-04)
 ## Current Position
 
 Phase: 2 of 13 (Annotation System)
-Plan: 3 of 5 in current phase
+Plan: 2 of 5 in current phase
 Status: In progress
-Last activity: 2026-02-05 — Completed Plan 02-03: Implement Status Tracking Workflow
+Last activity: 2026-02-05 — Completed Plan 02-02: Build Threaded Comment System
 
-Progress: [█████████░░] 47%
+Progress: [██████████] 53%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
+- Total plans completed: 8
 - Average duration: 6 min
-- Total execution time: 0.8 hours
+- Total execution time: 0.9 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01    | 6     | 6     | 7 min    |
-| 02    | 2     | 5     | 3 min    |
+| 02    | 3     | 5     | 4 min    |
 
 **Recent Trend:**
-- Last 5 plans: 01-02 (7 min), 01-03 (8 min), 01-04 (3 min), 01-05 (8 min), 02-03 (3 min)
+- Last 5 plans: 01-05 (8 min), 02-03 (3 min), 02-02 (10 min), ...
 - Trend: Fast execution, clean build
 
 *Updated after each plan completion*
@@ -93,6 +93,16 @@ Recent decisions affecting current work:
 - Overlay rendering with fixed positioning and z-index management
 - Selection-based annotation creation with useAnnotationTargeting hook
 
+**From 02-02 (Build Threaded Comment System):**
+- Using react-mentions library for @mention autocomplete with @__userId__ storage format
+- Recursive CommentThread component rendering for nested replies with maxDepth (default: 5)
+- Depth-based visual indentation using Tailwind (ml-4, ml-6) for visual hierarchy
+- MentionsInput searches Supabase users table by email/name for autocomplete
+- Portuguese localization for all timestamps using date-fns with pt-BR locale
+- Optimistic comment updates with rollback on Supabase error
+- Component separation: CommentInput (full form) and QuickCommentInput (lightweight)
+- threadHelpers utilities for comment tree building, mention parsing, validation
+
 **From 02-03 (Implement Status Tracking Workflow):**
 - Any collaborator can change annotation status (not just author) - collaborative decision model
 - Status stored in annotation metadata field for Supabase compatibility without schema migration
@@ -119,13 +129,18 @@ None yet.
 - Performance with many annotations should be monitored (may need virtualization)
 
 **From 02-03:**
-- Plan 02-02 (Threaded Comments) has not been completed yet, but status tracking (02-03) is independent
 - Status tracking stores data in metadata JSONB field to avoid database migration
 - AnnotationPanel needs integration with StatusBadge component (future task)
 - Notification system (Phase 5) can use status changes for triggers
 
+**From 02-02:**
+- CommentThread component ready for integration into AnnotationPanel
+- CSS styling for mention-highlight class may need refinement (currently inline styles)
+- Real-time subscription for new comments (Supabase realtime) - future enhancement
+- Comment editing/deletion permissions currently owner-only (may need refinement)
+
 ## Session Continuity
 
-Last session: 2026-02-05 16:36
-Stopped at: Completed 02-03 - Implement Status Tracking Workflow
+Last session: 2026-02-05 (continuation)
+Stopped at: Completed 02-02 - Build Threaded Comment System
 Resume file: None
