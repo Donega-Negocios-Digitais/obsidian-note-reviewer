@@ -59,8 +59,11 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
 
     async function initializeAuth() {
       try {
+        console.log('🔐 [Auth] Inicializando auth...')
         // Get initial session
         const { data: { session }, error } = await supabase.auth.getSession()
+
+        console.log('🔐 [Auth] Sessão inicial:', !!session, 'Usuário:', session?.user?.email || 'nenhum', 'Erro:', error)
 
         if (mounted) {
           setState((prev) => ({
@@ -72,6 +75,7 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
           }))
         }
       } catch (error) {
+        console.error('❌ [Auth] Erro ao inicializar:', error)
         if (mounted) {
           setState((prev) => ({
             ...prev,
@@ -85,7 +89,8 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
     initializeAuth()
 
     // Subscribe to auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('🔄 [Auth] Estado mudou:', event, 'Usuário:', session?.user?.email || 'nenhum')
       if (mounted) {
         setState((prev) => ({
           ...prev,
@@ -151,6 +156,8 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
     try {
       const { email, password, displayName } = options
 
+      console.log('🔐 [Auth] Tentando criar conta:', email)
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -161,6 +168,8 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
         },
       })
 
+      console.log('🔐 [Auth] Signup response:', { data, error })
+
       if (error) throw error
 
       setState((prev) => ({
@@ -170,6 +179,7 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
         loading: false,
       }))
     } catch (error) {
+      console.error('❌ [Auth] Signup error:', error)
       setState((prev) => ({
         ...prev,
         loading: false,

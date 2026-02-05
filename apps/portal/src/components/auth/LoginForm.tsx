@@ -28,9 +28,12 @@ export function LoginForm() {
   }
 
   const handleOAuthSignIn = async (provider: 'google' | 'github') => {
+    console.log(`🔑 [Login] Iniciando OAuth com ${provider}...`)
     try {
       await signInWithOAuth(provider)
+      console.log(`✅ [Login] OAuth ${provider} iniciado com sucesso`)
     } catch (error: any) {
+      console.error(`❌ [Login] Erro OAuth ${provider}:`, error)
       if (error.message !== 'User cancelled') {
         setError(`Não foi possível entrar com ${provider === 'google' ? 'Google' : 'GitHub'}. Tente novamente.`)
       }

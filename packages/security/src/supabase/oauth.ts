@@ -42,7 +42,7 @@ export async function signInWithOAuth(
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: OAUTH_PROVIDERS[provider],
     options: {
-      redirectTo: redirectTo || getWindowOrigin(),
+      redirectTo: redirectTo || `${getWindowOrigin()}/auth/callback`,
       scopes,
       skipBrowserRedirect,
     },
