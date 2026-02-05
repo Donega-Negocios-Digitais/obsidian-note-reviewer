@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import { Annotation, AnnotationStatus } from '../types';
 import { supabase } from '../lib/supabase';
+import { exportForClaude } from '../utils/claudeExport';
+import type { ClaudeAnnotationExport } from '../types/claude';
 
 interface AnnotationState {
   annotations: Annotation[];
@@ -26,6 +28,9 @@ interface AnnotationState {
   // Status tracking actions
   updateAnnotationStatus: (id: string, status: AnnotationStatus, userId: string) => Promise<void>;
   updateAnnotationStatusSync: (id: string, status: AnnotationStatus, userId: string) => void;
+
+  // Claude Code export
+  exportForClaude: () => ClaudeAnnotationExport;
 }
 
 export const useAnnotationStore = create<AnnotationState>()(
@@ -151,6 +156,12 @@ export const useAnnotationStore = create<AnnotationState>()(
           } catch (err) {
             console.error('Error updating annotation status:', err);
           }
+        },
+
+        // Claude Code export
+        exportForClaude: () => {
+          const annotations = get().annotations;
+          return exportForClaude(annotations);
         },
       }),
       { name: 'annotation-store' }
