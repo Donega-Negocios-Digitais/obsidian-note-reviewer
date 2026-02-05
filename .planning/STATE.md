@@ -10,27 +10,27 @@ See: .planning/PROJECT.md (updated 2025-02-04)
 ## Current Position
 
 Phase: 1 of 13 (Authentication)
-Plan: 4 of 6 in current phase
+Plan: 5 of 6 in current phase
 Status: In progress
-Last activity: 2026-02-05 — Completed Plan 01-04: Password reset and enhanced OAuth callback with new user detection
+Last activity: 2026-02-05 — Completed Plan 01-05: Welcome/onboarding page with avatar upload
 
-Progress: [████░░░░░░░] 67%
+Progress: [█████░░░░░░] 83%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
-- Average duration: 6 min
-- Total execution time: 0.4 hours
+- Total plans completed: 5
+- Average duration: 7 min
+- Total execution time: 0.6 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01    | 4     | 6     | 6 min    |
+| 01    | 5     | 6     | 7 min    |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (6 min), 01-02 (7 min), 01-03 (8 min), 01-04 (3 min)
+- Last 5 plans: 01-01 (6 min), 01-02 (7 min), 01-03 (8 min), 01-04 (3 min), 01-05 (8 min)
 - Trend: Fast execution, clean build
 
 *Updated after each plan completion*
@@ -74,16 +74,28 @@ Recent decisions affecting current work:
 - All auth forms use react-router-dom Link for client-side navigation
 - Password minimum 6 characters enforced on reset page
 
+**From 01-05 (Welcome/Onboarding with Avatar Upload):**
+- Display name is REQUIRED field (validated before submission)
+- Skip button available per locked decision (users can complete profile later)
+- Returning users skip onboarding (check full_name in metadata, redirect to dashboard)
+- Supabase Storage for avatars instead of Gravatar (user-controlled, privacy-friendly)
+- User-isolated folders for storage (userId/fileName pattern)
+- Avatar URL stored in user_metadata.avatar_url for quick access
+- Onboarding detection via metadata check (full_name presence)
+
 ### Pending Todos
 
 None yet.
 
 ### Blockers/Concerns
 
-None yet.
+**Action required:** User must create "avatars" bucket in Supabase Dashboard before avatar upload works:
+1. Go to Supabase Dashboard → Storage → New bucket
+2. Name: `avatars`, make it Public
+3. Add RLS policy allowing users to upload to their own folder
 
 ## Session Continuity
 
-Last session: 2026-02-05 11:45
-Stopped at: Completed 01-04 - Password reset and enhanced OAuth callback
+Last session: 2026-02-05 11:50
+Stopped at: Completed 01-05 - Welcome/onboarding page with avatar upload
 Resume file: None
