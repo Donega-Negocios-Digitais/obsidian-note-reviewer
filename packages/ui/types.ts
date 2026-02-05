@@ -6,6 +6,12 @@
   GLOBAL_COMMENT = 'GLOBAL_COMMENT',
 }
 
+export enum AnnotationStatus {
+  OPEN = 'OPEN',
+  IN_PROGRESS = 'IN_PROGRESS',
+  RESOLVED = 'RESOLVED',
+}
+
 export type EditorMode = 'selection' | 'redline' | 'edit';
 
 export type SortOption = 'newest' | 'oldest' | 'type' | 'author';
@@ -21,6 +27,10 @@ export interface Annotation {
   createdA: number;
   author?: string; // Tater identity for collaborative sharing
   isGlobal?: boolean; // true for global comments (not tied to specific text)
+  // Status tracking
+  status?: AnnotationStatus; // Current status of the annotation
+  resolvedAt?: number; // Timestamp when status was set to RESOLVED
+  resolvedBy?: string; // User ID who resolved the annotation
   // web-highlighter metadata for cross-element selections
   startMeta?: {
     parentTagName: string;
