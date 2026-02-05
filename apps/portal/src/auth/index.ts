@@ -30,3 +30,14 @@ export {
   linkOAuthProvider,
   unlinkOAuthProvider,
 } from '@obsidian-note-reviewer/security/supabase/oauth'
+
+export {
+  getTimeUntilSessionExpiry,
+  isSessionValid,
+  getSessionAge,
+  isSessionNearingExpiry,
+  formatSessionExpiry,
+  getSessionInfo,
+  getRefreshInterval,
+  type SessionInfo,
+} from '@obsidian-note-reviewer/security/supabase/session'

@@ -9,6 +9,7 @@
     "./supabase/client": "./src/supabase/client.ts",
     "./supabase/types": "./src/supabase/types.ts",
     "./supabase/oauth": "./src/supabase/oauth.ts",
+    "./supabase/session": "./src/supabase/session.ts",
     "./auth": "./src/auth/context.tsx",
     "./auth/context": "./src/auth/context.tsx"
   },
