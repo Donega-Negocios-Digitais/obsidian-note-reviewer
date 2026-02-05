@@ -10,29 +10,29 @@ See: .planning/PROJECT.md (updated 2025-02-04)
 ## Current Position
 
 Phase: 3 of 13 (Claude Code Integration)
-Plan: 3a of 5 in current phase
+Plan: 01b of 9 in current phase
 Status: In progress
-Last activity: 2026-02-05 — Completed Plan 03-03a: Claude Code Export Types and Annotation Transformation
+Last activity: 2026-02-05 — Completed Plan 03-01b: CLI Registration and Inactivity Timeout
 
-Progress: [██████████░] 68%
+Progress: [██████████░] 70%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 12
+- Total plans completed: 14
 - Average duration: 7 min
-- Total execution time: 1.3 hours
+- Total execution time: 1.5 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01    | 6     | 6     | 7 min    |
+| 01    | 5     | 6     | 7 min    |
 | 02    | 5     | 5     | 5 min    |
-| 03    | 3     | 3     | 8 min    |
+| 03    | 4     | 9     | 8 min    |
 
 **Recent Trend:**
-- Last 5 plans: 02-05 (8 min), 03-01a (10 min), 03-02a (9 min), 03-03a (5 min)
+- Last 5 plans: 03-01a (10 min), 03-01b (2 min), 03-02a (9 min), 03-03a (5 min)
 - Trend: Consistent execution
 
 *Updated after each plan completion*
@@ -143,6 +143,13 @@ Recent decisions affecting current work:
 - Structured JSON output via hookSpecificOutput for Claude Code context
 - Path validation reused from apps/hook/server/pathValidation.ts for CWE-22 protection
 
+**From 03-01b (CLI Registration and Inactivity Timeout):**
+- Follow existing apps/hook/bin/hook.ts pattern for CLI entry point consistency
+- Use setTimeout for inactivity timeout (not setInterval) - reset on each API request for efficiency
+- Add POST /api/keepalive endpoint for manual timer reset from frontend
+- Activity tracking on all API requests (except keepalive which resets itself)
+- Timer reset strategy: clearAllTimers() function clears both warning and timeout timers before setting new ones
+
 **From 03-02a (Plan Mode Hook Configuration and Handler):**
 - Separate claude-hooks.json from obsidian-hooks.json (different hook types: PermissionRequest vs PostToolUse)
 - PermissionRequest ExitPlanMode matcher triggers on plan mode activation in Claude Code
@@ -204,6 +211,12 @@ None yet.
 - obsidian-hooks.json configuration needs to be loaded by Claude Code
 - Command "obsreview-obsidian" needs to be registered in Claude Code's command registry
 
+**From 03-01b:**
+- CLI command obsreview-obsidian is registered in package.json bin field
+- Inactivity timeout prevents indefinite hook hangs with 25-minute limit and 20-minute warning
+- POST /api/keepalive endpoint allows frontend to reset inactivity timer
+- Ready for user verification testing: build project, create plan file in Obsidian, verify hook triggers
+
 **From 03-02a:**
 - planModeHook.js is ready to be registered as a Claude Code hook command
 - claude-hooks.json configuration needs to be loaded by Claude Code
@@ -223,5 +236,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-05
-Stopped at: Completed 03-03a - Claude Code Export Types and Annotation Transformation
+Stopped at: Completed 03-01b - CLI Registration and Inactivity Timeout (checkpoint task verified and approved)
 Resume file: None
