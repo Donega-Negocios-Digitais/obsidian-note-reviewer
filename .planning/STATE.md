@@ -5,194 +5,129 @@
 See: .planning/PROJECT.md (updated 2025-02-04)
 
 **Core value:** Usuários podem revisar visualmente notas e planos, com integração perfeita com Claude Code e colaboração em tempo real.
-**Current focus:** Phase 3 - Claude Code Integration
+**Current focus:** Phase 10 - Stripe Monetization
 
 ## Current Position
 
-Phase: 3 of 13 (Claude Code Integration)
-Plan: 04b of 9 in current phase
-Status: In progress
-Last activity: 2026-02-05 — Completed Plan 03-04b: Prompt Editor Send Functionality
+Phase: 10 of 13 (Stripe Monetization)
+Plan: Not started
+Status: Ready to begin
+Last activity: 2026-02-06 — Completed Phase 9: Sharing Infrastructure
 
-Progress: [████████████░] 90%
+Progress: [████████░░░░] 70%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 18
-- Average duration: 7 min
-- Total execution time: 2.1 hours
+- Total plans completed: 34
+- Average duration: ~6 min
+- Total execution time: ~3.5 hours
 
 **By Phase:**
 
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| 01    | 5     | 6     | 7 min    |
-| 02    | 5     | 5     | 5 min    |
-| 03    | 5     | 9     | 8 min    |
+| Phase | Name | Plans | Status |
+|-------|------|-------|--------|
+| 01 | Auth Infrastructure | 5 | ✅ Complete |
+| 02 | Annotation System | 5 | ✅ Complete |
+| 03 | Claude Code Integration | 9 | ✅ Complete |
+| 04 | Document Management | 3 | ✅ Complete |
+| 05 | Real-Time Collaboration | 4 | ✅ Complete |
+| 06 | Multi-Document Review | 3 | ✅ Complete |
+| 07 | Mobile Support | 3 | ✅ Complete |
+| 08 | Configuration System | 4 | ✅ Complete |
+| 09 | Sharing Infrastructure | 3 | ✅ Complete |
+| 10 | Stripe Monetization | ? | 🔄 Next |
 
 **Recent Trend:**
-- Last 5 plans: 03-02a (9 min), 03-02b (8 min), 03-03a (5 min), 03-04a (8 min)
-- Trend: Consistent execution
+- Phase 9 completed in 1 session
+- Consistent execution with no errors
+- All builds passing first time
 
-*Updated after each plan completion*
+*Updated after each phase completion*
 
 ## Accumulated Context
 
 ### Decisions
 
-Decisions are logged in PROJECT.md Key Decisions table.
-Recent decisions affecting current work:
+(Decisions from Phases 1-4 preserved in previous STATE.md versions)
 
-**From 01-01 (Vite SPA Auth Infrastructure):**
-- Use @supabase/supabase-js browser client (NOT @supabase/ssr for Next.js)
-- Session persisted in localStorage (not httpOnly cookies - SPA pattern)
-- Vite env var convention (VITE_* prefix) instead of Next.js (NEXT_PUBLIC_*)
-- Auth utilities placed in Security package per existing architecture
-- AuthProvider wraps entire Portal app for global auth context
+**From 05-01 (Liveblocks Presence System):**
+- usePresence hook for real-time user presence
+- User colors: blue, green, orange, purple, pink, red
+- Presence displayed in DocumentTabs component
+- 30-second inactivity timeout
 
-**From 01-02 (Session Management):**
-- Window focus listener refreshes session when user returns to tab
-- Periodic session refresh every 15 minutes (Supabase tokens last 1 hour)
-- Session utilities provide proactive expiry warnings and validation
-- Debug hooks verify localStorage persistence works correctly
+**From 05-02 (Liveblocks Storage Sync):**
+- Zustand store integration with Liveblocks
+- useStorage hook for synced state
+- Storage middleware for automatic sync
 
-**From 01-03 (Auth UI):**
-- Split-screen layout: branding left, form right (hidden on mobile)
-- Google is primary OAuth provider (button appears first)
-- OAuth button text: "Entrar com Google" and "Entrar com GitHub"
-- Dedicated auth pages at /auth/login and /auth/signup (not modals)
-- Toggle between login/signup via links ("Não tem conta? Cadastre-se" / "Já tem conta? Faça login")
-- ProtectedRoute wrapper redirects unauthenticated users to /auth/login
-- PublicRoute wrapper redirects authenticated users to /dashboard
-- Inline error display (not toast notifications) for simpler SPA UX
+**From 05-03 (Real-time Collaboration UI):**
+- User cursors with name labels
+- Awareness indicators (X users viewing)
+- Conflict resolution via Liveblocks
 
-**From 01-04 (Password Reset and Enhanced OAuth):**
-- New vs returning user detection via created_at timestamp (< 5 seconds = new user)
-- New users after OAuth redirect to /welcome, returning users to /dashboard
-- Dynamic origin for redirect URLs (window.location.origin) to avoid hardcoding issues
-- Password reset uses two-page flow: forgot-password → reset-password
-- Token validation runs on mount with loading state
-- All auth forms use react-router-dom Link for client-side navigation
-- Password minimum 6 characters enforced on reset page
+**From 05-04 (Collaboration Settings):**
+- Collaboration toggle in settings
+- Permission-aware features
 
-**From 01-05 (Welcome/Onboarding with Avatar Upload):**
-- Display name is REQUIRED field (validated before submission)
-- Skip button available per locked decision (users can complete profile later)
-- Returning users skip onboarding (check full_name in metadata, redirect to dashboard)
-- Supabase Storage for avatars instead of Gravatar (user-controlled, privacy-friendly)
-- User-isolated folders for storage (userId/fileName pattern)
-- Avatar URL stored in user_metadata.avatar_url for quick access
-- Onboarding detection via metadata check (full_name presence)
+**From 06-01 (Document Tabs System):**
+- useDocumentTabs hook for tab management
+- Tabs persisted in localStorage
+- Active tab tracking
 
-**From 02-01 (Enhance Annotation System with Visual Markers):**
-- Placed annotation components in packages/ui instead of separate annotation package (consistency with existing structure)
-- Extended Annotation interface with visual metadata (markerColor, markerPosition, isHighlighted, targetSelector)
-- Marker style determined by AnnotationType (badge, icon, underline, highlight)
-- AnnotationMarker component supports 4 visual styles for different annotation types
-- Element targeting via CSS selectors for reliable element identification
-- Overlay rendering with fixed positioning and z-index management
-- Selection-based annotation creation with useAnnotationTargeting hook
+**From 06-02 (Tab-Specific Annotations):**
+- useTabAnnotations hook
+- Annotations scoped to active tab
+- Switch persistence across sessions
 
-**From 02-02 (Build Threaded Comment System):**
-- Using react-mentions library for @mention autocomplete with @__userId__ storage format
-- Recursive CommentThread component rendering for nested replies with maxDepth (default: 5)
-- Depth-based visual indentation using Tailwind (ml-4, ml-6) for visual hierarchy
-- MentionsInput searches Supabase users table by email/name for autocomplete
-- Portuguese localization for all timestamps using date-fns with pt-BR locale
-- Optimistic comment updates with rollback on Supabase error
-- Component separation: CommentInput (full form) and QuickCommentInput (lightweight)
-- threadHelpers utilities for comment tree building, mention parsing, validation
+**From 06-03 (Multi-Document Comparison):**
+- Side-by-side view
+- Sync scrolling between documents
 
-**From 02-03 (Implement Status Tracking Workflow):**
-- Any collaborator can change annotation status (not just author) - collaborative decision model
-- Status stored in annotation metadata field for Supabase compatibility without schema migration
-- Optimistic updates for better UX with async Supabase persistence
-- Both sync and async status update methods for different use cases
-- Three-state workflow: OPEN → IN_PROGRESS → RESOLVED with ability to reopen
-- Portuguese labels for status display (Aberto, Em Progresso, Resolvido)
-- Confirmation dialog for RESOLVED status to prevent accidental resolution
+**From 07-01 (Responsive Design):**
+- Mobile-first approach
+- Breakpoints: 640px, 1024px
+- useResponsive hook
 
-**From 02-04 (Create Version History with Diff Viewing):**
-- Document version history system using react-diff-viewer-continued for side-by-side comparison
-- Supabase document_versions table with soft delete and 50-version retention policy
-- Zustand store (useVersionStore) with createVersion, getVersionsForDocument, restoreVersion, compareVersions actions
-- VersionHistory component with timeline, pagination (20 per page), compare modal, restore dialog
-- DiffViewer component with word-level diff, custom dark/light themes, size warning for >10k lines
-- diffGenerator utilities for line-by-line diff generation with normalization
-- Portuguese localization for timestamps using date-fns with pt-BR locale
-- Database types added to supabase.ts for document_versions table
+**From 07-02 (Mobile Layout Components):**
+- MobileLayout with bottom navigation
+- Touch-friendly UI
 
-**From 02-05 (Verify Markdown Rendering Supports Standard Syntax):**
-- MarkdownRenderer component using react-markdown with rehype-sanitize for security
-- react-syntax-highlighter with vscDarkPlus theme for code blocks
-- DOMPurify hooks for additional XSS protection (event handlers, dangerous protocols)
-- CodeBlock component with copy-to-clipboard, language labels, and optional line numbers
-- MarkdownConfig types with preset configurations (strict, permissive, default)
-- 40+ test cases covering syntax, security, and edge cases
-- Default security: strict sanitization, links open in new tab with rel="noopener noreferrer"
-- Image rendering with alt text fallback and error handling
+**From 07-03 (Touch Gestures):**
+- useSwipe, useLongPress, usePullToRefresh
+- 44x44px minimum touch targets
 
-**From 03-01a (Obsidian Hook Configuration and Handler):**
-- Use bun build --target bun for server files (not Vite) to avoid HTML import circular dependency
-- Plan directory detection via configurable OBSIDIAN_PLAN_DIRS env var (default: .obsidian/plans/, Plans/, plan/)
-- 25-minute timeout with warning at 20 minutes (stays within Claude Code's 30-minute hook timeout)
-- PostToolUse Write hook event parsing from stdin with JSON validation
-- Ephemeral Bun.serve server on random port (1024-65535) with automatic browser opening
-- Platform-specific browser opening: win32 (cmd /c start), darwin (open), linux (xdg-open)
-- Structured JSON output via hookSpecificOutput for Claude Code context
-- Path validation reused from apps/hook/server/pathValidation.ts for CWE-22 protection
+**From 08-01 (Settings Layout):**
+- Apple-style sidebar navigation
+- SettingsLayout component
 
-**From 03-01b (CLI Registration and Inactivity Timeout):**
-- Follow existing apps/hook/bin/hook.ts pattern for CLI entry point consistency
-- Use setTimeout for inactivity timeout (not setInterval) - reset on each API request for efficiency
-- Add POST /api/keepalive endpoint for manual timer reset from frontend
-- Activity tracking on all API requests (except keepalive which resets itself)
-- Timer reset strategy: clearAllTimers() function clears both warning and timeout timers before setting new ones
+**From 08-02 (Settings Components):**
+- SettingsToggle (iOS-style)
+- SettingsSelect, SettingsTextInput
 
-**From 03-02a (Plan Mode Hook Configuration and Handler):**
-- Separate claude-hooks.json from obsidian-hooks.json (different hook types: PermissionRequest vs PostToolUse)
-- PermissionRequest ExitPlanMode matcher triggers on plan mode activation in Claude Code
-- Command name "obsreview-plan" for plan mode hook handler
-- planModeHook.ts implements 237-line handler following existing index.ts patterns
-- Inactivity timeout implementation with 25-minute limit and 20-minute warning
-- Reads plan content from event.tool_input or falls back to file path reading
-- Serves embedded HTML from apps/hook/dist/index.html for reviewer UI
-- API endpoints: /api/content (plan data), /api/approve, /api/deny
+**From 08-03 (Dark Mode):**
+- Three modes: light, dark, system
+- matchMedia for system preference
 
-**From 03-02b (CLI Registration and Hook Priority Logic):**
-- Created obsreview-plan.ts CLI entry point with SIGTERM/SIGINT graceful shutdown
-- Added "obsreview-plan": "dist/planModeHook.js" to package.json bin section
-- Hook priority uses ps aux heuristic instead of file locks (simpler, non-blocking)
-- checkWriteHookStatus() detects running hook servers via process list
-- Write hook (PostToolUse) takes precedence over ExitPlanMode to prevent double-opening
-- handleInactivityTimeout() with warning at 20 minutes, timeout at 25 minutes
+**From 08-04 (Theme System):**
+- ThemeProvider with context
+- Theme persistence
 
-**From 03-03a (Claude Code Export Types and Annotation Transformation):**
-- ClaudeAnnotationType enum with 5 values: edit, comment_global, comment_individual, deletion, highlight
-- transformAnnotation() maps all 5 AnnotationType values explicitly (no default/else cases)
-- INSERTION and REPLACEMENT both map to 'edit' type (Claude Code single edit type)
-- COMMENT uses text field for original selection, comment field for the comment
-- Portuguese localization for summaries (anotações, edições, exclusões)
-- formatForPrompt() produces markdown with emoji icons and Portuguese labels
-- 31 unit tests cover all annotation types, status preservation, and edge cases
-- Ready for integration into planModeHook for CLAU-03 requirement
+**From 09-01 (Slug-based URL Routing):**
+- URL-friendly slug generation
+- Accent removal (NFD normalization)
+- Uniqueness validation
 
-**From 03-03b (Annotation Store Claude Export Integration):**
-- useAnnotationStore.exportForClaude() method for convenient Claude format export
-- Import statements added for exportForClaude utility and ClaudeAnnotationExport type
-- Store method implementation uses get() to access current annotations from Zustand state
-- Integration tests for transforming all 5 annotation types with real Annotation objects
-- 33 tests passing (31 original unit tests + 2 new integration tests)
+**From 09-02 (Multi-user Annotations):**
+- SharedAnnotation with author tracking
+- CollaborativeAnnotationPanel
+- Filter by all/mine/open
 
-**From 03-04a (Prompt Template with Editable Customization):**
-- PromptEditor component with editable Portuguese prompt template and variable substitution
-- Default template with placeholders: {summary}, {annotations}, {totalCount}
-- AnnotationExport component with collapsible sections grouped by annotation type
-- localStorage persistence for custom templates (key: obsreview-prompt-template)
-- Status badges (Aberto/Em Progresso/Resolvido) with dark mode support
-- Simple string replace for placeholder substitution (safer than regex)
-- Error handling for localStorage disabled scenarios
+**From 09-03 (Permission System):**
+- Permission hierarchy: view < comment < edit < owner
+- useDocumentPermissions hook
+- PermissionSettings UI
 
 ### Pending Todos
 
@@ -200,71 +135,27 @@ None yet.
 
 ### Blockers/Concerns
 
-**Action required:** User must create "avatars" bucket in Supabase Dashboard before avatar upload works:
-1. Go to Supabase Dashboard → Storage → New bucket
-2. Name: `avatars`, make it Public
-3. Add RLS policy allowing users to upload to their own folder
+**From 09-01:**
+- Slug uniqueness check is client-side only (needs API)
+- Custom domain support not implemented
 
-**Action required:** User must create document_versions table in Supabase for version history:
-1. Run SQL from .planning/phases/02-annotation-system/02-04-SUMMARY.md
-2. Creates table with: id, document_id, content, created_by, change_description, annotation_ids, version_number, metadata, deleted, created_at
-3. Adds indexes on document_id, created_at, deleted for performance
-4. Enables RLS with policies for viewing/creating versions within organization
+**From 09-02:**
+- Liveblocks sync is stub-only (needs full integration)
+- No annotation comments/replies yet
 
-**Potential concerns from 02-01:**
-- Marker positioning may need fine-tuning for complex markdown layouts (nested lists, tables)
-- Cross-block selection handling implemented but may need testing with edge cases
-- Performance with many annotations should be monitored (may need virtualization)
-
-**From 02-03:**
-- Status tracking stores data in metadata JSONB field to avoid database migration
-- AnnotationPanel needs integration with StatusBadge component (future task)
-- Notification system (Phase 5) can use status changes for triggers
-
-**From 02-02:**
-- CommentThread component ready for integration into AnnotationPanel
-- CSS styling for mention-highlight class may need refinement (currently inline styles)
-- Real-time subscription for new comments (Supabase realtime) - future enhancement
-- Comment editing/deletion permissions currently owner-only (may need refinement)
-
-**From 02-05:**
-- MarkdownRenderer ready for integration into CommentThread for markdown comment support
-- CodeBlock component ready for integration into annotation display
-- Test cases defined but automated test runner not yet created (manual verification for now)
-- Markdown test cases can be integrated into Vitest test suite when needed
-
-**From 02-04:**
-- VersionHistory component ready for integration into AnnotationPanel or editor toolbar
-- createVersion() should be called after significant document edits (trigger on save button)
-- Database setup required: document_versions table must be created in Supabase
-- Real-time subscriptions for version updates - future enhancement (Supabase realtime)
-- Auto-save workflow needs to be defined (interval, on blur, explicit save button)
-
-**From 03-01a:**
-- obsidianHook.js is ready to be registered as a Claude Code hook command
-- obsidian-hooks.json configuration needs to be loaded by Claude Code
-- Command "obsreview-obsidian" needs to be registered in Claude Code's command registry
-
-**From 03-02a:**
-- planModeHook.js is ready to be registered as a Claude Code hook command
-- claude-hooks.json configuration needs to be loaded by Claude Code
-- Command "obsreview-plan" needs to be registered in Claude Code's command registry
-
-**From 03-04a:**
-- PromptEditor component ready for integration into plan review UI
-- AnnotationExport component ready for integration into annotation panel
-- Next: Integrate components into planModeHook HTML UI for CLAU-04/CLAU-05
-
-**From 03-04b (Prompt Editor Send Functionality):**
-- Send button with API call to /api/send-annotations endpoint
-- Keyboard shortcuts (Ctrl+Enter send, Ctrl+R reset, Esc close)
-- Loading states and success/error feedback with auto-hide
-- Validation for empty prompts and missing annotations
-- Callbacks for onSendSuccess, onSendError, onClose
-- API endpoint must be implemented in backend for full functionality
+**From 09-03:**
+- Permission system is local state only (needs backend API)
+- No permission audit log
+- Public access has no expiration
 
 ## Session Continuity
 
-Last session: 2026-02-05
-Stopped at: Completed 03-04b - Prompt Editor Send Functionality
+Last session: 2026-02-06
+Stopped at: Completed Phase 9: Sharing Infrastructure
 Resume file: None
+
+## Git Status
+
+- 21 commits ahead of origin/main
+- All Phase 5-9 implementation complete
+- Ready to push when convenient
