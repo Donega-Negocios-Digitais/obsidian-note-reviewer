@@ -8,7 +8,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./types": "./src/types.ts",
-    "./shareableLinks": "./src/shareableLinks.ts"
+    "./shareableLinks": "./src/shareableLinks.ts",
+    "./vaultIntegration": "./src/vaultIntegration.ts"
   },
   "dependencies": {
     "@liveblocks/client": "^2.12.0",
