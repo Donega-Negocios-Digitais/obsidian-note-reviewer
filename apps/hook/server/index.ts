@@ -11,6 +11,7 @@
  * - POST /api/approve - User approved (no changes)
  * - POST /api/deny - User requested changes (with feedback)
  * - POST /api/save - Save note to Obsidian vault
+ * - POST /api/ai-suggestions - Generate AI suggestions (AI-01)
  * - POST /api/send-annotations - Send annotations to Claude Code (CLAU-06)
  */
 
@@ -151,6 +152,53 @@ const server = Bun.serve({
         console.error(`[Server] ❌ Erro ao salvar:`, error);
         return Response.json(
           { ok: false, error: error instanceof Error ? error.message : "Erro ao salvar nota" },
+          { status: 500, headers: getSecurityHeaders() }
+        );
+      }
+    }
+
+    // API: Get AI suggestions (AI-01)
+    if (url.pathname === "/api/ai-suggestions" && req.method === "POST") {
+      try {
+        const body = await req.json() as { config?: { apiKey?: string } };
+
+        // Get API key from request or use default
+        const apiKey = body.config?.apiKey;
+        if (!apiKey) {
+          return Response.json(
+            { ok: false, error: "API key required" },
+            { status: 400, headers: getSecurityHeaders() }
+          );
+        }
+
+        // Import AI suggester
+        const { generateSuggestions } = await import("@obsidian-note-reviewer/ai/suggester");
+
+        const config = {
+          enabled: true,
+          sensitivity: "medium" as const,
+          maxSuggestions: 10,
+          suggestionTypes: ["replacement", "comment"] as Array<"replacement" | "comment">,
+          apiKey,
+        };
+
+        const result = await generateSuggestions(noteContent, config);
+
+        console.error(`[Server] Generated ${result.suggestions.length} AI suggestions`);
+
+        return Response.json(
+          {
+            ok: true,
+            suggestions: result.suggestions,
+            model: result.model,
+            tokensUsed: result.tokensUsed,
+          },
+          { headers: getSecurityHeaders() }
+        );
+      } catch (error) {
+        console.error("[Server] ❌ AI suggestion error:", error);
+        return Response.json(
+          { ok: false, error: error instanceof Error ? error.message : "Erro ao gerar sugestões" },
           { status: 500, headers: getSecurityHeaders() }
         );
       }

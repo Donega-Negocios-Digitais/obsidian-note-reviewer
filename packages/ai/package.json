@@ -1,0 +1,23 @@
+{
+  "name": "@obsidian-note-reviewer/ai",
+  "version": "0.2.1",
+  "type": "module",
+  "description": "AI-powered features for Obsidian Note Reviewer",
+  "author": "Alex Donega",
+  "license": "BSL-1.1",
+  "exports": {
+    "./suggester": "./src/suggester.ts",
+    "./config": "./src/config.ts",
+    "./types": "./src/types.ts",
+    "./summarizer": "./src/summarizer.ts",
+    "./vaultParser": "./src/vaultParser.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.0",
+    "@obsidian-note-reviewer/ui": "workspace:*",
+    "js-yaml": "^4.1.1"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9"
+  }
+}
