@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2025-02-04)
 
 **Core value:** Usuários podem revisar visualmente notas e planos, com integração perfeita com Claude Code e colaboração em tempo real.
-**Current focus:** Phase 12 - Design System
+**Current focus:** Phase 13 - Quality & Stability
 
 ## Current Position
 
-Phase: 12 of 13 (Design System)
+Phase: 13 of 13 (Quality & Stability)
 Plan: Not started
 Status: Ready to begin
-Last activity: 2026-02-06 — Completed Phase 11: Deployment
+Last activity: 2026-02-06 — Completed Phase 12: Design System
 
-Progress: [██████████░░] 85%
+Progress: [███████████░] 92%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 43
+- Total plans completed: 47
 - Average duration: ~6 min
-- Total execution time: ~4.5 hours
+- Total execution time: ~5 hours
 
 **By Phase:**
 
@@ -38,13 +38,13 @@ Progress: [██████████░░] 85%
 | 09 | Sharing Infrastructure | 3 | ✅ Complete |
 | 10 | Stripe Monetization | 5 | ✅ Complete |
 | 11 | Deployment | 4 | ✅ Complete |
-| 12 | Design System | 4 | 🔄 Next |
-| 13 | Quality & Stability | 6 | ⏳ Pending |
+| 12 | Design System | 4 | ✅ Complete |
+| 13 | Quality & Stability | 6 | 🔄 Next |
 
 **Recent Trend:**
-- Phase 11 completed in 1 session
+- Phase 12 completed in 1 session
 - All 4 plans executed successfully
-- Deployment configuration ready
+- Design system complete with theming
 
 *Updated after each phase completion*
 
@@ -52,33 +52,34 @@ Progress: [██████████░░] 85%
 
 ### Decisions
 
-(Decisions from Phases 1-10 preserved in previous STATE.md versions)
+(Decisions from Phases 1-11 preserved in previous STATE.md versions)
 
-**From 11-01 (Vercel Project Configuration):**
-- Build with Bun: `bun run build`
-- Output directory: `apps/portal/dist`
-- Framework: Vite (auto-detected)
-- Rewrites for SPA routing
-- Security headers: CSP, HSTS, X-Frame-Options
-- Cache headers for assets (1 year immutable)
+**From 12-01 (Apple-Style Design System):**
+- 8px grid system for spacing
+- System fonts: -apple-system, SF Pro Display
+- Border radius: 6px (sm) to 24px (2xl)
+- Shadows: subtle (sm) to dramatic (2xl)
+- Typography: 12px (xs) to 48px (5xl)
 
-**From 11-02 (Custom Domain Setup):**
-- Custom domain: `r.alexdonega.com.br`
-- SSL: Let's Encrypt (auto-provisioned by Vercel)
-- Vercel IPs: 76.76.21.21, 76.76.21.22
-- DNS-only mode for Cloudflare (gray cloud)
+**From 12-02 (Theme System):**
+- Light/dark themes as HSL CSS variables
+- System preference detection via matchMedia
+- Theme persistence in localStorage
+- Default to 'system' for automatic switching
+- Theme class on html element
 
-**From 11-03 (DNS Configuration):**
-- Two A records required for redundancy
-- TTL: 3600 (1 hour)
-- Verification via `dig` command
-- DNS propagation: 5-30 minutes (up to 24 hours)
+**From 12-03 (Color Customization):**
+- 10 preset accent colors
+- Custom color picker support
+- Updates --primary and --ring CSS variables
+- Storage key: obsreview-accent-color
 
-**From 11-04 (Production Environment Variables):**
-- VITE_ prefix for client-accessible variables
-- Separate environments: Production, Preview, Development
-- `.env.example` as template
-- Environment variables documented in `docs/ENVIRONMENT_VARIABLES.md`
+**From 12-04 (UX Components):**
+- Breadcrumbs for navigation hierarchy
+- EmptyState with predefined variants
+- Spinner with multiple sizes (xs to xl)
+- Skeleton loaders for content placeholders
+- LoadingButton for async actions
 
 ### Pending Todos
 
@@ -86,73 +87,58 @@ None yet.
 
 ### Blockers/Concerns
 
-**From 11-01:**
-- GitHub repository not yet imported to Vercel
-- Manual steps required for Vercel setup
+**From 12-01:**
+- Design tokens need to be integrated with Tailwind config
+- Existing components need to use design tokens
 
-**From 11-02:**
-- Domain `r.alexdonega.com.br` not yet configured
-- DNS records not yet added
+**From 12-02:**
+- ThemeProvider needs to be integrated in main App
+- All components need to be tested in both themes
 
-**From 11-03:**
-- DNS provider access required
-- A records not yet created
+**From 12-03:**
+- AccentColorSettings needs to be added to settings page
+- Default accent color needs to be configurable
 
-**From 11-04:**
-- Environment variables not yet set in Vercel
-- Supabase project setup required
-- Stripe prices not yet created
+**From 12-04:**
+- Components need to be integrated throughout the app
+- Accessibility needs to be validated
 
 ## Session Continuity
 
 Last session: 2026-02-06
-Stopped at: Completed Phase 11: Deployment
+Stopped at: Completed Phase 12: Design System
 Resume file: None
 
 ## Git Status
 
-- 27 commits ahead of origin/main
-- All Phase 5-11 implementation complete
+- 30 commits ahead of origin/main
+- All Phase 5-12 implementation complete
 - Ready to push when convenient
 
-## Phase 11 Deliverables
+## Phase 12 Deliverables
 
-### 11-01: Vercel Project Configuration
-- `vercel.json` - Complete Vercel configuration with build settings, rewrites, headers
-- `.vercelignore` - Files to exclude from deployment
+### 12-01: Apple-Style Design System
+- `packages/ui/src/tokens/index.ts` - Complete design tokens
 
-### 11-02: Custom Domain Setup
-- `docs/DEPLOYMENT.md` - Complete deployment guide
+### 12-02: Theme System
+- `packages/ui/src/theme/tokens.ts` - Theme color tokens
+- `packages/ui/src/hooks/useTheme.ts` - Theme management hook
 
-### 11-03: DNS Configuration
-- `docs/DEPLOYMENT.md` - DNS provider-specific instructions
+### 12-03: Color Customization
+- `apps/portal/src/components/AccentColorSettings.tsx` - Color picker UI
 
-### 11-04: Production Environment Variables
-- `.env.example` - Updated with all variables including Stripe
-- `docs/ENVIRONMENT_VARIABLES.md` - Complete variable reference
+### 12-04: UX Components
+- `packages/ui/src/components/Breadcrumbs.tsx` - Navigation breadcrumbs
+- `packages/ui/src/components/EmptyState.tsx` - Empty state display
+- `packages/ui/src/components/Spinner.tsx` - Loading indicators
 
 ## Manual Steps Required
 
-### Vercel Setup
-1. Import GitHub repository in Vercel
-2. Configure project settings
-3. Add environment variables
-4. Deploy
-
-### Domain Setup
-1. Add domain `r.alexdonega.com.br` in Vercel
-2. Create A records at DNS provider
-3. Wait for DNS propagation
-4. Verify SSL certificate
-
-### Supabase Setup
-1. Create Supabase project
-2. Run SQL migrations
-3. Configure RLS policies
-4. Add environment variables
-
-### Stripe Setup
-1. Create Stripe account
-2. Create products and prices
-3. Set up webhook endpoint
-4. Add environment variables
+### Design System Integration
+1. Update Tailwind config with design tokens
+2. Integrate ThemeProvider in main App
+3. Add theme toggle to settings
+4. Add accent color picker to settings
+5. Replace inline loading with Spinner components
+6. Add Breadcrumbs to deep pages
+7. Use EmptyStates for empty data scenarios
