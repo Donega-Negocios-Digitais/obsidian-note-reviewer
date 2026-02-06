@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2025-02-04)
 
 **Core value:** Usuários podem revisar visualmente notas e planos, com integração perfeita com Claude Code e colaboração em tempo real.
-**Current focus:** Phase 10 - Stripe Monetization
+**Current focus:** Phase 11 - Deployment
 
 ## Current Position
 
-Phase: 10 of 13 (Stripe Monetization)
+Phase: 11 of 13 (Deployment)
 Plan: Not started
 Status: Ready to begin
-Last activity: 2026-02-06 — Completed Phase 9: Sharing Infrastructure
+Last activity: 2026-02-06 — Completed Phase 10: Stripe Monetization
 
-Progress: [████████░░░░] 70%
+Progress: [██████████░░] 77%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 34
+- Total plans completed: 39
 - Average duration: ~6 min
-- Total execution time: ~3.5 hours
+- Total execution time: ~4 hours
 
 **By Phase:**
 
@@ -36,12 +36,15 @@ Progress: [████████░░░░] 70%
 | 07 | Mobile Support | 3 | ✅ Complete |
 | 08 | Configuration System | 4 | ✅ Complete |
 | 09 | Sharing Infrastructure | 3 | ✅ Complete |
-| 10 | Stripe Monetization | ? | 🔄 Next |
+| 10 | Stripe Monetization | 5 | ✅ Complete |
+| 11 | Deployment | 4 | 🔄 Next |
+| 12 | Design System | 4 | ⏳ Pending |
+| 13 | Quality & Stability | 6 | ⏳ Pending |
 
 **Recent Trend:**
-- Phase 9 completed in 1 session
-- Consistent execution with no errors
-- All builds passing first time
+- Phase 10 completed in 1 session
+- All 5 plans executed successfully
+- Stripe integration ready for backend
 
 *Updated after each phase completion*
 
@@ -49,85 +52,37 @@ Progress: [████████░░░░] 70%
 
 ### Decisions
 
-(Decisions from Phases 1-4 preserved in previous STATE.md versions)
+(Decisions from Phases 1-9 preserved in previous STATE.md versions)
 
-**From 05-01 (Liveblocks Presence System):**
-- usePresence hook for real-time user presence
-- User colors: blue, green, orange, purple, pink, red
-- Presence displayed in DocumentTabs component
-- 30-second inactivity timeout
+**From 10-01 (Freemium Tier System):**
+- Two tiers: free (individual only), pro (unlimited collaborators)
+- TIER_LIMITS object defines feature permissions
+- useSubscription hook with real-time Supabase sync
+- UpgradePrompt modal for gated features
 
-**From 05-02 (Liveblocks Storage Sync):**
-- Zustand store integration with Liveblocks
-- useStorage hook for synced state
-- Storage middleware for automatic sync
+**From 10-02 (Stripe Checkout Integration):**
+- Stripe Checkout redirect flow (not embedded Elements)
+- Three price points: R$ 29/mês, R$ 290/ano, R$ 599 vitalício
+- Success/cancel callback pages for post-checkout flow
+- Pricing page with feature comparison and FAQ
 
-**From 05-03 (Real-time Collaboration UI):**
-- User cursors with name labels
-- Awareness indicators (X users viewing)
-- Conflict resolution via Liveblocks
+**From 10-03 (Lifetime Subscription):**
+- Payment mode for lifetime (vs subscription mode)
+- Breakeven calculation: 20 months for lifetime value
+- No stripe_subscription_id for lifetime users
+- Same Pro tier access, different subscription_type
 
-**From 05-04 (Collaboration Settings):**
-- Collaboration toggle in settings
-- Permission-aware features
+**From 10-04 (Stripe Webhooks):**
+- 7 webhook events to handle
+- Signature verification MUST be server-side
+- Event handlers: upgrade, downgrade, cancel, renew
+- webhookHandlers object for server implementation
 
-**From 06-01 (Document Tabs System):**
-- useDocumentTabs hook for tab management
-- Tabs persisted in localStorage
-- Active tab tracking
-
-**From 06-02 (Tab-Specific Annotations):**
-- useTabAnnotations hook
-- Annotations scoped to active tab
-- Switch persistence across sessions
-
-**From 06-03 (Multi-Document Comparison):**
-- Side-by-side view
-- Sync scrolling between documents
-
-**From 07-01 (Responsive Design):**
-- Mobile-first approach
-- Breakpoints: 640px, 1024px
-- useResponsive hook
-
-**From 07-02 (Mobile Layout Components):**
-- MobileLayout with bottom navigation
-- Touch-friendly UI
-
-**From 07-03 (Touch Gestures):**
-- useSwipe, useLongPress, usePullToRefresh
-- 44x44px minimum touch targets
-
-**From 08-01 (Settings Layout):**
-- Apple-style sidebar navigation
-- SettingsLayout component
-
-**From 08-02 (Settings Components):**
-- SettingsToggle (iOS-style)
-- SettingsSelect, SettingsTextInput
-
-**From 08-03 (Dark Mode):**
-- Three modes: light, dark, system
-- matchMedia for system preference
-
-**From 08-04 (Theme System):**
-- ThemeProvider with context
-- Theme persistence
-
-**From 09-01 (Slug-based URL Routing):**
-- URL-friendly slug generation
-- Accent removal (NFD normalization)
-- Uniqueness validation
-
-**From 09-02 (Multi-user Annotations):**
-- SharedAnnotation with author tracking
-- CollaborativeAnnotationPanel
-- Filter by all/mine/open
-
-**From 09-03 (Permission System):**
-- Permission hierarchy: view < comment < edit < owner
-- useDocumentPermissions hook
-- PermissionSettings UI
+**From 10-05 (Subscription State Management):**
+- Supabase subscriptions table with RLS
+- subscription_history for audit trail
+- Auto-create free tier on signup via trigger
+- Admin functions for manual tier adjustment
 
 ### Pending Todos
 
@@ -135,27 +90,60 @@ None yet.
 
 ### Blockers/Concerns
 
-**From 09-01:**
-- Slug uniqueness check is client-side only (needs API)
-- Custom domain support not implemented
+**From 10-01:**
+- Subscription table not created in Supabase yet (SQL ready)
+- UpgradePrompts not integrated into PermissionSettings yet
 
-**From 09-02:**
-- Liveblocks sync is stub-only (needs full integration)
-- No annotation comments/replies yet
+**From 10-02:**
+- Stripe account not set up
+- Price IDs not created in Stripe Dashboard
+- Backend checkout session endpoint not implemented
 
-**From 09-03:**
-- Permission system is local state only (needs backend API)
-- No permission audit log
-- Public access has no expiration
+**From 10-03:**
+- Lifetime price not configured in Stripe
+
+**From 10-04:**
+- Server-side webhook endpoint not created
+- Signature verification requires backend implementation
+- Webhook handlers need to connect to subscription API
+
+**From 10-05:**
+- SQL migration needs to be run in Supabase
+- Trigger functions need to be tested
+- Real-time subscription sync needs webhook integration
 
 ## Session Continuity
 
 Last session: 2026-02-06
-Stopped at: Completed Phase 9: Sharing Infrastructure
+Stopped at: Completed Phase 10: Stripe Monetization
 Resume file: None
 
 ## Git Status
 
-- 21 commits ahead of origin/main
-- All Phase 5-9 implementation complete
+- 24 commits ahead of origin/main
+- All Phase 5-10 implementation complete
 - Ready to push when convenient
+
+## Phase 10 Deliverables
+
+### 10-01: Freemium Tier System
+- `packages/collaboration/src/types/tier.ts` - Tier types and limits
+- `apps/portal/src/hooks/useSubscription.ts` - Subscription hook
+- `apps/portal/src/components/UpgradePrompt.tsx` - Upgrade modals
+
+### 10-02: Stripe Checkout
+- `apps/portal/src/config/stripe.ts` - Stripe configuration
+- `apps/portal/src/hooks/useStripeCheckout.ts` - Checkout hook
+- `apps/portal/src/pages/Pricing.tsx` - Pricing page
+- `apps/portal/src/pages/CheckoutSuccess.tsx` - Success callback
+- `apps/portal/src/pages/CheckoutCancel.tsx` - Cancel callback
+
+### 10-03: Lifetime Subscription
+- Integrated into useStripeCheckout and Pricing page
+
+### 10-04: Stripe Webhooks
+- `apps/portal/src/utils/stripeWebhooks.ts` - Webhook utilities
+
+### 10-05: Subscription State Management
+- `.planning/phases/10-stripe-monetization/supabase-subscriptions.sql` - DB migration
+- `apps/portal/src/api/subscription.ts` - Subscription API
