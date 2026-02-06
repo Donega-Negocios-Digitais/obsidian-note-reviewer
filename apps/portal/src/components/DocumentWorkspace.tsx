@@ -4,9 +4,11 @@
  * Main workspace container with tabs and document content display.
  */
 
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
 import { DocumentTabs, DocumentTabsCompact } from './DocumentTabs';
 import { useDocumentTabs, type DocumentTab } from '../hooks/useDocumentTabs';
+import { useCrossReferences } from '../hooks/useCrossReferences';
+import { CrossReferencePanel, ReferenceCountBadge } from './CrossReferencePanel';
 import { MarkdownRenderer } from '@obsidian-note-reviewer/ui/markdown';
 import { AnnotationExport } from '@obsidian-note-reviewer/ui/annotation';
 import type { Annotation } from '@obsidian-note-reviewer/ui/types';
@@ -48,6 +50,15 @@ export function DocumentWorkspace({
     moveTab,
     updateTab,
   } = useDocumentTabs();
+
+  // Cross-reference panel state
+  const [showReferences, setShowReferences] = useState(false);
+
+  // Cross-references hook
+  const { getReferences, getAllReferences } = useCrossReferences({
+    tabs,
+    activeTabId: activeTab?.id || null,
+  });
 
   // Store annotations per tab
   const [tabAnnotations, setTabAnnotations] = React.useState<Record<string, Annotation[]>>({});
@@ -158,15 +169,21 @@ export function DocumentWorkspace({
       {/* Content Area */}
       <div className="flex-1 overflow-auto">
         {activeTab ? (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
+          <div className={`grid gap-6 h-full ${showReferences ? 'grid-cols-1 lg:grid-cols-[2fr_1fr_20rem]' : 'grid-cols-1 lg:grid-cols-3'}`}>
             {/* Document Content */}
             <div className="lg:col-span-2 p-6">
               <div className="max-w-3xl mx-auto">
                 {/* Document Header */}
                 <div className="mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
-                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {activeTab.title}
-                  </h1>
+                  <div className="flex items-center gap-3">
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {activeTab.title}
+                    </h1>
+                    <ReferenceCountBadge
+                      count={getReferences(activeTab.id).inbound.length}
+                      onClick={() => setShowReferences(!showReferences)}
+                    />
+                  </div>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                     {activeTab.modified && (
                       <span className="text-blue-600 dark:text-blue-400">
@@ -194,6 +211,18 @@ export function DocumentWorkspace({
                 />
               </div>
             </div>
+
+            {/* Cross-Reference Panel */}
+            {showReferences && (
+              <div className="h-full">
+                <CrossReferencePanel
+                  references={getReferences(activeTab.id)}
+                  currentTabId={activeTab.id}
+                  onNavigateToTab={setActiveTab}
+                  onClose={() => setShowReferences(false)}
+                />
+              </div>
+            )}
           </div>
         ) : (
           // Empty State
