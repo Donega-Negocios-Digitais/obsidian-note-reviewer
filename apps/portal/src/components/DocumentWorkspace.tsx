@@ -7,8 +7,10 @@
 import React, { useEffect, useCallback, useState } from 'react';
 import { DocumentTabs, DocumentTabsCompact } from './DocumentTabs';
 import { useDocumentTabs, type DocumentTab } from '../hooks/useDocumentTabs';
+import { useResponsive } from '../hooks/useResponsive';
 import { useCrossReferences } from '../hooks/useCrossReferences';
 import { CrossReferencePanel, ReferenceCountBadge } from './CrossReferencePanel';
+import { BreakpointPreview } from './BreakpointPreview';
 import { MarkdownRenderer } from '@obsidian-note-reviewer/ui/markdown';
 import { AnnotationExport } from '@obsidian-note-reviewer/ui/annotation';
 import type { Annotation } from '@obsidian-note-reviewer/ui/types';
@@ -53,6 +55,9 @@ export function DocumentWorkspace({
 
   // Cross-reference panel state
   const [showReferences, setShowReferences] = useState(false);
+
+  // Responsive hook
+  const { isMobile, isTablet } = useResponsive();
 
   // Cross-references hook
   const { getReferences, getAllReferences } = useCrossReferences({
@@ -157,21 +162,30 @@ export function DocumentWorkspace({
 
   return (
     <div className={`document-workspace flex flex-col h-full ${className}`}>
-      {/* Tab Bar */}
-      <TabsComponent
-        tabs={tabs}
-        activeTabId={activeTabId}
-        onTabClick={setActiveTab}
-        onTabClose={closeTab}
-        onTabMove={moveTab}
-      />
+      <BreakpointPreview>
+        {/* Tab Bar */}
+        <TabsComponent
+          tabs={tabs}
+          activeTabId={activeTabId}
+          onTabClick={setActiveTab}
+          onTabClose={closeTab}
+          onTabMove={moveTab}
+        />
 
       {/* Content Area */}
       <div className="flex-1 overflow-auto">
         {activeTab ? (
-          <div className={`grid gap-6 h-full ${showReferences ? 'grid-cols-1 lg:grid-cols-[2fr_1fr_20rem]' : 'grid-cols-1 lg:grid-cols-3'}`}>
+          <div className={`
+            grid gap-4 h-full
+            ${isMobile
+              ? 'grid-cols-1'
+              : isTablet || !showReferences
+                ? 'grid-cols-1 lg:grid-cols-2'
+                : 'grid-cols-1 lg:grid-cols-[2fr_1fr_20rem]'
+            }
+          `}>
             {/* Document Content */}
-            <div className="lg:col-span-2 p-6">
+            <div className={`${isMobile ? 'p-4' : 'p-6'} ${!isMobile && !showReferences ? 'lg:col-span-2' : ''}`}>
               <div className="max-w-3xl mx-auto">
                 {/* Document Header */}
                 <div className="mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
@@ -199,7 +213,7 @@ export function DocumentWorkspace({
             </div>
 
             {/* Annotations Panel */}
-            <div className="lg:col-span-1 p-6">
+            <div className={`${isMobile ? 'p-4' : 'p-6'}`}>
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 sticky top-6">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                   Anotações ({tabAnnotations[activeTabId]?.length || 0})
@@ -213,7 +227,7 @@ export function DocumentWorkspace({
             </div>
 
             {/* Cross-Reference Panel */}
-            {showReferences && (
+            {showReferences && !isMobile && (
               <div className="h-full">
                 <CrossReferencePanel
                   references={getReferences(activeTab.id)}
@@ -259,6 +273,7 @@ export function DocumentWorkspace({
           </div>
         )}
       </div>
+      </BreakpointPreview>
     </div>
   );
 }

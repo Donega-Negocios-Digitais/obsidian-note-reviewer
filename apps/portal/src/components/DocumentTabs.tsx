@@ -6,6 +6,8 @@
 
 import React, { useRef } from 'react';
 import type { DocumentTab } from '../hooks/useDocumentTabs';
+import { useResponsive } from '../hooks/useResponsive';
+import { useSwipe } from '../hooks/useTouchGesture';
 import { AnnotationStateDot } from './AnnotationStateIndicator';
 
 export interface DocumentTabsProps {
@@ -29,6 +31,23 @@ export function DocumentTabs({
   onTabMove,
 }: DocumentTabsProps) {
   const dragSourceId = useRef<string | null>(null);
+
+  // Swipe handlers for tab navigation
+  const swipeHandlers = useSwipe({
+    onSwipeLeft: () => {
+      const currentIndex = tabs.findIndex((t) => t.id === activeTabId);
+      if (currentIndex < tabs.length - 1 && currentIndex >= 0) {
+        onTabClick(tabs[currentIndex + 1].id);
+      }
+    },
+    onSwipeRight: () => {
+      const currentIndex = tabs.findIndex((t) => t.id === activeTabId);
+      if (currentIndex > 0) {
+        onTabClick(tabs[currentIndex - 1].id);
+      }
+    },
+  });
+  const { isMobile } = useResponsive();
 
   const handleDragStart = (e: React.DragEvent, tabId: string) => {
     dragSourceId.current = tabId;
@@ -58,7 +77,10 @@ export function DocumentTabs({
   };
 
   return (
-    <div className="document-tabs flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
+    <div
+      className={`document-tabs flex items-center gap-1 ${isMobile ? 'px-1 py-1 overflow-x-auto snap-x' : 'px-2 py-1'} bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700`}
+      {...swipeHandlers}
+    >
       {tabs.map((tab) => (
         <Tab
           key={tab.id}
@@ -74,7 +96,7 @@ export function DocumentTabs({
 
       {/* New tab button */}
       <button
-        className="flex items-center justify-center w-8 h-8 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors flex-shrink-0"
+        className={`flex items-center justify-center ${isMobile ? 'w-12 h-12 min-h-[48px]' : 'w-8 h-8'} text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors flex-shrink-0`}
         title="Nova aba (Ctrl+T)"
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -107,7 +129,7 @@ function Tab({ tab, isActive, onClick, onClose, onDragStart, onDragOver, onDrop 
       onDrop={onDrop}
       onClick={onClick}
       className={`
-        group flex items-center gap-2 px-3 py-2 rounded-t-lg border-b-2 cursor-pointer transition-colors min-w-0 max-w-[200px] select-none
+        group flex items-center gap-2 ${isMobile ? 'min-w-[120px] snap-start justify-center px-4 py-3 min-h-[48px]' : 'px-3 py-2 min-w-0 max-w-[200px]'} rounded-t-lg border-b-2 cursor-pointer transition-colors select-none
         ${
           isActive
             ? 'bg-white dark:bg-gray-900 border-blue-600 text-gray-900 dark:text-white'
