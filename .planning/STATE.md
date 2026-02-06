@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2025-02-04)
 
 **Core value:** Usuários podem revisar visualmente notas e planos, com integração perfeita com Claude Code e colaboração em tempo real.
-**Current focus:** Phase 11 - Deployment
+**Current focus:** Phase 12 - Design System
 
 ## Current Position
 
-Phase: 11 of 13 (Deployment)
+Phase: 12 of 13 (Design System)
 Plan: Not started
 Status: Ready to begin
-Last activity: 2026-02-06 — Completed Phase 10: Stripe Monetization
+Last activity: 2026-02-06 — Completed Phase 11: Deployment
 
-Progress: [██████████░░] 77%
+Progress: [██████████░░] 85%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 39
+- Total plans completed: 43
 - Average duration: ~6 min
-- Total execution time: ~4 hours
+- Total execution time: ~4.5 hours
 
 **By Phase:**
 
@@ -37,14 +37,14 @@ Progress: [██████████░░] 77%
 | 08 | Configuration System | 4 | ✅ Complete |
 | 09 | Sharing Infrastructure | 3 | ✅ Complete |
 | 10 | Stripe Monetization | 5 | ✅ Complete |
-| 11 | Deployment | 4 | 🔄 Next |
-| 12 | Design System | 4 | ⏳ Pending |
+| 11 | Deployment | 4 | ✅ Complete |
+| 12 | Design System | 4 | 🔄 Next |
 | 13 | Quality & Stability | 6 | ⏳ Pending |
 
 **Recent Trend:**
-- Phase 10 completed in 1 session
-- All 5 plans executed successfully
-- Stripe integration ready for backend
+- Phase 11 completed in 1 session
+- All 4 plans executed successfully
+- Deployment configuration ready
 
 *Updated after each phase completion*
 
@@ -52,37 +52,33 @@ Progress: [██████████░░] 77%
 
 ### Decisions
 
-(Decisions from Phases 1-9 preserved in previous STATE.md versions)
+(Decisions from Phases 1-10 preserved in previous STATE.md versions)
 
-**From 10-01 (Freemium Tier System):**
-- Two tiers: free (individual only), pro (unlimited collaborators)
-- TIER_LIMITS object defines feature permissions
-- useSubscription hook with real-time Supabase sync
-- UpgradePrompt modal for gated features
+**From 11-01 (Vercel Project Configuration):**
+- Build with Bun: `bun run build`
+- Output directory: `apps/portal/dist`
+- Framework: Vite (auto-detected)
+- Rewrites for SPA routing
+- Security headers: CSP, HSTS, X-Frame-Options
+- Cache headers for assets (1 year immutable)
 
-**From 10-02 (Stripe Checkout Integration):**
-- Stripe Checkout redirect flow (not embedded Elements)
-- Three price points: R$ 29/mês, R$ 290/ano, R$ 599 vitalício
-- Success/cancel callback pages for post-checkout flow
-- Pricing page with feature comparison and FAQ
+**From 11-02 (Custom Domain Setup):**
+- Custom domain: `r.alexdonega.com.br`
+- SSL: Let's Encrypt (auto-provisioned by Vercel)
+- Vercel IPs: 76.76.21.21, 76.76.21.22
+- DNS-only mode for Cloudflare (gray cloud)
 
-**From 10-03 (Lifetime Subscription):**
-- Payment mode for lifetime (vs subscription mode)
-- Breakeven calculation: 20 months for lifetime value
-- No stripe_subscription_id for lifetime users
-- Same Pro tier access, different subscription_type
+**From 11-03 (DNS Configuration):**
+- Two A records required for redundancy
+- TTL: 3600 (1 hour)
+- Verification via `dig` command
+- DNS propagation: 5-30 minutes (up to 24 hours)
 
-**From 10-04 (Stripe Webhooks):**
-- 7 webhook events to handle
-- Signature verification MUST be server-side
-- Event handlers: upgrade, downgrade, cancel, renew
-- webhookHandlers object for server implementation
-
-**From 10-05 (Subscription State Management):**
-- Supabase subscriptions table with RLS
-- subscription_history for audit trail
-- Auto-create free tier on signup via trigger
-- Admin functions for manual tier adjustment
+**From 11-04 (Production Environment Variables):**
+- VITE_ prefix for client-accessible variables
+- Separate environments: Production, Preview, Development
+- `.env.example` as template
+- Environment variables documented in `docs/ENVIRONMENT_VARIABLES.md`
 
 ### Pending Todos
 
@@ -90,60 +86,73 @@ None yet.
 
 ### Blockers/Concerns
 
-**From 10-01:**
-- Subscription table not created in Supabase yet (SQL ready)
-- UpgradePrompts not integrated into PermissionSettings yet
+**From 11-01:**
+- GitHub repository not yet imported to Vercel
+- Manual steps required for Vercel setup
 
-**From 10-02:**
-- Stripe account not set up
-- Price IDs not created in Stripe Dashboard
-- Backend checkout session endpoint not implemented
+**From 11-02:**
+- Domain `r.alexdonega.com.br` not yet configured
+- DNS records not yet added
 
-**From 10-03:**
-- Lifetime price not configured in Stripe
+**From 11-03:**
+- DNS provider access required
+- A records not yet created
 
-**From 10-04:**
-- Server-side webhook endpoint not created
-- Signature verification requires backend implementation
-- Webhook handlers need to connect to subscription API
-
-**From 10-05:**
-- SQL migration needs to be run in Supabase
-- Trigger functions need to be tested
-- Real-time subscription sync needs webhook integration
+**From 11-04:**
+- Environment variables not yet set in Vercel
+- Supabase project setup required
+- Stripe prices not yet created
 
 ## Session Continuity
 
 Last session: 2026-02-06
-Stopped at: Completed Phase 10: Stripe Monetization
+Stopped at: Completed Phase 11: Deployment
 Resume file: None
 
 ## Git Status
 
-- 24 commits ahead of origin/main
-- All Phase 5-10 implementation complete
+- 27 commits ahead of origin/main
+- All Phase 5-11 implementation complete
 - Ready to push when convenient
 
-## Phase 10 Deliverables
+## Phase 11 Deliverables
 
-### 10-01: Freemium Tier System
-- `packages/collaboration/src/types/tier.ts` - Tier types and limits
-- `apps/portal/src/hooks/useSubscription.ts` - Subscription hook
-- `apps/portal/src/components/UpgradePrompt.tsx` - Upgrade modals
+### 11-01: Vercel Project Configuration
+- `vercel.json` - Complete Vercel configuration with build settings, rewrites, headers
+- `.vercelignore` - Files to exclude from deployment
 
-### 10-02: Stripe Checkout
-- `apps/portal/src/config/stripe.ts` - Stripe configuration
-- `apps/portal/src/hooks/useStripeCheckout.ts` - Checkout hook
-- `apps/portal/src/pages/Pricing.tsx` - Pricing page
-- `apps/portal/src/pages/CheckoutSuccess.tsx` - Success callback
-- `apps/portal/src/pages/CheckoutCancel.tsx` - Cancel callback
+### 11-02: Custom Domain Setup
+- `docs/DEPLOYMENT.md` - Complete deployment guide
 
-### 10-03: Lifetime Subscription
-- Integrated into useStripeCheckout and Pricing page
+### 11-03: DNS Configuration
+- `docs/DEPLOYMENT.md` - DNS provider-specific instructions
 
-### 10-04: Stripe Webhooks
-- `apps/portal/src/utils/stripeWebhooks.ts` - Webhook utilities
+### 11-04: Production Environment Variables
+- `.env.example` - Updated with all variables including Stripe
+- `docs/ENVIRONMENT_VARIABLES.md` - Complete variable reference
 
-### 10-05: Subscription State Management
-- `.planning/phases/10-stripe-monetization/supabase-subscriptions.sql` - DB migration
-- `apps/portal/src/api/subscription.ts` - Subscription API
+## Manual Steps Required
+
+### Vercel Setup
+1. Import GitHub repository in Vercel
+2. Configure project settings
+3. Add environment variables
+4. Deploy
+
+### Domain Setup
+1. Add domain `r.alexdonega.com.br` in Vercel
+2. Create A records at DNS provider
+3. Wait for DNS propagation
+4. Verify SSL certificate
+
+### Supabase Setup
+1. Create Supabase project
+2. Run SQL migrations
+3. Configure RLS policies
+4. Add environment variables
+
+### Stripe Setup
+1. Create Stripe account
+2. Create products and prices
+3. Set up webhook endpoint
+4. Add environment variables
