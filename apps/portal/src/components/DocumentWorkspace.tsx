@@ -1,0 +1,237 @@
+/**
+ * Document Workspace Component
+ *
+ * Main workspace container with tabs and document content display.
+ */
+
+import React, { useEffect, useCallback } from 'react';
+import { DocumentTabs, DocumentTabsCompact } from './DocumentTabs';
+import { useDocumentTabs, type DocumentTab } from '../hooks/useDocumentTabs';
+import { MarkdownRenderer } from '@obsidian-note-reviewer/ui/markdown';
+import { AnnotationExport } from '@obsidian-note-reviewer/ui/annotation';
+import type { Annotation } from '@obsidian-note-reviewer/ui/types';
+
+export interface Document {
+  id: string;
+  title: string;
+  content: string;
+  annotations?: Annotation[];
+}
+
+export interface DocumentWorkspaceProps {
+  initialDocuments?: Document[];
+  onDocumentChange?: (document: Document) => void;
+  onAnnotationUpdate?: (tabId: string, annotations: Annotation[]) => void;
+  compactTabs?: boolean;
+  className?: string;
+}
+
+/**
+ * Full workspace component with tabs and document viewer
+ *
+ * Manages multiple open documents with tab navigation.
+ */
+export function DocumentWorkspace({
+  initialDocuments = [],
+  onDocumentChange,
+  onAnnotationUpdate,
+  compactTabs = false,
+  className = '',
+}: DocumentWorkspaceProps) {
+  const {
+    tabs,
+    activeTab,
+    activeTabId,
+    addTab,
+    closeTab,
+    setActiveTab,
+    moveTab,
+    updateTab,
+  } = useDocumentTabs();
+
+  // Store annotations per tab
+  const [tabAnnotations, setTabAnnotations] = React.useState<Record<string, Annotation[]>>({});
+
+  // Open initial documents on mount
+  useEffect(() => {
+    initialDocuments.forEach((doc) => {
+      addTab({
+        documentId: doc.id,
+        title: doc.title,
+        content: doc.content,
+        modified: false,
+      });
+
+      // Initialize annotations if provided
+      if (doc.annotations) {
+        setTabAnnotations((prev) => ({
+          ...prev,
+          [`tab-${doc.id}`]: doc.annotations,
+        }));
+      }
+    });
+  }, [initialDocuments, addTab]);
+
+  // Open a new document
+  const handleOpenDocument = useCallback(
+    (document: Document) => {
+      addTab({
+        documentId: document.id,
+        title: document.title,
+        content: document.content,
+        modified: false,
+      });
+
+      // Initialize annotations if provided
+      if (document.annotations) {
+        setTabAnnotations((prev) => ({
+          ...prev,
+          [`tab-${document.id}`]: document.annotations,
+        }));
+      }
+    },
+    [addTab]
+  );
+
+  // Handle annotation updates
+  const handleAnnotationUpdate = useCallback(
+    (annotations: Annotation[]) => {
+      if (!activeTabId) return;
+
+      setTabAnnotations((prev) => ({
+        ...prev,
+        [activeTabId]: annotations,
+      }));
+
+      // Mark tab as modified
+      updateTab(activeTabId, { modified: true });
+
+      // Notify parent
+      if (onAnnotationUpdate && activeTab) {
+        onAnnotationUpdate(activeTabId, annotations);
+      }
+    },
+    [activeTabId, updateTab, onAnnotationUpdate]
+  );
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+W / Cmd+W: Close current tab
+      if ((e.ctrlKey || e.metaKey) && e.key === 'w') {
+        e.preventDefault();
+        if (activeTabId) {
+          closeTab(activeTabId);
+        }
+      }
+
+      // Ctrl+T / Cmd+T: Could open new tab (requires document picker)
+      // Ctrl+Tab / Ctrl+Shift+Tab: Switch tabs (could be added)
+
+      // Ctrl+1-9: Switch to specific tab
+      if ((e.ctrlKey || e.metaKey) && /^[1-9]$/.test(e.key)) {
+        const index = parseInt(e.key) - 1;
+        if (index >= 0 && index < tabs.length) {
+          e.preventDefault();
+          setActiveTab(tabs[index].id);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeTabId, tabs, closeTab, setActiveTab]);
+
+  const TabsComponent = compactTabs ? DocumentTabsCompact : DocumentTabs;
+
+  return (
+    <div className={`document-workspace flex flex-col h-full ${className}`}>
+      {/* Tab Bar */}
+      <TabsComponent
+        tabs={tabs}
+        activeTabId={activeTabId}
+        onTabClick={setActiveTab}
+        onTabClose={closeTab}
+        onTabMove={moveTab}
+      />
+
+      {/* Content Area */}
+      <div className="flex-1 overflow-auto">
+        {activeTab ? (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
+            {/* Document Content */}
+            <div className="lg:col-span-2 p-6">
+              <div className="max-w-3xl mx-auto">
+                {/* Document Header */}
+                <div className="mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
+                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {activeTab.title}
+                  </h1>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    {activeTab.modified && (
+                      <span className="text-blue-600 dark:text-blue-400">
+                        • Modificado
+                      </span>
+                    )}
+                  </p>
+                </div>
+
+                {/* Markdown Content */}
+                <MarkdownRenderer content={activeTab.content} />
+              </div>
+            </div>
+
+            {/* Annotations Panel */}
+            <div className="lg:col-span-1 p-6">
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 sticky top-6">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                  Anotações ({tabAnnotations[activeTabId]?.length || 0})
+                </h2>
+
+                <AnnotationExport
+                  annotations={tabAnnotations[activeTabId] || []}
+                  onUpdate={handleAnnotationUpdate}
+                />
+              </div>
+            </div>
+          </div>
+        ) : (
+          // Empty State
+          <div className="h-full flex items-center justify-center">
+            <div className="text-center text-gray-500 dark:text-gray-400">
+              <svg
+                className="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
+              </svg>
+              <p className="text-lg font-medium mb-2">Nenhum documento aberto</p>
+              <p className="text-sm">
+                Use Ctrl+T para abrir uma nova aba ou selecione um documento
+              </p>
+
+              {/* Keyboard shortcuts hint */}
+              <div className="mt-6 p-4 bg-gray-100 dark:bg-gray-900 rounded-lg text-left">
+                <p className="text-xs font-medium mb-2">Atalhos de teclado:</p>
+                <ul className="text-xs space-y-1">
+                  <li><kbd className="px-1.5 py-0.5 bg-gray-200 dark:bg-gray-800 rounded text-gray-700 dark:text-gray-300">Ctrl+T</kbd> - Nova aba</li>
+                  <li><kbd className="px-1.5 py-0.5 bg-gray-200 dark:bg-gray-800 rounded text-gray-700 dark:text-gray-300">Ctrl+W</kbd> - Fechar aba</li>
+                  <li><kbd className="px-1.5 py-0.5 bg-gray-200 dark:bg-gray-800 rounded text-gray-700 dark:text-gray-300">Ctrl+1-9</kbd> - Alternar abas</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default DocumentWorkspace;
