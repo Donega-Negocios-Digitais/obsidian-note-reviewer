@@ -6,6 +6,7 @@
 
 import React, { useRef } from 'react';
 import type { DocumentTab } from '../hooks/useDocumentTabs';
+import { AnnotationStateDot } from './AnnotationStateIndicator';
 
 export interface DocumentTabsProps {
   tabs: DocumentTab[];
@@ -119,10 +120,8 @@ function Tab({ tab, isActive, onClick, onClose, onDragStart, onDragOver, onDrop 
         {tab.title}
       </span>
 
-      {/* Modified indicator */}
-      {tab.modified && (
-        <span className="w-2 h-2 rounded-full bg-blue-600 flex-shrink-0" title="Modificado" />
-      )}
+      {/* Modified/Dirty indicator */}
+      <AnnotationStateDot dirty={tab.modified} count={0} />
 
       {/* Close button */}
       <button
