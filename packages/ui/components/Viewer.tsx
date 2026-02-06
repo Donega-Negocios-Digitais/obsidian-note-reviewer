@@ -1129,7 +1129,7 @@ const BlockRenderer: React.FC<{
     case 'list-item':
       return (
         <div className="flex gap-3 my-1.5" data-block-id={block.id}>
-          <span className="text-primary/60 select-none">â€¢</span>
+          <span className="text-primary/60 select-none">•</span>
           <span className="text-foreground/90 text-sm leading-relaxed"><InlineMarkdown text={block.content} /></span>
         </div>
       );
