@@ -49,3 +49,15 @@ export interface SlugValidation {
   available: boolean;
   error?: string;
 }
+
+// ============================================
+// Guest Access Types (05-03)
+// ============================================
+
+export interface SharedDocumentAccess {
+  documentId: string;
+  slug: string;
+  isGuest: boolean;
+  canEdit: boolean;
+  canComment: boolean;
+}

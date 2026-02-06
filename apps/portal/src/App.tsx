@@ -9,6 +9,7 @@ import { ForgotPasswordPage } from './pages/forgot-password'
 import { ResetPasswordPage } from './pages/reset-password'
 import { WelcomePage } from './pages/welcome'
 import { DashboardPage } from './pages/dashboard'
+import { SharedDocument } from './pages/SharedDocument'
 
 /**
  * Protected Route Component
@@ -128,6 +129,9 @@ export function App() {
 
           {/* Default redirect */}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
+          {/* Public shared document route - no auth required */}
+          <Route path="/shared/:slug" element={<SharedDocument />} /> />
 
           {/* Catch all - redirect to dashboard */}
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
