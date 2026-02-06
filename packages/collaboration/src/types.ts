@@ -29,3 +29,23 @@ export interface PresenceState {
   users: PresenceUser[];
   connected: boolean;
 }
+
+// ============================================
+// Shareable Links Types (05-02)
+// ============================================
+
+export interface ShareableLink {
+  id: string;
+  documentId: string;
+  slug: string;
+  createdBy: string;
+  createdAt: Date;
+  expiresAt?: Date;
+  accessCount: number;
+}
+
+export interface SlugValidation {
+  valid: boolean;
+  available: boolean;
+  error?: string;
+}
