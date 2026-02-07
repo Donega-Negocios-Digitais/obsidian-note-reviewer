@@ -32,7 +32,7 @@ interface SettingsPanelProps {
   onNotePathChange?: (path: string) => void;
 }
 
-type CategoryTab = 'atomica' | 'terceiros' | 'organizacional' | 'alex' | 'regras' | 'identidade' | 'atalhos' | 'hooks';
+type CategoryTab = 'atomica' | 'terceiros' | 'organizacional' | 'alex' | 'regras' | 'identidade' | 'atalhos' | 'hooks' | 'idioma';
 
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   isOpen,
@@ -82,6 +82,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     },
   ]);
 
+  // Language state
+  const [currentLanguage, setCurrentLanguage] = useState(() => {
+    return localStorage.getItem('app-language') || 'pt-BR';
+  });
+
   // Load saved configuration on mount and when panel opens
   useEffect(() => {
     if (isOpen) {
@@ -111,6 +116,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           onNotePathChange?.(firstPath);
         }
       }
+
+      // Load language preference
+      const savedLang = localStorage.getItem('app-language') || 'pt-BR';
+      setCurrentLanguage(savedLang);
+      // In full implementation, this would call i18n.changeLanguage(savedLang);
     }
   }, [isOpen, onNotePathChange]);
 
@@ -266,6 +276,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     { id: 'identidade', emoji: '👤', label: 'Identidade do Revisor' },
     { id: 'atalhos', emoji: '⌨️', label: 'Atalhos de Teclado' },
     { id: 'hooks', emoji: '🔗', label: 'Hooks' },
+    { id: 'idioma', emoji: '🌐', label: 'Idioma' },
   ];
 
   const CategoryContent = ({ category }: { category: CategoryTab }) => {
@@ -452,7 +463,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         id={`settings-panel-content-${activeTab}`}
         role="tabpanel"
         aria-labelledby={`settings-panel-tab-${activeTab}`}
-        className={`${activeTab === 'regras' || activeTab === 'identidade' || activeTab === 'atalhos' || activeTab === 'hooks' ? '' : 'p-5'} overflow-y-auto flex-1`}
+        className={`${activeTab === 'regras' || activeTab === 'identidade' || activeTab === 'atalhos' || activeTab === 'hooks' || activeTab === 'idioma' ? '' : 'p-5'} overflow-y-auto flex-1`}
       >
         {activeTab === 'regras' ? (
           <div className="flex flex-col h-full">
@@ -694,6 +705,68 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               </svg>
               <p className="text-xs text-muted-foreground/60 group-hover:text-muted-foreground transition-colors">
                 Mais hooks serão adicionados em breve
+              </p>
+            </div>
+          </div>
+        ) : activeTab === 'idioma' ? (
+          <div className="p-5 space-y-4 overflow-y-auto">
+            {/* Header */}
+            <div className="mb-2">
+              <h4 className="text-sm font-semibold text-foreground">Idioma da Interface</h4>
+              <p className="text-xs text-muted-foreground">Selecione seu idioma preferido</p>
+            </div>
+
+            {/* Language options */}
+            <div className="space-y-2">
+              {[
+                { code: 'pt-BR', name: 'Português (Brasil)', flag: '🇧🇷', native: 'Português' },
+                { code: 'en-US', name: 'English (United States)', flag: '🇺🇸', native: 'English' },
+              ].map((lang) => (
+                <button
+                  key={lang.code}
+                  onClick={() => {
+                    setCurrentLanguage(lang.code);
+                    localStorage.setItem('app-language', lang.code);
+                    // In full implementation, this would call i18n.changeLanguage(lang.code);
+                    // For now, just store the preference
+                  }}
+                  className={`
+                    w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all
+                    ${currentLanguage === lang.code
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border/50 bg-card/30 hover:border-border/80'
+                    }
+                  `}
+                >
+                  {/* Flag */}
+                  <div className="text-3xl">{lang.flag}</div>
+
+                  {/* Language info */}
+                  <div className="flex-1 text-left">
+                    <div className="text-sm font-medium text-foreground">
+                      {lang.native}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {lang.name}
+                    </div>
+                  </div>
+
+                  {/* Selected indicator */}
+                  {currentLanguage === lang.code && (
+                    <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                      <svg className="w-4 h-4 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {/* Info note */}
+            <div className="p-3 rounded-xl bg-muted/30">
+              <p className="text-xs text-muted-foreground text-center">
+                💡 A tradução completa será implementada em uma fase futura. Por enquanto, esta configuração salva sua preferência.
               </p>
             </div>
           </div>
