@@ -495,6 +495,165 @@ import { SettingsPanel } from '@obsidian-note-reviewer/ui/components/SettingsPan
 <Route path="*" element={<Navigate to="/editor" replace />} />
 ```
 
+### 5.5 Detailed Route Structure Analysis
+
+**Current Portal App Route Structure:**
+
+```tsx
+<Routes>
+  {/* Public routes */}
+  <Route path="/auth/login" element={<LoginPage />} />
+  <Route path="/auth/signup" element={<SignupPage />} />
+  <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />
+  <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
+  <Route path="/auth/callback" element={<CallbackPage />} />
+
+  {/* Protected routes */}
+  <Route path="/dashboard" element={<Layout><DashboardPage /></Layout>} />        {/* REMOVE */}
+  <Route path="/editor" element={<EditorApp />} />                                {/* KEEP */}
+  <Route path="/welcome" element={<WelcomePage />} />                             {/* KEEP */}
+  <Route path="/settings" element={<Layout><SettingsPage /></Layout>} />         {/* REMOVE */}
+
+  {/* Default redirect */}
+  <Route path="/" element={<Navigate to="/dashboard" replace />} />              {/* CHANGE */}
+
+  {/* Public shared document route */}
+  <Route path="/shared/:slug" element={<SharedDocument />} />                    {/* KEEP */}
+
+  {/* Catch all */}
+  <Route path="*" element={<Navigate to="/dashboard" replace />} />              {/* CHANGE */}
+</Routes>
+```
+
+### 5.6 Detailed Page Component Analysis
+
+#### DashboardPage (`apps/portal/src/pages/dashboard.tsx`)
+
+**File Stats:**
+- **Lines:** 79 lines total
+- **Status:** Mock data only (auth temporarily disabled per line 4 comment)
+- **Mock Data:**
+  - Display name: "Desenvolvedor"
+  - Email: "dev@example.com"
+
+**Content Sections:**
+1. **Welcome section** (lines 18-26): "Olá, {displayName}!" greeting
+2. **User profile card** (lines 28-42): Avatar with initial, name, email
+3. **Quick actions grid** (lines 44-63):
+   - Link to `/editor` (lines 48-54): "Editor de Notas"
+   - Link to `/settings` (lines 55-61): "Configurações"
+4. **Development mode notice** (lines 65-71): Auth disabled message
+
+**Key Imports:**
+```typescript
+import React from 'react'
+```
+No external dependencies - simple React component
+
+**Reason for Removal:**
+- Dashboard is unnecessary navigation layer
+- Editor is the main application
+- Quick action links will be broken after /settings removal
+- No real functionality (mock data only)
+
+**Action:** **DELETE FILE** - `apps/portal/src/pages/dashboard.tsx`
+
+#### SettingsPage (`apps/portal/src/pages/settings.tsx`)
+
+**File Stats:**
+- **Lines:** 195 lines total
+- **Status:** Mock data only (auth temporarily disabled per line 4 comment)
+- **State Management:**
+  - `theme` (line 18): "dark" | "light" | "system"
+  - `vaultPath` (line 19): "C:\\Users\\Alex\\ObsidianVault"
+  - `hooks` (lines 22-37): Array of 2 hooks (plan-mode, obsidian-note)
+
+**Content Sections:**
+1. **Header** (lines 49-57): Title "Configurações", subtitle
+2. **Appearance** (lines 59-76): Theme dropdown (dark/light/system)
+3. **Hooks Configuration** (lines 78-146):
+   - Toggle switches for each hook
+   - "Add Hook" button (placeholder)
+   - Empty state message
+4. **Obsidian Settings** (lines 148-166): Vault path input
+5. **About** (lines 168-179): Product info, version, license
+6. **Development Mode Notice** (lines 181-187): "As configurações são apenas visuais"
+
+**Duplicate Functionality with SettingsPanel:**
+
+| Feature | SettingsPage | SettingsPanel | Status |
+|---------|--------------|---------------|--------|
+| Hooks | Lines 78-146 | Lines 480-533 | **DUPLICATE** |
+| Vault Path | Lines 148-166 | Via path categories | **DUPLICATE** |
+| Theme | Lines 59-76 | Via ModeToggle in header | **DUPLICATE** |
+| Identity | Missing | Lines 397-449 | **SettingsPanel only** |
+| Shortcuts | Missing | Lines 450-479 | **SettingsPanel only** |
+| Rules/Workflows | Missing | Via ConfigEditor | **SettingsPanel only** |
+| Note Paths | Missing | Via 4 category tabs | **SettingsPanel only** |
+
+**Reason for Removal:**
+- All functionality exists in SettingsPanel (in editor)
+- SettingsPage is a mock with no persistence
+- Creates duplicate/confusing settings UI
+- SettingsPanel has more features (8 categories vs 3 sections)
+
+**Action:** **DELETE FILE** - `apps/portal/src/pages/settings.tsx`
+
+### 5.7 Import Clean-up Required
+
+After deleting the page components, remove these imports from `apps/portal/src/App.tsx`:
+
+```typescript
+// Lines 11-12 - TO BE REMOVED:
+import { DashboardPage } from './pages/dashboard'
+import { SettingsPage } from './pages/settings'
+```
+
+### 5.8 Route Removal Execution Plan
+
+**Step 1:** Delete page components
+```bash
+rm apps/portal/src/pages/dashboard.tsx
+rm apps/portal/src/pages/settings.tsx
+```
+
+**Step 2:** Remove imports from App.tsx (lines 11-12)
+
+**Step 3:** Remove routes from App.tsx (lines 70-79, 97-105)
+
+**Step 4:** Update redirects in App.tsx (lines 108, 114)
+
+**Step 5:** Verify no broken references
+```bash
+grep -r "DashboardPage" apps/portal/src/
+grep -r "SettingsPage" apps/portal/src/
+```
+
+### 5.9 User Impact After Removal
+
+**Before Removal:**
+1. User visits `/`
+2. Redirected to `/dashboard`
+3. Sees welcome message and quick actions
+4. Clicks "Editor" or "Settings" to navigate
+
+**After Removal:**
+1. User visits `/`
+2. Redirected directly to `/editor`
+3. Can access settings via gear icon in editor header
+
+**Result:** One less navigation step, cleaner UX
+
+### 5.10 Total Lines of Code to Remove
+
+| File | Lines | Purpose |
+|------|-------|---------|
+| `apps/portal/src/pages/dashboard.tsx` | 79 | Dashboard page |
+| `apps/portal/src/pages/settings.tsx` | 195 | Settings page |
+| `apps/portal/src/App.tsx` (routes) | ~20 | Route definitions |
+| `apps/portal/src/App.tsx` (imports) | 2 | Import statements |
+| **Total** | **~296** | Duplicate/mock code |
+
 ---
 
 ## 6. Current Issues/Gaps
@@ -550,6 +709,22 @@ import { SettingsPanel } from '@obsidian-note-reviewer/ui/components/SettingsPan
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
+│                    Portal App (apps/portal)                      │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │  BrowserRouter / AuthProvider                               │ │
+│  │  Routes:                                                    │ │
+│  │  - /auth/* (public)                                         │ │
+│  │  - /dashboard ────► DashboardPage (TO REMOVE)              │ │
+│  │  - /editor ──────► EditorApp                                │ │
+│  │  - /settings ────► SettingsPage (TO REMOVE)                │ │
+│  │  - / ────────────► /dashboard (TO CHANGE to /editor)       │ │
+│  │  - * ─────────────► /dashboard (TO CHANGE to /editor)      │ │
+│  └────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              │ renders
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
 │                         Editor App                               │
 │  ┌────────────────────────────────────────────────────────────┐ │
 │  │  isSettingsPanelOpen ? TRUE : FALSE                         │ │
@@ -586,6 +761,28 @@ import { SettingsPanel } from '@obsidian-note-reviewer/ui/components/SettingsPan
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
+│                    Portal App (apps/portal)                      │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │  BrowserRouter / AuthProvider                               │ │
+│  │  Routes:                                                    │ │
+│  │  - /auth/* (public)                                         │ │
+│  │  - /editor ──────► EditorApp (MAIN APP)                    │ │
+│  │  - /welcome ─────► WelcomePage                              │ │
+│  │  - /shared/:slug ► SharedDocument                          │ │
+│  │  - / ────────────► /editor (SIMPLIFIED)                    │ │
+│  │  - * ─────────────► /editor (SIMPLIFIED)                   │ │
+│  │                                                             │ │
+│  │  REMOVED:                                                   │ │
+│  │  - /dashboard route                                         │ │
+│  │  - /settings route                                          │ │
+│  │  - DashboardPage component                                  │ │
+│  │  - SettingsPage component                                   │ │
+│  └────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              │ renders
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
 │                         Editor App                               │
 │  ┌─────────────────────────────────────────────────────────────┐│
 │  │  Header                                                     ││
@@ -593,9 +790,10 @@ import { SettingsPanel } from '@obsidian-note-reviewer/ui/components/SettingsPan
 │  └─────────────────────────────────────────────────────────────┘│
 │  ┌─────────────────────────────────────────────────────────────┐│
 │  │  Viewer                    │  Settings Panel (overlay)    ││
-│  │  - Document content        │  - Categories (side or slide)││
-│  │  - Annotations             │  - Quick settings             ││
-│  │                            │  - Always visible             ││
+│  │  - Document content        │  - Slide-over from right     ││
+│  │  - Annotations             │  - 8 categories accessible    ││
+│  │  - Always visible          │  - Document remains visible   ││
+│  │                            │  - Quick settings             ││
 │  └────────────────────────────┴───────────────────────────────┘│
 │  ┌─────────────────────────────────────────────────────────────┐│
 │  │  Annotation Panel                                           ││
@@ -604,10 +802,12 @@ import { SettingsPanel } from '@obsidian-note-reviewer/ui/components/SettingsPan
 ```
 
 **Key Changes:**
-1. SettingsPanel becomes overlay (slide-over from right)
-2. Document remains visible while configuring
-3. No full viewport replacement
-4. Settings accessible via keyboard shortcut without losing context
+1. Portal routes simplified (no /settings, no /dashboard)
+2. SettingsPanel becomes overlay (slide-over from right)
+3. Document remains visible while configuring
+4. No full viewport replacement
+5. Settings accessible via keyboard shortcut (?) without losing context
+6. Single source of truth for settings (editor only)
 
 ---
 
@@ -634,6 +834,12 @@ import { SettingsPanel } from '@obsidian-note-reviewer/ui/components/SettingsPan
 - Unnecessary dashboard adding navigation friction
 - Settings hiding document context (UX issue)
 - Partial hook persistence implementation
+- **~296 lines of duplicate/mock code to remove**
+
+### Files Affected by Removal
+- `apps/portal/src/App.tsx` (remove routes, update redirects, remove imports)
+- `apps/portal/src/pages/dashboard.tsx` (DELETE - 79 lines)
+- `apps/portal/src/pages/settings.tsx` (DELETE - 195 lines)
 
 ---
 
