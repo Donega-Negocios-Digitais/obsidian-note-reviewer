@@ -33,27 +33,69 @@ export function isSecureContext(): boolean {
 }
 
 /**
- * Get a value from cookie storage
+ * Safe set operation result
  */
-export function getItem(key: string): string | null {
+export interface SafeSetResult {
+  success: boolean;
+  error?: string;
+}
+
+/**
+ * Safe get operation result
+ */
+export interface SafeGetResult<T = string> {
+  success: boolean;
+  value?: T;
+  error?: string;
+}
+
+/**
+ * Set a value in cookie storage with error handling
+ */
+export function safeSetItem(key: string, value: string): SafeSetResult {
   try {
-    const match = document.cookie.match(new RegExp(`(?:^|; )${escapeRegex(key)}=([^;]*)`));
-    return match ? decodeURIComponent(match[1]) : null;
-  } catch (e) {
-    return null;
+    const encoded = encodeURIComponent(value);
+    document.cookie = `${key}=${encoded}; path=/; max-age=${ONE_YEAR_SECONDS}; SameSite=Lax`;
+    return { success: true };
+  } catch (error) {
+    console.error(`Failed to save ${key}:`, error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
   }
 }
 
 /**
- * Set a value in cookie storage
+ * Get a value from cookie storage with error handling
+ */
+export function safeGetItem(key: string): SafeGetResult<string> {
+  try {
+    const match = document.cookie.match(new RegExp(`(?:^|; )${escapeRegex(key)}=([^;]*)`));
+    const value = match ? decodeURIComponent(match[1]) : null;
+    return { success: true, value: value || undefined };
+  } catch (error) {
+    console.error(`Failed to load ${key}:`, error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
+/**
+ * Get a value from cookie storage (legacy, for backward compatibility)
+ */
+export function getItem(key: string): string | null {
+  const result = safeGetItem(key);
+  return result.value ?? null;
+}
+
+/**
+ * Set a value in cookie storage (legacy, for backward compatibility)
  */
 export function setItem(key: string, value: string): void {
-  try {
-    const encoded = encodeURIComponent(value);
-    document.cookie = `${key}=${encoded}; path=/; max-age=${ONE_YEAR_SECONDS}; SameSite=Lax`;
-  } catch (e) {
-    // Cookie not available
-  }
+  safeSetItem(key, value);
 }
 
 /**
@@ -103,8 +145,8 @@ export function getVaultPath(): string {
 /**
  * Set vault path in storage
  */
-export function setVaultPath(path: string): void {
-  setCookie('vaultPath', path);
+export function setVaultPath(path: string): SafeSetResult {
+  return safeSetItem('vaultPath', path);
 }
 
 /**
@@ -117,8 +159,8 @@ export function getNotePath(): string {
 /**
  * Set note path in storage
  */
-export function setNotePath(path: string): void {
-  setCookie('notePath', path);
+export function setNotePath(path: string): SafeSetResult {
+  return safeSetItem('notePath', path);
 }
 
 /**
@@ -131,8 +173,8 @@ export function getNoteType(): string | null {
 /**
  * Set note type in storage
  */
-export function setNoteType(tipo: string): void {
-  setCookie('noteType', tipo);
+export function setNoteType(tipo: string): SafeSetResult {
+  return safeSetItem('noteType', tipo);
 }
 
 /**
@@ -145,8 +187,8 @@ export function getNoteName(): string {
 /**
  * Set note name in storage
  */
-export function setNoteName(name: string): void {
-  setCookie('noteName', name);
+export function setNoteName(name: string): SafeSetResult {
+  return safeSetItem('noteName', name);
 }
 
 /**
@@ -159,8 +201,8 @@ export function getLastUsedTemplate(): string | null {
 /**
  * Set last used template in storage
  */
-export function setLastUsedTemplate(template: string): void {
-  setCookie('lastTemplate', template);
+export function setLastUsedTemplate(template: string): SafeSetResult {
+  return safeSetItem('lastTemplate', template);
 }
 
 /**
@@ -189,8 +231,17 @@ const isValidNoteConfig: JsonValidator<NoteConfig> = (data): data is NoteConfig 
 /**
  * Save complete note configuration
  */
-export function saveNoteConfig(config: NoteConfig): void {
-  setCookie('noteConfig', JSON.stringify(config));
+export function saveNoteConfig(config: NoteConfig): SafeSetResult {
+  try {
+    const json = JSON.stringify(config);
+    return safeSetItem('noteConfig', json);
+  } catch (error) {
+    console.error('Failed to save note config:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
 }
 
 /**
@@ -221,8 +272,25 @@ export function getNoteTypePath(tipo: string): string {
 /**
  * Set path for a specific note type
  */
-export function setNoteTypePath(tipo: string, path: string): void {
-  setCookie(`notePath_${tipo}`, path);
+export function setNoteTypePath(tipo: string, path: string): SafeSetResult {
+  const key = `notePath_${tipo}`;
+  const result = safeSetItem(key, path);
+
+  // Even if setting the individual cookie failed, try to update the general paths object
+  // This provides a fallback mechanism
+  if (result.success) {
+    try {
+      const paths = getAllNoteTypePaths();
+      paths[tipo] = path;
+      // Store the paths object as a single cookie
+      safeSetItem('noteTypePaths', JSON.stringify(paths));
+    } catch (e) {
+      // Non-critical: the individual cookie was set successfully
+      console.warn('Failed to update noteTypePaths cache:', e);
+    }
+  }
+
+  return result;
 }
 
 /**
@@ -231,13 +299,21 @@ export function setNoteTypePath(tipo: string, path: string): void {
 export function getAllNoteTypePaths(): Record<string, string> {
   const paths: Record<string, string> = {};
   // Parse all cookies to find notePath_* entries
-  const cookies = document.cookie.split(';');
-  for (const cookie of cookies) {
-    const [key, value] = cookie.trim().split('=');
-    if (key.startsWith('notePath_')) {
-      const tipo = key.replace('notePath_', '');
-      paths[tipo] = decodeURIComponent(value);
+  try {
+    const cookies = document.cookie.split(';');
+    for (const cookie of cookies) {
+      const [key, value] = cookie.trim().split('=');
+      if (key && key.startsWith('notePath_') && value) {
+        const tipo = key.replace('notePath_', '');
+        try {
+          paths[tipo] = decodeURIComponent(value);
+        } catch {
+          paths[tipo] = value;
+        }
+      }
     }
+  } catch (e) {
+    console.error('Failed to parse cookies for paths:', e);
   }
   return paths;
 }
@@ -252,8 +328,24 @@ export function getNoteTypeTemplate(tipo: string): string {
 /**
  * Set template path for a specific note type
  */
-export function setNoteTypeTemplate(tipo: string, templatePath: string): void {
-  setCookie(`noteTemplate_${tipo}`, templatePath);
+export function setNoteTypeTemplate(tipo: string, templatePath: string): SafeSetResult {
+  const key = `noteTemplate_${tipo}`;
+  const result = safeSetItem(key, templatePath);
+
+  // Even if setting the individual cookie failed, try to update the general templates object
+  if (result.success) {
+    try {
+      const templates = getAllNoteTypeTemplates();
+      templates[tipo] = templatePath;
+      // Store the templates object as a single cookie
+      safeSetItem('noteTypeTemplates', JSON.stringify(templates));
+    } catch (e) {
+      // Non-critical: the individual cookie was set successfully
+      console.warn('Failed to update noteTypeTemplates cache:', e);
+    }
+  }
+
+  return result;
 }
 
 /**
@@ -301,32 +393,134 @@ export function validateSettingsImport(data: unknown): { valid: boolean; error?:
 
 /**
  * Import all settings from a JSON object
+ * Returns the number of successfully imported settings and any errors
  */
-export function importAllSettings(data: Record<string, unknown>): void {
+export interface ImportSettingsResult {
+  success: boolean;
+  imported: number;
+  failed: number;
+  errors: string[];
+}
+
+export function importAllSettings(data: Record<string, unknown>): ImportSettingsResult {
+  const errors: string[] = [];
+  let imported = 0;
+  let failed = 0;
+
+  const trySet = <T extends (...args: any[]) => SafeSetResult>(
+    fn: T,
+    value: Parameters<T>[0],
+    name: string
+  ) => {
+    const result = fn(value);
+    if (result.success) {
+      imported++;
+    } else {
+      failed++;
+      errors.push(`${name}: ${result.error || 'Unknown error'}`);
+    }
+  };
+
   if (data.vaultPath && typeof data.vaultPath === 'string') {
-    setVaultPath(data.vaultPath);
+    trySet(setVaultPath, data.vaultPath, 'vaultPath');
   }
   if (data.notePath && typeof data.notePath === 'string') {
-    setNotePath(data.notePath);
+    trySet(setNotePath, data.notePath, 'notePath');
   }
   if (data.noteType && typeof data.noteType === 'string') {
-    setNoteType(data.noteType);
+    trySet(setNoteType, data.noteType, 'noteType');
   }
   if (data.noteName && typeof data.noteName === 'string') {
-    setNoteName(data.noteName);
+    trySet(setNoteName, data.noteName, 'noteName');
   }
   if (data.lastUsedTemplate && typeof data.lastUsedTemplate === 'string') {
-    setLastUsedTemplate(data.lastUsedTemplate);
+    trySet(setLastUsedTemplate, data.lastUsedTemplate, 'lastUsedTemplate');
   }
   if (data.noteTypePaths && typeof data.noteTypePaths === 'object') {
     for (const [tipo, path] of Object.entries(data.noteTypePaths as Record<string, string>)) {
-      setNoteTypePath(tipo, path);
+      trySet(setNoteTypePath, path, `noteTypePath_${tipo}`);
     }
   }
   if (data.noteTypeTemplates && typeof data.noteTypeTemplates === 'object') {
     for (const [tipo, template] of Object.entries(data.noteTypeTemplates as Record<string, string>)) {
-      setNoteTypeTemplate(tipo, template);
+      trySet(setNoteTypeTemplate, template, `noteTypeTemplate_${tipo}`);
     }
+  }
+
+  return {
+    success: failed === 0,
+    imported,
+    failed,
+    errors
+  };
+}
+
+// =====================================
+// localStorage Safe Operations
+// =====================================
+
+/**
+ * Safe set operation result for localStorage
+ */
+export interface SafeLocalStorageSetResult {
+  success: boolean;
+  error?: string;
+}
+
+/**
+ * Safe get operation result for localStorage
+ */
+export interface SafeLocalStorageGetResult<T = string> {
+  success: boolean;
+  value?: T;
+  error?: string;
+}
+
+/**
+ * Safely set an item in localStorage
+ */
+export function safeLocalStorageSetItem(key: string, value: string): SafeLocalStorageSetResult {
+  try {
+    localStorage.setItem(key, value);
+    return { success: true };
+  } catch (error) {
+    console.error(`Failed to save ${key} to localStorage:`, error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
+/**
+ * Safely get an item from localStorage
+ */
+export function safeLocalStorageGetItem(key: string): SafeLocalStorageGetResult<string> {
+  try {
+    const value = localStorage.getItem(key);
+    return { success: true, value: value || undefined };
+  } catch (error) {
+    console.error(`Failed to load ${key} from localStorage:`, error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
+/**
+ * Safely remove an item from localStorage
+ */
+export function safeLocalStorageRemoveItem(key: string): SafeLocalStorageSetResult {
+  try {
+    localStorage.removeItem(key);
+    return { success: true };
+  } catch (error) {
+    console.error(`Failed to remove ${key} from localStorage:`, error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
   }
 }
 
@@ -348,45 +542,59 @@ function generateContentHash(content: string): string {
 }
 
 /**
- * Save annotations to localStorage
+ * Save annotations to localStorage with error handling
  */
-export function saveAnnotations(markdown: string, annotations: unknown[]): void {
+export function saveAnnotations(markdown: string, annotations: unknown[]): SafeLocalStorageSetResult {
   try {
     const hash = generateContentHash(markdown);
-    localStorage.setItem(`annotations_${hash}`, JSON.stringify(annotations));
+    const result1 = safeLocalStorageSetItem(`annotations_${hash}`, JSON.stringify(annotations));
+    if (!result1.success) return result1;
+
     // Also save the current hash so we can check if content changed
-    localStorage.setItem('current_note_hash', hash);
+    return safeLocalStorageSetItem('current_note_hash', hash);
   } catch (e) {
     console.warn('Failed to save annotations to localStorage:', e);
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : 'Unknown error'
+    };
   }
 }
 
 /**
- * Load annotations from localStorage
+ * Load annotations from localStorage with error handling
  */
-export function loadAnnotations(markdown: string): unknown[] | null {
+export function loadAnnotations(markdown: string): SafeLocalStorageGetResult<unknown[]> {
   try {
     const hash = generateContentHash(markdown);
-    const stored = localStorage.getItem(`annotations_${hash}`);
-    if (stored) {
-      return JSON.parse(stored);
+    const result = safeLocalStorageGetItem(`annotations_${hash}`);
+    if (!result.success || !result.value) {
+      return { success: true, value: undefined };
     }
-    return null;
+    const parsed = JSON.parse(result.value);
+    return { success: true, value: parsed };
   } catch (e) {
     console.warn('Failed to load annotations from localStorage:', e);
-    return null;
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : 'Unknown error'
+    };
   }
 }
 
 /**
- * Clear annotations from localStorage
+ * Clear annotations from localStorage with error handling
  */
-export function clearAnnotations(markdown: string): void {
+export function clearAnnotations(markdown: string): SafeLocalStorageSetResult {
   try {
     const hash = generateContentHash(markdown);
-    localStorage.removeItem(`annotations_${hash}`);
+    return safeLocalStorageRemoveItem(`annotations_${hash}`);
   } catch (e) {
     console.warn('Failed to clear annotations from localStorage:', e);
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : 'Unknown error'
+    };
   }
 }
 
@@ -406,6 +614,6 @@ export function getDisplayName(): string {
 /**
  * Set display name in storage
  */
-export function setDisplayName(name: string): void {
-  setItem(DISPLAY_NAME_KEY, name);
+export function setDisplayName(name: string): SafeSetResult {
+  return safeSetItem(DISPLAY_NAME_KEY, name);
 }
