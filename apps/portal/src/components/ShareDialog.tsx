@@ -2,10 +2,12 @@
  * Share Dialog Component
  *
  * Modal dialog for generating and copying shareable links.
+ * Uses NanoID-based unique slugs with Supabase storage.
  */
 
 import React, { useState, useEffect } from 'react';
-import { generateUniqueSlug, validateSlug, getShareableUrl } from '@obsidian-note-reviewer/collaboration/shareableLinks';
+import { createSharedLink, getExistingShare, getDocumentBySlug } from '@/lib/supabase/sharing';
+import { getShareUrl } from '@/lib/slugGenerator';
 
 export interface ShareDialogProps {
   documentId: string;
@@ -15,28 +17,49 @@ export interface ShareDialogProps {
 }
 
 /**
- * Modal dialog for sharing documents with custom slugs
+ * Modal dialog for sharing documents with NanoID-generated slugs
  */
 export function ShareDialog({ documentId, documentTitle, onClose, onShareCreated }: ShareDialogProps) {
-  const [slug, setSlug] = useState('');
-  const [validation, setValidation] = useState<{ valid: boolean; error?: string }>({ valid: true });
+  const [slug, setSlug] = useState<string | null>(null);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Generate initial slug from title
+  // Check for existing share or create new one on mount
   useEffect(() => {
-    const generated = generateUniqueSlug(documentTitle, []);
-    setSlug(generated);
-  }, [documentTitle]);
+    const loadOrCreateShare = async () => {
+      try {
+        setLoading(true);
 
-  const shareUrl = getShareableUrl(slug);
+        // Check if already shared
+        const existingSlug = await getExistingShare(documentId);
 
-  const handleSlugChange = (value: string) => {
-    setSlug(value);
-    const result = validateSlug(value);
-    setValidation({ valid: result.valid, error: result.error });
-  };
+        if (existingSlug) {
+          setSlug(existingSlug);
+          setShareUrl(getShareUrl(existingSlug));
+        } else {
+          // Auto-create a new share link with NanoID
+          setCreating(true);
+          const result = await createSharedLink(documentId);
+          setSlug(result.slug);
+          setShareUrl(result.url);
+          onShareCreated?.(result.slug);
+        }
+      } catch (error) {
+        console.error('Failed to load share:', error);
+      } finally {
+        setLoading(false);
+        setCreating(false);
+      }
+    };
+
+    loadOrCreateShare();
+  }, [documentId, onShareCreated]);
 
   const handleCopy = async () => {
+    if (!shareUrl) return;
+
     try {
       await navigator.clipboard.writeText(shareUrl);
       setCopied(true);
@@ -52,15 +75,6 @@ export function ShareDialog({ documentId, documentTitle, onClose, onShareCreated
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
-  };
-
-  const handleShare = () => {
-    if (!validation.valid || !slug) return;
-
-    // TODO: Save to backend when API is ready
-    console.log('Creating share link:', { documentId, slug });
-
-    onShareCreated?.(slug);
   };
 
   return (
@@ -86,55 +100,40 @@ export function ShareDialog({ documentId, documentTitle, onClose, onShareCreated
 
         {/* Description */}
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          Crie um link personalizado para compartilhar este documento com outras pessoas.
+          {loading || creating ? 'Gerando link de compartilhamento...' : 'Copie o link abaixo para compartilhar este documento.'}
         </p>
-
-        {/* Slug Input */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Link personalizado
-          </label>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-              r.alexdonega.com.br/shared/
-            </span>
-            <input
-              type="text"
-              value={slug}
-              onChange={(e) => handleSlugChange(e.target.value)}
-              className={`flex-1 px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
-                !validation.valid ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-              }`}
-              placeholder="meu-plano"
-            />
-          </div>
-          {!validation.valid && validation.error && (
-            <p className="mt-1 text-xs text-red-600 dark:text-red-400">{validation.error}</p>
-          )}
-        </div>
 
         {/* Share URL */}
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Link de compartilhamento
           </label>
-          <div className="flex items-center gap-2 p-3 bg-gray-100 dark:bg-gray-900 rounded-lg">
-            <code className="flex-1 text-sm text-gray-700 dark:text-gray-300 truncate">
-              {shareUrl}
-            </code>
-            <button
-              onClick={handleCopy}
-              className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors whitespace-nowrap"
-            >
-              {copied ? 'Copiado!' : 'Copiar'}
-            </button>
-          </div>
+          {loading || creating ? (
+            <div className="flex items-center justify-center p-6 bg-gray-100 dark:bg-gray-900 rounded-lg">
+              <svg className="animate-spin h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 p-3 bg-gray-100 dark:bg-gray-900 rounded-lg">
+              <code className="flex-1 text-sm text-gray-700 dark:text-gray-300 truncate">
+                {shareUrl || 'Carregando...'}
+              </code>
+              <button
+                onClick={handleCopy}
+                className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors whitespace-nowrap"
+              >
+                {copied ? 'Copiado!' : 'Copiar'}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Info note */}
         <div className="mb-6 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
           <p className="text-xs text-blue-800 dark:text-blue-300">
-            Qualquer pessoa com o link poderá visualizar este documento.
+            Qualquer pessoa com o link poderá visualizar este documento. O link é único e não expira.
           </p>
         </div>
 
@@ -142,16 +141,10 @@ export function ShareDialog({ documentId, documentTitle, onClose, onShareCreated
         <div className="flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            disabled={loading || creating}
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Cancelar
-          </button>
-          <button
-            onClick={handleShare}
-            disabled={!validation.valid || !slug}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
-          >
-            Criar Link
+            Fechar
           </button>
         </div>
       </div>
