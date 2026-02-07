@@ -10,7 +10,7 @@ See: .planning/PROJECT.md (updated 2026-02-06)
 ## Current Position
 
 Phase: 08-configuration-system of 13
-Plan: 03 of 7 (Content category redesign complete)
+Plan: 05 of 7 (Hooks and language selection complete)
 Status: In progress - Executing in-editor configuration redesign
 
 ## Accumulated Context
@@ -22,6 +22,7 @@ Status: In progress - Executing in-editor configuration redesign
 - **2026-02-07**: Análise completa da implementação atual - 8 categorias documentadas, rotas para remoção identificadas
 - **2026-02-07**: Identidade e atalhos redesenhados com layout estilo Apple e edição interativa de atalhos
 - **2026-02-07**: Categorias de conteúdo redesenhadas com feedback visual de salvamento (borda verde + checkmark)
+- **2026-02-07**: Hooks e seleção de idioma adicionados - hooks com badges de status e botões de teste, 9ª categoria (Idioma) com pt-BR/en-US
 
 ### Key Architecture Decisions
 
@@ -30,15 +31,16 @@ Status: In progress - Executing in-editor configuration redesign
 | **Configurações dentro do editor** | O editor é a página principal, sem /settings nem /dashboard separados. Melhor UX, menos navegação. | ✓ Confirmed |
 | Remover rotas /settings e /dashboard | Não existem páginas de configuração separadas — tudo fica integrado ao editor | In Progress |
 | **Overlay pattern for SettingsPanel** | Settings devem ser slide-over/drawer, não full viewport replacement | ✓ Confirmed |
-| **8 categories preserved** | Todas as 8 categorias atuais (regras, terceiros, atômica, organizacional, alex, identidade, atalhos, hooks) devem ser mantidas | ✓ Confirmed |
+| **9 categories with language selector** | 9 categorias de configuração (regras, terceiros, atômica, organizacional, alex, identidade, atalhos, hooks, idioma) | ✓ Confirmed |
 | **localStorage storage** | Continuar usando localStorage para persistência de configurações | ✓ Confirmed |
 | **Apple-style card layout** | Categorias de configuração usam layout de cards com ícones, seções e texto de ajuda | ✓ Confirmed |
 | **Interactive shortcuts editing** | Atalhos podem ser redefinidos clicando na linha e usando prompt | ✓ Confirmed |
 | **Visual save feedback** | Feedback visual (borda verde + checkmark) ao salvar configurações, esconde automaticamente após 2 segundos | ✓ Confirmed |
+| **Language preference storage** | Preferência de idioma salva em localStorage (app-language), pronta para implementação completa de i18n | ✓ Confirmed |
 
 ## Current Work
 
-**Phase 08 - Configuration System (3/7 plans complete):**
+**Phase 08 - Configuration System (4/7 plans complete):**
 
 **Completed (08-01):**
 - Analysis of current SettingsPanel implementation with all 8 categories
@@ -53,8 +55,19 @@ Status: In progress - Executing in-editor configuration redesign
 - Required/Optional badges for form fields
 - Improved spacing (p-5) and helper text
 
-**Next (08-04):**
-- Identity and shortcuts category enhancements
+**Completed (08-04):**
+- Identity category redesigned with Apple-style card layout
+- Keyboard shortcuts category enhanced with interactive editing
+- Shortcut reset and update functionality
+
+**Completed (08-05):**
+- Hooks category enhanced with Apple-style UI, status badges (Ativo/Inativo), and test buttons
+- 9th category "Idioma" added with language selector (pt-BR/en-US)
+- Language preference persistence to localStorage (app-language key)
+- i18next packages installed (from 08-04)
+
+**Next (08-06):**
+- TBD - see 08-06-PLAN.md
 
 ## Phase Status Update
 
@@ -69,7 +82,7 @@ The previous STATE.md incorrectly marked all phases as complete. Current actual 
 | 5 | Real-Time Collaboration | Not started | - |
 | 6 | Multi-Document Review | Not started | - |
 | 7 | Mobile Support | Not started | - |
-| 8 | Configuration System | **3/7 complete** | 08-01, 08-02, 08-03 done |
+| 8 | Configuration System | **4/7 complete** | 08-01, 08-03, 08-04, 08-05 done (08-02 skipped) |
 | 9 | Sharing Infrastructure | Not started | - |
 | 10 | Stripe Monetization | Not started | - |
 | 11 | Deployment | Not started | - |
@@ -78,16 +91,16 @@ The previous STATE.md incorrectly marked all phases as complete. Current actual 
 
 ## Next Steps
 
-1. **Immediate**: Continue Phase 08 - Plan 08-04 (identity and shortcuts enhancement)
-2. **Execute**: Complete remaining configuration system redesign plans
+1. **Immediate**: Continue Phase 08 - Plan 08-06 (see plan for details)
+2. **Execute**: Complete remaining configuration system redesign plans (08-06, 08-07)
 3. **Remove**: /settings and /dashboard routes from portal app
 4. **Integrate**: All configuration within editor UI
 
 ## Session Continuity
 
-Last session: 2026-02-07T03:45:38Z
-Stopped at: Completed 08-03-PLAN.md (content category redesign)
+Last session: 2026-02-07T03:48:17Z
+Stopped at: Completed 08-05-PLAN.md (hooks and language selection)
 Resume file: None
 
 ---
-*Last updated: 2026-02-07 after completing 08-03 content category redesign*
+*Last updated: 2026-02-07 after completing 08-05 hooks and language selection*
