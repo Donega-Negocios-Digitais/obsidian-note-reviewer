@@ -86,44 +86,29 @@ Plans:
 
 ---
 
-### ~~Phase 4: Advanced AI~~ ❌ **REMOVIDA**
-~~AI-suggested annotations, vault context understanding, summarization~~
-
-**Removida do roadmap:** Recursos de IA avançada não são prioridade no momento.
-
----
-
-### Phase 4: Real-Time Collaboration (antiga Phase 5)
+### Phase 4: Real-Time Collaboration
 **Goal**: Multiple users can collaborate on reviews with presence indicators and shared access
 **Depends on**: Phase 1 (authentication), Phase 2 (annotation system)
 **Requirements**: COLL-01, COLL-02, COLL-03, COLL-04, COLL-05
+**Status**: Not started
+
 **Success Criteria** (what must be TRUE):
   1. User can see presence indicators showing who else is viewing the document
   2. User can see real-time cursors and avatars of active users in the document
   3. User can share review via friendly slug-based URL (e.g., r.alexdonega.com.br/plan/nome-do-plano)
   4. Guest users can view shared reviews without requiring login
   5. Native workflow with Obsidian vault allows local file access and preserves Obsidian links/graph
-**Plans**: TBD
 
 Plans:
-- [ ] 04-01: Integrate Liveblocks for real-time presence and cursor tracking
-- [ ] 04-02: Build shareable link system with unique slug generation and validation
-- [ ] 04-03: Implement guest access for viewing reviews without authentication
-- [ ] 04-04: Create Obsidian vault integration for local file access
+- [ ] 04-01-PLAN.md — Integrate Liveblocks v3.13.4 for real-time presence with color-hash library
+- [ ] 04-02-PLAN.md — Implement real-time cursors with tooltips and inactivity timeout
+- [ ] 04-03-PLAN.md — Implement guest access for viewing shared reviews without authentication
+- [ ] 04-04-PLAN.md — Create Obsidian vault integration for local file access
 
----
-
-### ~~Phase 6: Multi-Document Review~~ ❌ **REMOVIDA**
-~~Tabbed interface for reviewing multiple plans simultaneously~~
-
-**Removida do roadmap:** Multi-document review não é prioridade no momento.
-
----
-
-### ~~Phase 7: Mobile Support~~ ❌ **REMOVIDA**
-~~Responsive design and breakpoint comparison features~~
-
-**Removida do roadmap:** Mobile support básico já existe (responsivo), breakpoint comparison não é prioridade.
+**Wave Structure:**
+- Wave 1: Plan 04-01 (Liveblocks presence integration)
+- Wave 2: Plan 04-02 (Real-time cursors - depends on 04-01)
+- Wave 3: Plans 04-03, 04-04 (Guest access + Vault integration - both depend on 04-01)
 
 ---
 
@@ -271,7 +256,7 @@ Note: Some phases can be developed in parallel due to minimal dependencies:
 | 9. Design System | 1/4 | Partial (50%) | - |
 | 10. Quality & Stability | 0/6 | Not started | - |
 
-**Overall Progress: 28/43 plans complete (65.1%)**
+**Overall Progress: 28/47 plans complete (59.6%)**
 
 ## Coverage Summary
 
@@ -302,4 +287,4 @@ Note: Some phases can be developed in parallel due to minimal dependencies:
 ---
 
 **Last Updated:** 2026-02-07
-**Next Recommended Phase:** Phase 4 (Real-Time Collaboration) or Phase 6 (Sharing - remaining plans)
+**Next Recommended Phase:** Phase 4 (Real-Time Collaboration)
