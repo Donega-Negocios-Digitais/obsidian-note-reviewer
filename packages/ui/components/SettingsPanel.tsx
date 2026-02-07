@@ -259,33 +259,66 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     const items = noteTypes[category];
 
     return (
-      <div className="space-y-4">
+      <div>
         {items.map(({ tipo, emoji, label }) => (
-          <div key={tipo} className="space-y-2 p-4 bg-muted/30 rounded-lg border border-border/50">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">{emoji}</span>
-              <span className="text-sm font-semibold text-foreground">{label}</span>
-            </div>
-            <div className="pl-8 space-y-3">
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Template:</label>
-                <input
-                  type="text"
-                  value={noteTemplates[tipo] || ''}
-                  onChange={(e) => handleTemplateChange(tipo, e.target.value)}
-                  placeholder="C:/caminho/para/template.md"
-                  className="w-full px-3 py-2 bg-background rounded-md text-xs border border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 font-mono transition-all"
-                />
+          <div key={tipo} className="mb-4 last:mb-0">
+            <div className="bg-card/50 rounded-xl border border-border/50 p-5 hover:border-border/80 transition-colors">
+              {/* Header with emoji and title */}
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-xl">
+                  {emoji}
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold text-foreground">{label}</h4>
+                  <p className="text-xs text-muted-foreground">Configure caminho e template</p>
+                </div>
               </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Destino:</label>
-                <input
-                  type="text"
-                  value={notePaths[tipo] || ''}
-                  onChange={(e) => handlePathChange(tipo, e.target.value)}
-                  placeholder="C:/caminho/para/pasta/destino"
-                  className="w-full px-3 py-2 bg-background rounded-md text-xs border border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 font-mono transition-all"
-                />
+
+              {/* Form fields with better spacing */}
+              <div className="space-y-4">
+                {/* Template field */}
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-muted-foreground flex items-center gap-2">
+                    <span>Template</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted/50 text-muted-foreground/60">
+                      Opcional
+                    </span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={noteTemplates[tipo] || ''}
+                      onChange={(e) => handleTemplateChange(tipo, e.target.value)}
+                      placeholder="C:/caminho/para/template.md"
+                      className="w-full px-3 py-2.5 bg-background rounded-lg text-sm border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none font-mono transition-all placeholder:text-muted-foreground/50"
+                    />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground/70">
+                    Caminho para o arquivo de template usado para criar este tipo de nota
+                  </p>
+                </div>
+
+                {/* Destination field */}
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-muted-foreground flex items-center gap-2">
+                    <span>Destino</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                      Obrigatório
+                    </span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={notePaths[tipo] || ''}
+                      onChange={(e) => handlePathChange(tipo, e.target.value)}
+                      placeholder="C:/caminho/para/pasta/destino"
+                      className="w-full px-3 py-2.5 bg-background rounded-lg text-sm border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none font-mono transition-all placeholder:text-muted-foreground/50"
+                    />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground/70">
+                    Pasta onde as notas deste tipo serão salvas
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -388,7 +421,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         id={`settings-panel-content-${activeTab}`}
         role="tabpanel"
         aria-labelledby={`settings-panel-tab-${activeTab}`}
-        className={`${activeTab === 'regras' || activeTab === 'identidade' || activeTab === 'atalhos' || activeTab === 'hooks' ? '' : 'p-4'} overflow-y-auto flex-1`}
+        className={`${activeTab === 'regras' || activeTab === 'identidade' || activeTab === 'atalhos' || activeTab === 'hooks' ? '' : 'p-5'} overflow-y-auto flex-1`}
       >
         {activeTab === 'regras' ? (
           <div className="flex flex-col h-full">
@@ -597,7 +630,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         ) : (
           <>
             <CategoryContent category={activeTab} />
-            <div className="mt-3 p-3 bg-muted/50 rounded-md">
+            <div className="mt-4 p-3 bg-muted/30 rounded-lg">
               <p className="text-xs text-muted-foreground">
                 <strong>💡 Dica:</strong> Você pode usar URLs do Obsidian (obsidian://...) ou caminhos completos de arquivo
               </p>

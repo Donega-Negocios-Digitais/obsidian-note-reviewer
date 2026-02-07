@@ -257,3 +257,38 @@ export function isInputFocused(): boolean {
 
   return isInput || isEditable;
 }
+
+/**
+ * Get all shortcuts from localStorage or return defaults
+ */
+export function getAllShortcuts(): Record<string, Shortcut[]> {
+  const stored = localStorage.getItem('obsreview-shortcuts');
+  if (stored) {
+    try {
+      return JSON.parse(stored);
+    } catch {
+      return getShortcutsByCategory();
+    }
+  }
+  return getShortcutsByCategory();
+}
+
+/**
+ * Reset shortcuts to default values
+ */
+export function resetShortcuts(): void {
+  localStorage.removeItem('obsreview-shortcuts');
+}
+
+/**
+ * Update a specific shortcut's key combination
+ */
+export function updateShortcut(category: string, shortcutId: string, newKey: string): void {
+  const shortcuts = getAllShortcuts();
+  const categoryShortcuts = shortcuts[category];
+  const shortcut = categoryShortcuts?.find((s: Shortcut) => s.id === shortcutId);
+  if (shortcut) {
+    shortcut.key = newKey;
+    localStorage.setItem('obsreview-shortcuts', JSON.stringify(shortcuts));
+  }
+}
