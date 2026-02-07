@@ -605,55 +605,94 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             </div>
           </div>
         ) : activeTab === 'hooks' ? (
-          <div className="p-4 space-y-3">
-            <p className="text-xs text-muted-foreground mb-4">
-              Configure quais ações disparam o Note Reviewer automaticamente
-            </p>
+          <div className="p-5 space-y-4 overflow-y-auto">
+            {/* Header */}
+            <div className="mb-2">
+              <h4 className="text-sm font-semibold text-foreground">Hooks do Sistema</h4>
+              <p className="text-xs text-muted-foreground">Configure integrações automáticas</p>
+            </div>
+
+            {/* Hooks list */}
             {hooks.map((hook) => (
               <div
                 key={hook.id}
-                className={`p-4 rounded-lg border-2 transition-all ${
-                  hook.enabled
+                className={`
+                  bg-card/50 rounded-xl border-2 p-4 transition-all
+                  ${hook.enabled
                     ? 'border-primary/50 bg-primary/5'
                     : 'border-border/50 bg-muted/30'
-                }`}
+                  }
+                `}
               >
                 <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
+                    {/* Header with status */}
                     <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold text-sm">{hook.name}</h3>
-                      {hook.enabled && (
-                        <span className="px-2 py-0.5 text-xs bg-green-500/20 text-green-600 dark:text-green-400 rounded-full">
-                          Ativo
+                      <h3 className="text-sm font-semibold text-foreground">{hook.name}</h3>
+                      {hook.enabled ? (
+                        <span className="px-2 py-0.5 text-[10px] bg-green-500/20 text-green-600 dark:text-green-400 rounded-full font-medium">
+                          ✓ Ativo
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 text-[10px] bg-muted/50 text-muted-foreground rounded-full font-medium">
+                          Inativo
                         </span>
                       )}
                     </div>
+
+                    {/* Description */}
                     <p className="text-xs text-muted-foreground mb-2">
                       {hook.description}
                     </p>
-                    <span className="text-xs px-2 py-1 bg-muted rounded-md font-mono">
-                      Trigger: {hook.trigger}
-                    </span>
+
+                    {/* Trigger badge */}
+                    <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-muted/50 rounded-md">
+                      <svg className="w-3 h-3 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      <code className="text-[10px] font-mono text-muted-foreground">
+                        {hook.trigger}
+                      </code>
+                    </div>
                   </div>
 
-                  {/* Toggle Switch */}
-                  <button
-                    onClick={() => toggleHook(hook.id)}
-                    className={`relative w-14 h-7 rounded-full transition-colors ${
-                      hook.enabled ? 'bg-primary' : 'bg-muted'
-                    }`}
-                  >
-                    <span
-                      className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow-md transition-transform ${
-                        hook.enabled ? 'translate-x-7' : 'translate-x-1'
+                  {/* Actions column */}
+                  <div className="flex flex-col gap-2">
+                    {/* Toggle Switch */}
+                    <button
+                      onClick={() => toggleHook(hook.id)}
+                      className={`relative w-12 h-6 rounded-full transition-colors ${
+                        hook.enabled ? 'bg-primary' : 'bg-muted'
                       }`}
-                    />
-                  </button>
+                    >
+                      <span
+                        className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform ${
+                          hook.enabled ? 'translate-x-6' : 'translate-x-0.5'
+                        }`}
+                      />
+                    </button>
+
+                    {/* Test Button */}
+                    <button
+                      onClick={() => {
+                        // Simulate testing the hook
+                        alert(`Hook "${hook.name}" test would run here.\n\nThis would trigger: ${hook.trigger}`);
+                      }}
+                      className="px-2 py-1 text-[10px] font-medium text-muted-foreground hover:text-foreground bg-muted/30 hover:bg-muted/50 rounded-md transition-colors"
+                    >
+                      Testar
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
-            <div className="p-3 rounded-lg border border-dashed border-border/50 text-center mt-4">
-              <p className="text-xs text-muted-foreground">
+
+            {/* Add new hook placeholder */}
+            <div className="p-4 rounded-xl border-2 border-dashed border-border/50 text-center hover:border-border/80 transition-colors cursor-pointer group">
+              <svg className="w-6 h-6 mx-auto text-muted-foreground/50 group-hover:text-muted-foreground transition-colors mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              <p className="text-xs text-muted-foreground/60 group-hover:text-muted-foreground transition-colors">
                 Mais hooks serão adicionados em breve
               </p>
             </div>
