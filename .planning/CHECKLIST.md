@@ -5,29 +5,36 @@
 
 ---
 
-## Resumo Executivo
+## 🚫 Removidas do ROADMAP (Out of Scope)
 
-| Fase | Status ROADMAP | Status REAL (Código) | Gap |
-|------|----------------|---------------------|-----|
-| Phase 1: Authentication | Não iniciada (0/3) | ✅ **IMPLEMENTADA** | ROADMAP desatualizado |
-| Phase 2: Annotation System | 90% completo (5/5) | ✅ **90%** | Alinhado |
-| Phase 3: Claude Code Integration | 100% (9/9) | ✅ **100%** | Alinhado |
-| Phase 4: Advanced AI | 0/3 | ❌ Não iniciado | - |
-| Phase 5: Real-Time Collaboration | 0/4 | ❌ Não iniciado | - |
-| Phase 6: Multi-Document Review | 0/3 | ❌ Não iniciado | - |
-| Phase 7: Mobile Support | 0/3 | ⚠️ Parcial | Responsivo básico existe |
-| Phase 8: Configuration System | 5/7 (In progress) | ✅ **IMPLEMENTADA** | ROADMAP desatualizado |
-| Phase 9: Sharing Infrastructure | 0/3 | ⚠️ Parcial | SharedDocument existe |
-| Phase 10: Stripe Monetization | 0/5 | ⚠️ Parcial | Pricing/Checkout existem |
-| Phase 11: Deployment | 0/4 | ❌ Não iniciado | - |
-| Phase 12: Design System | 0/4 | ⚠️ Parcial | Theme/ModeToggle existem |
-| Phase 13: Quality & Stability | 0/6 | ❌ Não iniciado | - |
+- ❌ **Phase 4: Advanced AI** - AI-suggested annotations, vault context, summarization
+- ❌ **Phase 6: Multi-Document Review** - Tabbed interface for multiple plans
+- ❌ **Phase 7: Mobile Support** - Breakpoint comparison, touch optimization
+
+**Justificativa:** Não são prioridades no momento. Mobile básico (responsivo) já existe.
+
+---
+
+## Resumo Executivo (Atualizado)
+
+| Fase | Status |
+|------|--------|
+| Phase 1: Authentication | ✅ **COMPLETA** |
+| Phase 2: Annotation System | ✅ **90%** |
+| Phase 3: Claude Code Integration | ✅ **100%** |
+| Phase 4: Real-Time Collaboration | ❌ Não iniciado |
+| Phase 5: Configuration System | ✅ **COMPLETA** |
+| Phase 6: Sharing Infrastructure | ⚠️ 33% (SharedDocument existe) |
+| Phase 7: Stripe Monetization | ⚠️ 40% (Pricing/Checkout existem) |
+| Phase 8: Deployment | ❌ Não iniciado |
+| Phase 9: Design System | ⚠️ 50% (Theme/ModeToggle existem) |
+| Phase 10: Quality & Stability | ❌ Não iniciado |
 
 ---
 
 ## Detalhamento por Fase
 
-### ✅ Phase 1: Authentication - **COMPLETA** (não refletido no ROADMAP)
+### ✅ Phase 1: Authentication - **COMPLETA**
 
 **Arquivos encontrados:**
 - `apps/portal/src/components/auth/LoginForm.tsx`
@@ -36,46 +43,25 @@
 - `apps/portal/src/components/auth/LogoutButton.tsx`
 - `apps/portal/src/components/auth/UserMenu.tsx`
 - `apps/portal/src/components/auth/ProfileForm.tsx`
-- `apps/portal/src/components/auth/AuthLayout.tsx`
-- `apps/portal/src/pages/login.tsx`
-- `apps/portal/src/pages/signup.tsx`
-- `apps/portal/src/pages/callback.tsx`
-- `apps/portal/src/pages/forgot-password.tsx`
-- `apps/portal/src/pages/reset-password.tsx`
-- `apps/portal/src/components/ProtectedRoute.tsx`
+- `apps/portal/src/pages/login.tsx`, `signup.tsx`, `callback.tsx`, `forgot-password.tsx`, `reset-password.tsx`
 - `@obsidian-note-reviewer/security/auth` (AuthProvider)
-
-**Status:** ✅ Todos os componentes de autenticação existem
-
-**ROADMAP:** Atualizar para refletir implementação
 
 ---
 
-### ✅ Phase 2: Annotation System - **90% COMPLETA** (alinhado)
+### ✅ Phase 2: Annotation System - **90% COMPLETA**
 
 **Status:** Alinhado com ROADMAP
 **Gaps conhecidos:** Dependências não registradas, componentes não integrados ao Viewer
 
 ---
 
-### ✅ Phase 3: Claude Code Integration - **100% COMPLETA** (alinhado)
+### ✅ Phase 3: Claude Code Integration - **100% COMPLETA**
 
 **Status:** Alinhado com ROADMAP
 
 ---
 
-### ❌ Phase 4: Advanced AI - **NÃO INICIADA**
-
-**Requisitos:**
-- AI-01: AI sugere anotações proativamente
-- AI-02: AI entende contexto do vault (backlinks, graph)
-- AI-03: AI gera sumários executivos
-
-**Status:** Não encontrado no código
-
----
-
-### ❌ Phase 5: Real-Time Collaboration - **NÃO INICIADA**
+### ❌ Phase 4: Real-Time Collaboration - **NÃO INICIADA**
 
 **Requisitos:**
 - COLL-01: Indicadores de presença
@@ -88,74 +74,34 @@
 
 ---
 
-### ❌ Phase 6: Multi-Document Review - **NÃO INICIADA**
-
-**Status:** Nenhuma implementação de tabs encontrada
-
----
-
-### ⚠️ Phase 7: Mobile Support - **PARCIAL**
-
-**Encontrado:**
-- Classes responsivas (`md:`, `hidden md:inline`, etc.)
-- Mobile breakpoint handling no EditorApp
-
-**Falta:**
-- Ferramenta de comparação de breakpoints
-- Otimização específica para touch
-
----
-
-### ✅ Phase 8: Configuration System - **COMPLETA** (não refletido no ROADMAP)
+### ✅ Phase 5: Configuration System - **COMPLETA**
 
 **Arquivo principal:** `packages/editor/App.tsx`
 
 **Implementação DENTRO do editor:**
 ```typescript
-// Linha 12: Import do SettingsPanel
-import { SettingsPanel } from '@obsidian-note-reviewer/ui/components/SettingsPanel';
-
-// Linha 229: Estado do painel
-const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
-
-// Linha 788-800: SettingsPanel DENTRO do editor (full screen quando aberto)
+// Linha 788-800: SettingsPanel DENTRO do editor
 {isSettingsPanelOpen ? (
-  <SettingsPanel
-    isOpen={isSettingsPanelOpen}
-    onClose={() => {
-      setIsSettingsPanelOpen(false);
-      setShowStickyBar(false);
-    }}
-    // ...
-  />
+  <SettingsPanel ... />
 ) : (
   // ...resto do editor
 )}
-
-// Linha 902-918: Botão de configurações no header
-<button onClick={() => setIsSettingsPanelOpen(!isSettingsPanelOpen)}>
-  <svg>gear icon</svg>
-</button>
 ```
 
 **Rotas redirecionam:**
 ```typescript
-// App.tsx linhas 85-86
+// App.tsx
 <Route path="/dashboard" element={<Navigate to="/editor" replace />} />
 <Route path="/settings" element={<Navigate to="/editor" replace />} />
 ```
 
-**Status:** ✅ SettingsPanel DENTRO do editor, não como página separada
-
-**ROADMAP:** Atualizar planos 08-06 e 08-07 como completos
-
 ---
 
-### ⚠️ Phase 9: Sharing Infrastructure - **PARCIAL**
+### ⚠️ Phase 6: Sharing Infrastructure - **PARCIAL**
 
 **Encontrado:**
 - `apps/portal/src/pages/SharedDocument.tsx` (slug-based guest access)
-- `packages/editor/App.tsx` linha 12: `import { useSharing } from '@obsidian-note-reviewer/ui/hooks/useSharing'`
+- `packages/editor/App.tsx`: `useSharing` hook
 - Compartilhamento por URL implementado
 
 **Falta:**
@@ -164,15 +110,13 @@ const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
 
 ---
 
-### ⚠️ Phase 10: Stripe Monetization - **PARCIAL**
+### ⚠️ Phase 7: Stripe Monetization - **PARCIAL**
 
 **Encontrado:**
-- `apps/portal/src/pages/Pricing.tsx` (3 tiers: free, monthly, yearly, lifetime)
-- `apps/portal/src/pages/CheckoutSuccess.tsx`
-- `apps/portal/src/pages/CheckoutCancel.tsx`
-- `apps/portal/src/hooks/useStripeCheckout.ts`
-- `apps/portal/src/hooks/useSubscription.ts`
-- `apps/portal/src/config/stripe.ts`
+- `apps/portal/src/pages/Pricing.tsx` (free, monthly, yearly, lifetime)
+- `CheckoutSuccess.tsx`, `CheckoutCancel.tsx`
+- `useStripeCheckout.ts`, `useSubscription.ts`
+- `config/stripe.ts`
 
 **Falta:**
 - Webhook endpoints com signature verification
@@ -180,13 +124,13 @@ const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
 
 ---
 
-### ❌ Phase 11: Deployment - **NÃO INICIADA**
+### ❌ Phase 8: Deployment - **NÃO INICIADA**
 
 **Status:** Sem configuração de Vercel encontrada
 
 ---
 
-### ⚠️ Phase 12: Design System - **PARCIAL**
+### ⚠️ Phase 9: Design System - **PARCIAL**
 
 **Encontrado:**
 - `packages/editor/index.css` (Tailwind + CSS variables)
@@ -200,65 +144,40 @@ const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
 
 ---
 
-### ❌ Phase 13: Quality & Stability - **NÃO INICIADA**
+### ❌ Phase 10: Quality & Stability - **NÃO INICIADA**
 
 **Status:** Testes existem mas覆盖率 não verificada
 
 ---
 
-## Ações Necessárias no ROADMAP
-
-### 1. Atualizar Phase 1 (Authentication)
-- Mudar status de "Not started" para "✅ Complete"
-- Marcar todos os planos 01-01, 01-02, 01-03 como completos
-
-### 2. Atualizar Phase 8 (Configuration System)
-- Marcar planos 08-06 e 08-07 como completos
-- Mudar status de "In progress" para "✅ Complete"
-- Nota: Configurações JÁ estão dentro do editor
-
-### 3. Atualizar Phase 9 (Sharing Infrastructure)
-- Marcar plano 09-01 como completo (SharedDocument existe)
-
-### 4. Atualizar Phase 10 (Stripe Monetization)
-- Marcar planos 10-02 e 10-03 como parciais/completos
-- Documentar o que falta (webhooks, freemium limits)
-
-### 5. Atualizar Phase 12 (Design System)
-- Marcar plano 12-02 como completo (theme system existe)
-
----
-
 ## Progresso Real Atualizado
 
-| Fase | Status Real | Completude |
-|------|-------------|------------|
+| Fase | Status | Completude |
+|------|--------|------------|
 | 1. Authentication | ✅ Complete | 100% |
 | 2. Annotation System | ⚠️ Complete com gaps | 90% |
 | 3. Claude Code Integration | ✅ Complete | 100% |
-| 4. Advanced AI | ❌ Not started | 0% |
-| 5. Real-Time Collaboration | ❌ Not started | 0% |
-| 6. Multi-Document Review | ❌ Not started | 0% |
-| 7. Mobile Support | ⚠️ Partial | 40% |
-| 8. Configuration System | ✅ Complete | 100% |
-| 9. Sharing Infrastructure | ⚠️ Partial | 33% |
-| 10. Stripe Monetization | ⚠️ Partial | 40% |
-| 11. Deployment | ❌ Not started | 0% |
-| 12. Design System | ⚠️ Partial | 50% |
-| 13. Quality & Stability | ❌ Not started | 0% |
+| 4. Real-Time Collaboration | ❌ Not started | 0% |
+| 5. Configuration System | ✅ Complete | 100% |
+| 6. Sharing Infrastructure | ⚠️ Partial | 33% |
+| 7. Stripe Monetization | ⚠️ Partial | 40% |
+| 8. Deployment | ❌ Not started | 0% |
+| 9. Design System | ⚠️ Partial | 50% |
+| 10. Quality & Stability | ❌ Not started | 0% |
 
-**Progresso GERAL REAL:** ~42% (muito maior que os 36.5% do ROADMAP atual)
+**Progresso GERAL:** **28/43 planos (65.1%)**
+**Requisitos entregues:** **30/45 (66.7%)**
 
 ---
 
-## Recomendações
+## Próximas Fases Sugeridas
 
-1. **Atualizar ROADMAP.md** para refletir o status real
-2. **Priorizar Phase 4** (Advanced AI) ou **Phase 5** (Real-Time Collaboration)
-3. **Documentar** melhor o que já existe para evitar retrabalho
-4. **Considerar remover** do ROADMAP fases que estão completas mas não marcadas
+1. **Phase 4** - Real-Time Collaboration (Liveblocks integration)
+2. **Phase 6** - Completar Sharing (multi-user annotations, permissions)
+3. **Phase 7** - Completar Stripe (webhooks, freemium limits)
+4. **Phase 9** - Completar Design System (customizable colors, UX audit)
 
 ---
 
 *Gerado em: 2026-02-07*
-*Análise baseada em: código fonte existente*
+*ROADMAP atualizado: 10 fases (após remoção de AI, Multi-Document, Mobile)*
