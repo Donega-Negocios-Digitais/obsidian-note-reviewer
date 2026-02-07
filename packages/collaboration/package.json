@@ -12,9 +12,11 @@
     "./vaultIntegration": "./src/vaultIntegration.ts"
   },
   "dependencies": {
-    "@liveblocks/client": "^2.12.0",
-    "@liveblocks/react": "^2.12.0",
-    "@obsidian-note-reviewer/ui": "workspace:*"
+    "@liveblocks/client": "^3.13.4",
+    "@liveblocks/react": "^3.13.4",
+    "@liveblocks/node": "^3.13.4",
+    "@obsidian-note-reviewer/ui": "workspace:*",
+    "color-hash": "^2.0.2"
   },
   "peerDependencies": {
     "react": "^19.0.0"
