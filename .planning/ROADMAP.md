@@ -8,6 +8,11 @@ Build a visual markdown review tool with seamless Claude Code integration and re
 
 **Depth:** Comprehensive - 13 phases reflecting the 61 v1 requirements with natural delivery boundaries and parallel development opportunities.
 
+**🎯 Architecture Principle — Single Editor Experience:**
+- **NO separate dashboard app** — everything is within the editor
+- **NO separate settings page** — configuration via slide-over panel in-editor
+- The editor is the single interface for reviewing, configuring, and managing content
+
 ## Phases
 
 **Phase Numbering:**
@@ -158,15 +163,24 @@ Plans:
 - [ ] 07-03: Optimize touch interactions for mobile annotation workflow
 
 ### Phase 8: Configuration System
-**Goal**: Users can customize preferences through Apple-style panel WITHIN the editor (no separate /settings page)
+**Goal**: Configuration panel integrated WITHIN the editor — NO separate dashboard or settings apps
 **Depends on**: Phase 1 (user authentication for per-user settings)
 **Requirements**: CONF-01, CONF-02, CONF-03, CONF-04
+
+**🚨 ARCHITECTURE DECISION — NO SEPARATE APPS:**
+- ❌ NO `/dashboard` route or app
+- ❌ NO `/settings` route or page
+- ✅ Settings accessible via **sidebar/drawer/modal** WITHIN the editor
+- ✅ Configuration panel slides over the editor content (Apple Settings style)
+- ✅ User stays in editor context while configuring
+
 **Success Criteria** (what must be TRUE):
-  1. User can access settings panel from within the editor (sidebar/modal/drawer, NOT a separate page)
+  1. Settings panel opens as slide-over/drawer WITHIN editor (not a separate page)
   2. User can configure theme preference (dark/light mode automatic) from editor
   3. User can configure save location preference (Obsidian vault, cloud, or both) from editor
   4. User can customize Claude Code integration prompt template from editor
-  5. **IMPORTANT:** No /settings or /dashboard routes exist — all configuration is in-editor
+  5. **No separate settings app exists** — all configuration is in-editor component
+
 **Plans**: 7 plans in 5 waves
 
 Plans:
@@ -176,7 +190,7 @@ Plans:
 - [x] 08-04: Redesign reviewer identity and keyboard shortcuts ✓
 - [x] 08-05: Improve hooks configuration and add language selection ✓
 - [ ] 08-06: Ensure all settings persist properly across sessions
-- [ ] 08-07: Remove /settings and /dashboard routes (if they exist)
+- [ ] 08-07: Remove any separate /settings or /dashboard routes if they exist
 
 ### Phase 9: Sharing Infrastructure
 **Goal**: SEO-friendly URLs with multi-user collaboration on shared plans
