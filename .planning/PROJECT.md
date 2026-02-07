@@ -45,13 +45,14 @@ Se isso não funcionar, nada mais importa.
 - [ ] Controle de permissões (criador vs colaborador)
 - [ ] Atividade em tempo real (edições, comentários)
 
-**Configurações:**
-- [ ] Página de configurações com design moderno estilo Apple
-- [ ] Autenticação (conta, login, cadastro, logout)
-- [ ] Preferências (theme dark/light, notificações)
-- [ ] Integrações (chaves de API do Obsidian/Claude)
+**Configurações (DENTRO do editor):**
+- [ ] Painel de configurações integrado no editor (não é página separada /settings)
+- [ ] Autenticação (conta, login, cadastro, logout) dentro do editor
+- [ ] Preferências (theme dark/light, notificações) acessíveis via modal/sidebar no editor
+- [ ] Integrações (chaves de API do Obsidian/Claude) configuradas no editor
 - [ ] Local para salvar notas (vault Obsidian vs nuvem vs ambos)
 - [ ] Prompt customizável para integração Claude Code
+- [ ] **IMPORTANTE:** Não existe página /settings nem /dashboard — tudo fica no editor
 
 **Monetização (Stripe):**
 - [ ] Modelo freemium funcional
@@ -91,6 +92,7 @@ Se isso não funcionar, nada mais importa.
 - **Exportação para múltiplos formatos (PDF, DOCX)** — JSON é suficiente para v1
 - **Sistema de permissões granulares** — simples (criador vs colaborador) é suficiente
 - **Integração com outras ferramentas além de Claude Code/Obsidian** — foco nestes dois
+- **Páginas separadas de configurações (/settings, /dashboard)** — todas as configurações ficam DENTRO do editor
 
 ## Context
 
@@ -136,6 +138,7 @@ Se isso não funcionar, nada mais importa.
 | URLs com slug | Mais amigável e SEO-friendly que IDs/hashes | — Pending |
 | Prompt fixo automático + campo editável | Conveniência para maioria, flexibilidade para avançados | — Pending |
 | Design estilo Apple/macOS | UX minimalista focada em usabilidade | — Pending |
+| **Configurações dentro do editor** | O editor é a página principal, sem /settings nem /dashboard separados. Melhor UX, menos navegação. | ✓ Good |
 
 ---
-*Last updated: 2025-02-04 after project initialization*
+*Last updated: 2026-02-06 after decision to move all settings into editor (no /settings or /dashboard pages)*

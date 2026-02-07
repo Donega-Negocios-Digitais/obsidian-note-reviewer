@@ -154,21 +154,23 @@ Plans:
 - [ ] 07-03: Optimize touch interactions for mobile annotation workflow
 
 ### Phase 8: Configuration System
-**Goal**: Users can customize preferences through Apple-style settings page
+**Goal**: Users can customize preferences through Apple-style panel WITHIN the editor (no separate /settings page)
 **Depends on**: Phase 1 (user authentication for per-user settings)
 **Requirements**: CONF-01, CONF-02, CONF-03, CONF-04
 **Success Criteria** (what must be TRUE):
-  1. User can access settings page with modern Apple-style design
-  2. User can configure theme preference (dark/light mode automatic)
-  3. User can configure save location preference (Obsidian vault, cloud, or both)
-  4. User can customize Claude Code integration prompt template
+  1. User can access settings panel from within the editor (sidebar/modal/drawer, NOT a separate page)
+  2. User can configure theme preference (dark/light mode automatic) from editor
+  3. User can configure save location preference (Obsidian vault, cloud, or both) from editor
+  4. User can customize Claude Code integration prompt template from editor
+  5. **IMPORTANT:** No /settings or /dashboard routes exist — all configuration is in-editor
 **Plans**: TBD
 
 Plans:
-- [ ] 08-01: Design and build Apple-style settings page UI
-- [ ] 08-02: Implement theme configuration with automatic dark/light mode switching
-- [ ] 08-03: Create save location preference system (vault/cloud/both)
-- [ ] 08-04: Build customizable prompt template editor for Claude Code integration
+- [ ] 08-01: Design and build Apple-style settings panel/sidebar within the editor UI (NOT a separate page)
+- [ ] 08-02: Implement theme configuration with automatic dark/light mode switching (accessible from editor)
+- [ ] 08-03: Create save location preference system (vault/cloud/both) accessible from editor
+- [ ] 08-04: Build customizable prompt template editor for Claude Code integration within editor
+- [ ] 08-05: Remove any existing /settings and /dashboard routes and pages
 
 ### Phase 9: Sharing Infrastructure
 **Goal**: SEO-friendly URLs with multi-user collaboration on shared plans
