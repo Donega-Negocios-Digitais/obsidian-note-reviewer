@@ -20,40 +20,6 @@
 
 ---
 
-## 🚫 Removidas do ROADMAP (Out of Scope)
-
-### ❌ Phase 4: Advanced AI (REMOVIDA)
-
-**Requisitos removidos:**
-- ~~AI-01~~: IA sugere anotações proativamente (issue identification)
-- ~~AI-02~~: IA entende contexto do vault Obsidian (backlinks, graph)
-- ~~AI-03~~: IA gera sumários executivos de documentos anotados
-
-**Justificativa:** Recursos de IA avançada não são prioridade no momento.
-
----
-
-### ❌ Phase 6: Multi-Document Review (REMOVIDA)
-
-**Requisitos removidos:**
-- ~~MULT-01~~: User pode revisar múltiplos documentos simultaneamente
-- ~~MULT-02~~: User pode navegar entre documentos com tabs
-- ~~MULT-03~~: User pode ver referências cruzadas entre documentos
-
-**Justificativa:** Multi-document review não é prioridade no momento.
-
----
-
-### ❌ Phase 7: Mobile Support (REMOVIDA)
-
-**Requisitos removidos:**
-- ~~MOBL-01~~: Interface funciona em dispositivos mobile
-- ~~MOBL-02~~: User pode comparar views mobile/tablet/desktop (breakpoint comparison)
-
-**Justificativa:** Mobile support básico (responsivo) já existe. Breakpoint comparison não é prioridade.
-
----
-
 ## ✅ Phase 1: Authentication - 100% COMPLETA
 
 ### Status: ✅ TODOS OS REQUISITOS ENTREGUES
