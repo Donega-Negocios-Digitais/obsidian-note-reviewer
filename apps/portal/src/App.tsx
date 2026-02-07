@@ -1,63 +1,29 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@obsidian-note-reviewer/security/auth'
 import EditorApp from '@obsidian-note-reviewer/editor'
-import { Layout } from './components/Layout'
 import { LoginPage } from './pages/login'
 import { SignupPage } from './pages/signup'
 import { CallbackPage } from './pages/callback'
 import { ForgotPasswordPage } from './pages/forgot-password'
 import { ResetPasswordPage } from './pages/reset-password'
 import { WelcomePage } from './pages/welcome'
-import { DashboardPage } from './pages/dashboard'
 import { SharedDocument } from './pages/SharedDocument'
 
 /**
  * Protected Route Component
- * Redirects to login if user is not authenticated
+ * TEMPORARILY DISABLED - allows access without authentication
  */
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth()
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-primary border-r-transparent" />
-          <p className="text-muted-foreground">Carregando...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!user) {
-    return <Navigate to="/auth/login" replace />
-  }
-
+  // Auth temporarily disabled - allow direct access
   return <>{children}</>
 }
 
 /**
  * Public Route Component
- * Redirects to dashboard if user is already authenticated
+ * TEMPORARILY DISABLED - allows access without authentication
  */
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth()
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-primary border-r-transparent" />
-          <p className="text-muted-foreground">Carregando...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (user) {
-    return <Navigate to="/dashboard" replace />
-  }
-
+  // Auth temporarily disabled - show page directly
   return <>{children}</>
 }
 
@@ -99,22 +65,10 @@ export function App() {
 
           {/* Protected routes */}
           <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <DashboardPage />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
             path="/editor"
             element={
               <ProtectedRoute>
-                <Layout>
-                  <EditorApp />
-                </Layout>
+                <EditorApp />
               </ProtectedRoute>
             }
           />
@@ -127,14 +81,18 @@ export function App() {
             }
           />
 
+          {/* Redirect legacy routes to /editor */}
+          <Route path="/dashboard" element={<Navigate to="/editor" replace />} />
+          <Route path="/settings" element={<Navigate to="/editor" replace />} />
+
           {/* Default redirect */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/" element={<Navigate to="/editor" replace />} />
 
           {/* Public shared document route - no auth required */}
-          <Route path="/shared/:slug" element={<SharedDocument />} /> />
+          <Route path="/shared/:slug" element={<SharedDocument />} />
 
-          {/* Catch all - redirect to dashboard */}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          {/* Catch all - redirect to editor */}
+          <Route path="*" element={<Navigate to="/editor" replace />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>
