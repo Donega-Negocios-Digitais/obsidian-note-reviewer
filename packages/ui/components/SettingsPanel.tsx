@@ -46,7 +46,16 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const [notePaths, setNotePaths] = useState<Record<string, string>>({});
   const [noteTemplates, setNoteTemplates] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState<CategoryTab>('regras');
+  const [savedField, setSavedField] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-hide save feedback after 2 seconds
+  useEffect(() => {
+    if (savedField) {
+      const timer = setTimeout(() => setSavedField(null), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [savedField]);
 
   // Hooks state
   interface Hook {
@@ -135,11 +144,15 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     setNotePath(path);
     // Notify App.tsx to update savePath
     onNotePathChange?.(path);
+    // Show save feedback
+    setSavedField(`${tipo}-path`);
   };
 
   const handleTemplateChange = (tipo: string, templatePath: string) => {
     setNoteTemplates(prev => ({ ...prev, [tipo]: templatePath }));
     setNoteTypeTemplate(tipo, templatePath);
+    // Show save feedback
+    setSavedField(`${tipo}-template`);
   };
 
   const handleLoadDefaults = () => {
@@ -290,8 +303,17 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                       value={noteTemplates[tipo] || ''}
                       onChange={(e) => handleTemplateChange(tipo, e.target.value)}
                       placeholder="C:/caminho/para/template.md"
-                      className="w-full px-3 py-2.5 bg-background rounded-lg text-sm border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none font-mono transition-all placeholder:text-muted-foreground/50"
+                      className={`w-full px-3 py-2.5 pr-10 bg-background rounded-lg text-sm border focus:ring-2 focus:ring-primary/20 focus:outline-none font-mono transition-all placeholder:text-muted-foreground/50 ${
+                        savedField === `${tipo}-template` ? 'border-green-500' : 'border-border focus:border-primary'
+                      }`}
                     />
+                    {savedField === `${tipo}-template` && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <svg className="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    )}
                   </div>
                   <p className="text-[11px] text-muted-foreground/70">
                     Caminho para o arquivo de template usado para criar este tipo de nota
@@ -312,8 +334,17 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                       value={notePaths[tipo] || ''}
                       onChange={(e) => handlePathChange(tipo, e.target.value)}
                       placeholder="C:/caminho/para/pasta/destino"
-                      className="w-full px-3 py-2.5 bg-background rounded-lg text-sm border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none font-mono transition-all placeholder:text-muted-foreground/50"
+                      className={`w-full px-3 py-2.5 pr-10 bg-background rounded-lg text-sm border focus:ring-2 focus:ring-primary/20 focus:outline-none font-mono transition-all placeholder:text-muted-foreground/50 ${
+                        savedField === `${tipo}-path` ? 'border-green-500' : 'border-border focus:border-primary'
+                      }`}
                     />
+                    {savedField === `${tipo}-path` && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <svg className="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    )}
                   </div>
                   <p className="text-[11px] text-muted-foreground/70">
                     Pasta onde as notas deste tipo serão salvas
