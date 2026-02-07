@@ -24,7 +24,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 5: Real-Time Collaboration** - Multi-user presence, cursors, and sharing capabilities
 - [ ] **Phase 6: Multi-Document Review** - Tabbed interface for reviewing multiple plans simultaneously
 - [ ] **Phase 7: Mobile Support** - Responsive design and breakpoint comparison features
-- [ ] **Phase 8: Configuration System** - Apple-style settings page with user preferences
+- [ ] **Phase 8: Configuration System** - Apple-style settings panel WITHIN the editor (no separate /settings page)
 - [ ] **Phase 9: Sharing Infrastructure** - SEO-friendly slug-based URLs and guest access
 - [ ] **Phase 10: Stripe Monetization** - Freemium model with lifetime subscriptions
 - [ ] **Phase 11: Deployment** - Vercel deployment with custom domain configuration
@@ -163,14 +163,16 @@ Plans:
   3. User can configure save location preference (Obsidian vault, cloud, or both) from editor
   4. User can customize Claude Code integration prompt template from editor
   5. **IMPORTANT:** No /settings or /dashboard routes exist — all configuration is in-editor
-**Plans**: TBD
+**Plans**: 7 plans in 5 waves
 
 Plans:
-- [ ] 08-01: Design and build Apple-style settings panel/sidebar within the editor UI (NOT a separate page)
-- [ ] 08-02: Implement theme configuration with automatic dark/light mode switching (accessible from editor)
-- [ ] 08-03: Create save location preference system (vault/cloud/both) accessible from editor
-- [ ] 08-04: Build customizable prompt template editor for Claude Code integration within editor
-- [ ] 08-05: Remove any existing /settings and /dashboard routes and pages
+- [ ] 08-01: Analyze existing settings implementation and components
+- [ ] 08-02: Redesign settings panel with Apple-style slide-over design
+- [ ] 08-03: Redesign individual category settings (Regras, Workflows, Conteúdo)
+- [ ] 08-04: Redesign reviewer identity and keyboard shortcuts
+- [ ] 08-05: Improve hooks configuration and add language selection
+- [ ] 08-06: Ensure all settings persist properly across sessions
+- [ ] 08-07: Remove /settings and /dashboard routes (if they exist)
 
 ### Phase 9: Sharing Infrastructure
 **Goal**: SEO-friendly URLs with multi-user collaboration on shared plans
@@ -281,7 +283,7 @@ Note: Some phases can be developed in parallel due to minimal dependencies:
 | 5. Real-Time Collaboration | 0/4 | Not started | - |
 | 6. Multi-Document Review | 0/3 | Not started | - |
 | 7. Mobile Support | 0/3 | Not started | - |
-| 8. Configuration System | 0/4 | Not started | - |
+| 8. Configuration System | 0/7 | Not started | - |
 | 9. Sharing Infrastructure | 0/3 | Not started | - |
 | 10. Stripe Monetization | 0/5 | Not started | - |
 | 11. Deployment | 0/4 | Not started | - |
