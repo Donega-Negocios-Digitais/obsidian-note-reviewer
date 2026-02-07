@@ -70,8 +70,8 @@ export function getAnonymousIdentity(): string {
 /**
  * Update the custom display name
  */
-export function updateDisplayName(name: string): void {
-  setDisplayName(name);
+export function updateDisplayName(name: string): { success: boolean; error?: string } {
+  return setDisplayName(name);
 }
 
 /**

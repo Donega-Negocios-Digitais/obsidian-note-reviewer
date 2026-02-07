@@ -47,6 +47,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const [noteTemplates, setNoteTemplates] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState<CategoryTab>('regras');
   const [savedField, setSavedField] = useState<string | null>(null);
+  const [saveErrors, setSaveErrors] = useState<Record<string, string>>({});
+  const [saveSuccess, setSaveSuccess] = useState<Record<string, boolean>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-hide save feedback after 2 seconds
@@ -56,6 +58,17 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       return () => clearTimeout(timer);
     }
   }, [savedField]);
+
+  // Auto-hide success indicators after 2 seconds
+  useEffect(() => {
+    const entries = Object.entries(saveSuccess);
+    if (entries.length > 0) {
+      const timer = setTimeout(() => {
+        setSaveSuccess({});
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [saveSuccess]);
 
   // Hooks state
   interface Hook {
@@ -138,7 +151,25 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const handleDisplayNameChange = (name: string) => {
     const oldIdentity = identity;
     setDisplayNameState(name);
-    updateDisplayName(name);
+
+    // Save with error handling
+    const result = updateDisplayName(name);
+    const fieldKey = 'display-name';
+
+    if (!result.success) {
+      setSaveErrors(prev => ({
+        ...prev,
+        [fieldKey]: result.error || 'Erro ao salvar nome de exibição'
+      }));
+    } else {
+      setSaveErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[fieldKey];
+        return newErrors;
+      });
+      setSaveSuccess(prev => ({ ...prev, [fieldKey]: true }));
+    }
+
     // Update displayed identity
     const newIdentity = name.trim() || anonymousIdentity;
     setIdentity(newIdentity);
@@ -149,20 +180,69 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
   const handlePathChange = (tipo: string, path: string) => {
     setNotePaths(prev => ({ ...prev, [tipo]: path }));
-    setNoteTypePath(tipo, path);
-    // Also update the general note path for the save button
-    setNotePath(path);
-    // Notify App.tsx to update savePath
-    onNotePathChange?.(path);
-    // Show save feedback
-    setSavedField(`${tipo}-path`);
+
+    // Save to localStorage with error handling
+    const result = setNoteTypePath(tipo, path);
+    const fieldKey = `${tipo}-path`;
+
+    if (result.success) {
+      // Show success feedback
+      setSaveSuccess(prev => ({ ...prev, [fieldKey]: true }));
+      setSaveErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[fieldKey];
+        return newErrors;
+      });
+
+      // Also update the general note path for the save button
+      setNotePath(path);
+      // Notify App.tsx to update savePath
+      onNotePathChange?.(path);
+      // Show save feedback for backward compatibility
+      setSavedField(fieldKey);
+    } else {
+      // Show error
+      setSaveSuccess(prev => {
+        const newSuccess = { ...prev };
+        delete newSuccess[fieldKey];
+        return newSuccess;
+      });
+      setSaveErrors(prev => ({
+        ...prev,
+        [fieldKey]: result.error || 'Erro ao salvar'
+      }));
+    }
   };
 
   const handleTemplateChange = (tipo: string, templatePath: string) => {
     setNoteTemplates(prev => ({ ...prev, [tipo]: templatePath }));
-    setNoteTypeTemplate(tipo, templatePath);
-    // Show save feedback
-    setSavedField(`${tipo}-template`);
+
+    // Save to localStorage with error handling
+    const result = setNoteTypeTemplate(tipo, templatePath);
+    const fieldKey = `${tipo}-template`;
+
+    if (result.success) {
+      // Show success feedback
+      setSaveSuccess(prev => ({ ...prev, [fieldKey]: true }));
+      setSaveErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[fieldKey];
+        return newErrors;
+      });
+      // Show save feedback for backward compatibility
+      setSavedField(fieldKey);
+    } else {
+      // Show error
+      setSaveSuccess(prev => {
+        const newSuccess = { ...prev };
+        delete newSuccess[fieldKey];
+        return newSuccess;
+      });
+      setSaveErrors(prev => ({
+        ...prev,
+        [fieldKey]: result.error || 'Erro ao salvar'
+      }));
+    }
   };
 
   const handleLoadDefaults = () => {
@@ -219,7 +299,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         }
 
         // Apply the settings
-        importAllSettings(data);
+        const result = importAllSettings(data);
 
         // Refresh local state from storage
         setIdentity(getIdentity());
@@ -234,7 +314,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           onNotePathChange?.(firstPath);
         }
 
-        alert('Configurações importadas com sucesso!');
+        if (result.success) {
+          alert('Configurações importadas com sucesso!');
+        } else {
+          alert(`Importação parcial: ${result.imported} configurações importadas, ${result.failed} falhas.\n\nErros:\n${result.errors.join('\n')}`);
+        }
       } catch (err) {
         alert('Erro ao importar configurações: arquivo JSON inválido');
       }
@@ -315,17 +399,33 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                       onChange={(e) => handleTemplateChange(tipo, e.target.value)}
                       placeholder="C:/caminho/para/template.md"
                       className={`w-full px-3 py-2.5 pr-10 bg-background rounded-lg text-sm border focus:ring-2 focus:ring-primary/20 focus:outline-none font-mono transition-all placeholder:text-muted-foreground/50 ${
-                        savedField === `${tipo}-template` ? 'border-green-500' : 'border-border focus:border-primary'
+                        saveErrors[`${tipo}-template`]
+                          ? 'border-red-500'
+                          : saveSuccess[`${tipo}-template`]
+                          ? 'border-green-500'
+                          : 'border-border focus:border-primary'
                       }`}
                     />
-                    {savedField === `${tipo}-template` && (
+                    {saveSuccess[`${tipo}-template`] && !saveErrors[`${tipo}-template`] && (
                       <div className="absolute right-3 top-1/2 -translate-y-1/2">
                         <svg className="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
                       </div>
                     )}
+                    {saveErrors[`${tipo}-template`] && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <svg className="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </div>
+                    )}
                   </div>
+                  {saveErrors[`${tipo}-template`] && (
+                    <p className="text-[10px] text-red-500 mt-1">
+                      {saveErrors[`${tipo}-template`]}
+                    </p>
+                  )}
                   <p className="text-[11px] text-muted-foreground/70">
                     Caminho para o arquivo de template usado para criar este tipo de nota
                   </p>
@@ -346,17 +446,33 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                       onChange={(e) => handlePathChange(tipo, e.target.value)}
                       placeholder="C:/caminho/para/pasta/destino"
                       className={`w-full px-3 py-2.5 pr-10 bg-background rounded-lg text-sm border focus:ring-2 focus:ring-primary/20 focus:outline-none font-mono transition-all placeholder:text-muted-foreground/50 ${
-                        savedField === `${tipo}-path` ? 'border-green-500' : 'border-border focus:border-primary'
+                        saveErrors[`${tipo}-path`]
+                          ? 'border-red-500'
+                          : saveSuccess[`${tipo}-path`]
+                          ? 'border-green-500'
+                          : 'border-border focus:border-primary'
                       }`}
                     />
-                    {savedField === `${tipo}-path` && (
+                    {saveSuccess[`${tipo}-path`] && !saveErrors[`${tipo}-path`] && (
                       <div className="absolute right-3 top-1/2 -translate-y-1/2">
                         <svg className="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
                       </div>
                     )}
+                    {saveErrors[`${tipo}-path`] && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <svg className="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </div>
+                    )}
                   </div>
+                  {saveErrors[`${tipo}-path`] && (
+                    <p className="text-[10px] text-red-500 mt-1">
+                      {saveErrors[`${tipo}-path`]}
+                    </p>
+                  )}
                   <p className="text-[11px] text-muted-foreground/70">
                     Pasta onde as notas deste tipo serão salvas
                   </p>
@@ -371,6 +487,19 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
   return (
     <div className="w-full h-full bg-background flex flex-col overflow-hidden">
+      {/* Global error toast */}
+      {Object.values(saveErrors).some(e => e) && (
+        <div className="fixed bottom-4 right-4 z-[60] bg-red-500 text-white px-4 py-3 rounded-lg shadow-xl flex items-center gap-3 animate-in slide-in-from-bottom-2">
+          <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div>
+            <p className="text-sm font-medium">Erro ao salvar configurações</p>
+            <p className="text-xs opacity-90">Verifique o espaço disponível no navegador</p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="px-4 py-3 border-b border-border bg-card/50">
         <div className="flex items-center justify-between mb-2">
@@ -488,13 +617,40 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 <label className="text-xs font-medium text-muted-foreground">
                   Nome de Exibição
                 </label>
-                <input
-                  type="text"
-                  value={displayName}
-                  onChange={(e) => handleDisplayNameChange(e.target.value)}
-                  placeholder="Ex: João Silva"
-                  className="w-full px-3 py-2.5 bg-background rounded-lg text-sm border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={displayName}
+                    onChange={(e) => handleDisplayNameChange(e.target.value)}
+                    placeholder="Ex: João Silva"
+                    className={`w-full px-3 py-2.5 pr-10 bg-background rounded-lg text-sm border focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all ${
+                      saveErrors['display-name']
+                        ? 'border-red-500'
+                        : saveSuccess['display-name']
+                        ? 'border-green-500'
+                        : 'border-border focus:border-primary'
+                    }`}
+                  />
+                  {saveSuccess['display-name'] && !saveErrors['display-name'] && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <svg className="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  )}
+                  {saveErrors['display-name'] && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <svg className="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+                {saveErrors['display-name'] && (
+                  <p className="text-[10px] text-red-500">
+                    {saveErrors['display-name']}
+                  </p>
+                )}
                 <p className="text-[11px] text-muted-foreground/70">
                   Este nome será exibido em suas anotações. Deixe em branco para usar identidade anônima.
                 </p>
