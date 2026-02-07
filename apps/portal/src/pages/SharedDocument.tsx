@@ -8,16 +8,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { GuestBanner } from '../components/GuestBanner';
-import { MarkdownRenderer } from '@obsidian-note-reviewer/ui/markdown';
-import { AnnotationExport } from '@obsidian-note-reviewer/ui/annotation';
-import { usePresence } from '../hooks/usePresence';
-import type { Annotation } from '@obsidian-note-reviewer/ui/types';
+import { getDocumentBySlug } from '@/lib/supabase/sharing';
 
 interface Document {
   id: string;
   title: string;
   content: string;
-  annotations: Annotation[];
   createdAt: string;
   author?: {
     name: string;
@@ -35,12 +31,6 @@ export function SharedDocument() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Presence for shared room
-  const { others, connected } = usePresence({
-    roomId: slug ? `shared-${slug}` : '',
-    enabled: !!slug && !error,
-  });
-
   useEffect(() => {
     if (!slug) {
       setError('Link inválido');
@@ -48,56 +38,22 @@ export function SharedDocument() {
       return;
     }
 
-    // Fetch document by slug from API
+    // Fetch document by slug from Supabase
     const fetchDocument = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        // TODO: Replace with actual API call
-        // const response = await fetch(`/api/shared/${slug}`);
-        // if (!response.ok) throw new Error('Documento não encontrado');
-        // const data = await response.json();
-
-        // Mock document for development
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        // Use actual Supabase fetch with NanoID slug
+        const sharedData = await getDocumentBySlug(slug);
 
         setDocument({
-          id: 'mock-doc',
-          title: 'Plano de Desenvolvimento - Feature MVP',
-          content: `# Plano de Desenvolvimento
-
-## Overview
-Este documento descreve o plano para implementação da feature MVP.
-
-## Objetivos
-- Implementar autenticação
-- Criar sistema de anotações
-- Adicionar colaboração em tempo real
-
-## Cronograma
-1. Semana 1: Autenticação
-2. Semana 2: Anotações
-3. Semana 3: Colaboração
-
-## Notas
-Este é um documento de exemplo para demonstração do sistema de compartilhamento.
-`,
-          annotations: [
-            {
-              id: '1',
-              type: 'COMMENT' as any,
-              text: 'Considerar adicionar testes automatizados.',
-              originalText: 'Semana 1: Autenticação',
-              position: { start: 0, end: 20 },
-              status: 'open' as any,
-              createdAt: new Date().toISOString(),
-            },
-          ],
-          createdAt: new Date().toISOString(),
+          id: sharedData.document_id,
+          title: sharedData.document?.title || 'Documento Sem Título',
+          content: sharedData.document?.content || '',
+          createdAt: sharedData.created_at,
           author: {
-            name: 'Alex Donega',
-            avatar: undefined,
+            name: 'Compartilhado',
           },
         });
       } catch (err) {
@@ -166,12 +122,6 @@ Este é um documento de exemplo para demonstração do sistema de compartilhamen
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 Compartilhado por {document.author?.name || 'alguém'}
               </p>
-              {slug && connected && others.length > 0 && (
-                <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
-                  <span className="inline-flex h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                  <span>{others.length} {others.length === 1 ? 'outro' : 'outros'} visualizando</span>
-                </div>
-              )}
             </div>
           </div>
 
@@ -194,38 +144,9 @@ Este é um documento de exemplo para demonstração do sistema de compartilhamen
 
       {/* Document Content */}
       <main className="max-w-7xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Document - takes 2 columns */}
-          <div className="lg:col-span-2">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 md:p-8">
-              <MarkdownRenderer content={document.content} />
-            </div>
-          </div>
-
-          {/* Annotations - takes 1 column */}
-          <div className="lg:col-span-1">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 sticky top-24">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Anotações ({document.annotations.length})
-              </h2>
-
-              {document.annotations.length === 0 ? (
-                <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
-                  Nenhuma anotação ainda.
-                  <br />
-                  <span className="text-xs">Entre para adicionar anotações</span>
-                </p>
-              ) : (
-                <AnnotationExport
-                  annotations={document.annotations}
-                  onUpdate={() => {
-                    // Read-only for guests - show signup prompt
-                    navigate('/auth/signup');
-                  }}
-                  readOnly
-                />
-              )}
-            </div>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 md:p-8">
+          <div className="prose dark:prose-invert max-w-none">
+            <pre className="whitespace-pre-wrap">{document.content}</pre>
           </div>
         </div>
       </main>
