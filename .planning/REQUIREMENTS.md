@@ -1,21 +1,26 @@
 # Requirements: Obsidian Note Reviewer
 
 **Defined:** 2025-02-04
+**Updated:** 2026-02-07 (removed AI, Multi-Document, Mobile)
 **Core Value:** Usuários podem revisar visualmente notas e planos, com integração perfeita com Claude Code e colaboração em tempo real.
 
 ## v1 Requirements
 
 Requirements for initial release. Each maps to roadmap phases.
 
-### Autenticação
+### Autenticação ✓
 
-- [ ] **AUTH-01**: User pode criar conta com email e senha
-- [ ] **AUTH-02**: User pode fazer login com email/senha ou OAuth (GitHub/Google)
-- [ ] **AUTH-03**: User session persiste across browser refresh
-- [ ] **AUTH-04**: User pode fazer logout de qualquer página
-- [ ] **AUTH-05**: User profile com display name e avatar
+- [x] **AUTH-01**: User pode criar conta com email e senha ✓
+- [x] **AUTH-02**: User pode fazer login com email/senha ou OAuth (GitHub/Google) ✓
+- [x] **AUTH-03**: User session persiste across browser refresh ✓
+- [x] **AUTH-04**: User pode fazer logout de qualquer página ✓
+- [x] **AUTH-05**: User profile com display name e avatar ✓
 
-### Anotações e Revisão
+**Status:** ✅ 100% Complete (2026-02-07)
+
+---
+
+### Anotações e Revisão ✓
 
 - [x] **ANNO-01**: User pode adicionar anotações visuais em elementos específicos do markdown ✓
 - [x] **ANNO-02**: User pode criar threads de comentários com @mentions ✓
@@ -25,20 +30,32 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **ANNO-06**: User pode restaurar versões anteriores do documento ✓
 - [x] **ANNO-07**: Markdown rendering suporta sintaxe padrão com code blocks e imagens ✓
 
-### Claude Code Integration
+**Status:** ✅ 90% Complete (gaps conhecidos)
 
-- [ ] **CLAU-01**: Hook abre reviewer automaticamente ao criar nota no Obsidian
-- [ ] **CLAU-02**: Hook abre reviewer automaticamente ao ativar plan mode no Claude Code
-- [ ] **CLAU-03**: Anotações são enviadas de volta ao Claude Code em formato estruturado
-- [ ] **CLAU-04**: Prompt fixo automático formata as revisões para o Claude Code
-- [ ] **CLAU-05**: Campo editável permite customizar o prompt antes de enviar
-- [ ] **CLAU-06**: Todas as anotações são incluídas: edições, comentários globais, comentários individuais, exclusões, marcações
+---
 
-### IA Avançada
+### Claude Code Integration ✓
 
-- [ ] **AI-01**: IA sugere anotações proativamente (issue identification)
-- [ ] **AI-02**: IA entende contexto do vault Obsidian (backlinks, graph)
-- [ ] **AI-03**: IA gera sumários executivos de documentos anotados
+- [x] **CLAU-01**: Hook abre reviewer automaticamente ao criar nota no Obsidian ✓
+- [x] **CLAU-02**: Hook abre reviewer automaticamente ao ativar plan mode no Claude Code ✓
+- [x] **CLAU-03**: Anotações são enviadas de volta ao Claude Code em formato estruturado ✓
+- [x] **CLAU-04**: Prompt fixo automático formata as revisões para o Claude Code ✓
+- [x] **CLAU-05**: Campo editável permite customizar o prompt antes de enviar ✓
+- [x] **CLAU-06**: Todas as anotações são incluídas: edições, comentários globais, comentários individuais, exclusões, marcações ✓
+
+**Status:** ✅ 100% Complete (2026-02-05)
+
+---
+
+### ~~IA Avançada~~ ❌ **REMOVIDA**
+
+- ~~**AI-01**: IA sugere anotações proativamente~~
+- ~~**AI-02**: IA entende contexto do vault Obsidian (backlinks, graph)~~
+- ~~**AI-03**: IA gera sumários executivos de documentos anotados~~
+
+**Removida:** Recursos de IA avançada não são prioridade no momento.
+
+---
 
 ### Colaboração
 
@@ -48,38 +65,62 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **COLL-04**: Guest access permite visualizar reviews sem login
 - [ ] **COLL-05**: Workflow nativo com Obsidian vault (acesso local)
 
-### Multi-Document
+**Status:** ❌ 0% Complete
 
-- [ ] **MULT-01**: User pode revisar múltiplos documentos simultaneamente
-- [ ] **MULT-02**: User pode navegar entre documentos com tabs
-- [ ] **MULT-03**: User pode ver referências cruzadas entre documentos
+---
 
-### Mobile
+### ~~Multi-Document~~ ❌ **REMOVIDA**
 
-- [ ] **MOBL-01**: Interface funciona em dispositivos mobile
-- [ ] **MOBL-02**: User pode comparar views mobile/tablet/desktop (breakpoint comparison)
+- ~~**MULT-01**: User pode revisar múltiplos documentos simultaneamente~~
+- ~~**MULT-02**: User pode navegar entre documentos com tabs~~
+- ~~**MULT-03**: User pode ver referências cruzadas entre documentos~~
 
-### Configurações
+**Removida:** Multi-document review não é prioridade no momento.
 
-- [ ] **CONF-01**: User pode configurar preferências (theme dark/light automático)
-- [ ] **CONF-02**: User pode configurar local de salvamento (vault Obsidian, nuvem, ambos)
-- [ ] **CONF-03**: User pode customizar prompt de integração Claude Code
-- [ ] **CONF-04**: Página de configurações tem design moderno estilo Apple
+---
+
+### ~~Mobile~~ ❌ **REMOVIDA**
+
+- ~~**MOBL-01**: Interface funciona em dispositivos mobile~~
+- ~~**MOBL-02**: User pode comparar views mobile/tablet/desktop (breakpoint comparison)~~
+
+**Removida:** Mobile support básico (responsivo) já existe. Breakpoint comparison não é prioridade.
+
+---
+
+### Configurações ✓
+
+- [x] **CONF-01**: User pode configurar preferências (theme dark/light automático) ✓
+- [x] **CONF-02**: User pode configurar local de salvamento (vault Obsidian, nuvem, ambos) ✓
+- [x] **CONF-03**: User pode customizar prompt de integração Claude Code ✓
+- [x] **CONF-04**: Painel de configurações fica DENTRO do editor (não página separada) ✓
+
+**Status:** ✅ 100% Complete (2026-02-07)
+
+---
 
 ### Compartilhamento e URLs
 
-- [ ] **SHAR-01**: URLs amigáveis com slug (r.alexdonega.com.br/plan/nome-do-plano)
+- [x] **SHAR-01**: URLs amigáveis com slug (r.alexdonega.com.br/plan/nome-do-plano) ✓ (SharedDocument.tsx)
 - [ ] **SHAR-02**: Slug é único e validado
 - [ ] **SHAR-03**: Multi-usuário podem ver e revisar planos compartilhados
+
+**Status:** ⚠️ 33% Complete
+
+---
 
 ### Monetização
 
 - [ ] **MONY-01**: Sistema de freemium funcional (plano free vs pago)
 - [ ] **MONY-02**: Plano free limita colaboradores (uso individual)
 - [ ] **MONY-03**: Plano pago permite colaboradores ilimitados
-- [ ] **MONY-04**: Stripe subscriptions processam pagamentos
-- [ ] **MONY-05**: Assinatura lifetime disponível como opção
+- [x] **MONY-04**: Stripe subscriptions processam pagamentos ✓ (Pricing.tsx)
+- [x] **MONY-05**: Assinatura lifetime disponível como opção ✓ (Pricing.tsx)
 - [ ] **MONY-06**: Webhooks do Stripe são verificados com signature
+
+**Status:** ⚠️ 40% Complete
+
+---
 
 ### Deploy e Domínio
 
@@ -88,12 +129,20 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **DEPL-03**: Subdomínio r. aponta para Vercel
 - [ ] **DEPL-04**: Environment variables configuradas corretamente
 
+**Status:** ❌ 0% Complete
+
+---
+
 ### Design e UX
 
-- [ ] **DSGN-01**: Design minimalista estilo Apple/macOS
-- [ ] **DSGN-02**: Theme system com dark/light mode automático
+- [x] **DSGN-01**: Design minimalista estilo Apple/macOS ✓
+- [x] **DSGN-02**: Theme system com dark/light mode automático ✓
 - [ ] **DSGN-03**: Cores personalizáveis
 - [ ] **DSGN-04**: UX focada em usabilidade
+
+**Status:** ⚠️ 50% Complete
+
+---
 
 ### Qualidade e Estabilidade
 
@@ -103,6 +152,10 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **QUAL-04**: Sistema de undo/redo para anotações
 - [ ] **QUAL-05**: Testes automatizados para features críticas
 - [ ] **QUAL-06**: Performance otimizada (sem memory leaks)
+
+**Status:** ❌ 0% Complete
+
+---
 
 ## v2 Requirements
 
@@ -121,13 +174,18 @@ Deferred to future release. Tracked but not in current roadmap.
 - **ADV-03**: Offline mode com sync automático
 - **ADV-04**: Native mobile apps (iOS/Android)
 
+---
+
 ## Out of Scope
 
 Explicitly excluded. Documented to prevent scope creep.
 
 | Feature | Reason |
 |---------|--------|
-| Real-time collaborative editing (Notion-style) | Muito complexo (CRDT/OT), conflita com Obsidian local-first; annotation-first é suficiente |
+| **IA Avançada** (AI-suggested annotations, vault context, summarization) | Não é prioridade no momento |
+| **Multi-Document Review** (tabbed interface) | Não é prioridade no momento |
+| **Mobile Support avançado** (breakpoint comparison, touch optimization) | Responsivo básico já existe |
+| Real-time collaborative editing (Notion-style) | Muito complexo (CRDT/OT), conflita com Obsidian local-first |
 | Full chat/DM system | Slack/Discord já existem; distração do core value |
 | Native mobile apps | PWA suficiente inicialmente; alta manutenção |
 | Custom branding/white-label completo | Feature creep; logo/cores custom é suficiente |
@@ -135,78 +193,90 @@ Explicitly excluded. Documented to prevent scope creep.
 | Video/voice calling integrado | Zoom/Meet existem; embed via iframe |
 | Blockchain/crypto features | Sem valor real; adiciona complexidade |
 | Social features (likes, follows) | Distração do core value |
-| Múltiplos storage backends | Obsidian usa local files; isso é suficiente |
+
+---
 
 ## Traceability
 
-Which phases cover which requirements. Updated during roadmap creation.
+Which phases cover which requirements. Updated after roadmap renumbering (13 → 10 phases).
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-01 | Phase 1 | Pending |
-| AUTH-02 | Phase 1 | Pending |
-| AUTH-03 | Phase 1 | Pending |
-| AUTH-04 | Phase 1 | Pending |
-| AUTH-05 | Phase 1 | Pending |
-| ANNO-01 | Phase 2 | Complete |
-| ANNO-02 | Phase 2 | Complete |
-| ANNO-03 | Phase 2 | Complete |
-| ANNO-04 | Phase 2 | Complete |
-| ANNO-05 | Phase 2 | Complete |
-| ANNO-06 | Phase 2 | Complete |
-| ANNO-07 | Phase 2 | Complete |
-| CLAU-01 | Phase 3 | Pending |
-| CLAU-02 | Phase 3 | Pending |
-| CLAU-03 | Phase 3 | Pending |
-| CLAU-04 | Phase 3 | Pending |
-| CLAU-05 | Phase 3 | Pending |
-| CLAU-06 | Phase 3 | Pending |
-| AI-01 | Phase 4 | Pending |
-| AI-02 | Phase 4 | Pending |
-| AI-03 | Phase 4 | Pending |
-| COLL-01 | Phase 5 | Pending |
-| COLL-02 | Phase 5 | Pending |
-| COLL-03 | Phase 5 | Pending |
-| COLL-04 | Phase 5 | Pending |
-| COLL-05 | Phase 5 | Pending |
-| MULT-01 | Phase 6 | Pending |
-| MULT-02 | Phase 6 | Pending |
-| MULT-03 | Phase 6 | Pending |
-| MOBL-01 | Phase 7 | Pending |
-| MOBL-02 | Phase 7 | Pending |
-| CONF-01 | Phase 8 | Pending |
-| CONF-02 | Phase 8 | Pending |
-| CONF-03 | Phase 8 | Pending |
-| CONF-04 | Phase 8 | Pending |
-| SHAR-01 | Phase 9 | Pending |
-| SHAR-02 | Phase 9 | Pending |
-| SHAR-03 | Phase 9 | Pending |
-| MONY-01 | Phase 10 | Pending |
-| MONY-02 | Phase 10 | Pending |
-| MONY-03 | Phase 10 | Pending |
-| MONY-04 | Phase 10 | Pending |
-| MONY-05 | Phase 10 | Pending |
-| MONY-06 | Phase 10 | Pending |
-| DEPL-01 | Phase 11 | Pending |
-| DEPL-02 | Phase 11 | Pending |
-| DEPL-03 | Phase 11 | Pending |
-| DEPL-04 | Phase 11 | Pending |
-| DSGN-01 | Phase 12 | Pending |
-| DSGN-02 | Phase 12 | Pending |
-| DSGN-03 | Phase 12 | Pending |
-| DSGN-04 | Phase 12 | Pending |
-| QUAL-01 | Phase 13 | Pending |
-| QUAL-02 | Phase 13 | Pending |
-| QUAL-03 | Phase 13 | Pending |
-| QUAL-04 | Phase 13 | Pending |
-| QUAL-05 | Phase 13 | Pending |
-| QUAL-06 | Phase 13 | Pending |
+| **AUTH-01** | Phase 1 | ✅ Complete |
+| **AUTH-02** | Phase 1 | ✅ Complete |
+| **AUTH-03** | Phase 1 | ✅ Complete |
+| **AUTH-04** | Phase 1 | ✅ Complete |
+| **AUTH-05** | Phase 1 | ✅ Complete |
+| **ANNO-01** | Phase 2 | ✅ Complete |
+| **ANNO-02** | Phase 2 | ✅ Complete |
+| **ANNO-03** | Phase 2 | ✅ Complete |
+| **ANNO-04** | Phase 2 | ✅ Complete |
+| **ANNO-05** | Phase 2 | ✅ Complete |
+| **ANNO-06** | Phase 2 | ✅ Complete |
+| **ANNO-07** | Phase 2 | ✅ Complete |
+| **CLAU-01** | Phase 3 | ✅ Complete |
+| **CLAU-02** | Phase 3 | ✅ Complete |
+| **CLAU-03** | Phase 3 | ✅ Complete |
+| **CLAU-04** | Phase 3 | ✅ Complete |
+| **CLAU-05** | Phase 3 | ✅ Complete |
+| **CLAU-06** | Phase 3 | ✅ Complete |
+| ~~**AI-01**~~ | ~~Phase 4~~ | ❌ **REMOVIDA** |
+| ~~**AI-02**~~ | ~~Phase 4~~ | ❌ **REMOVIDA** |
+| ~~**AI-03**~~ | ~~Phase 4~~ | ❌ **REMOVIDA** |
+| **COLL-01** | Phase 4 | Pending |
+| **COLL-02** | Phase 4 | Pending |
+| **COLL-03** | Phase 4 | Pending |
+| **COLL-04** | Phase 4 | Pending |
+| **COLL-05** | Phase 4 | Pending |
+| ~~**MULT-01**~~ | ~~Phase 6~~ | ❌ **REMOVIDA** |
+| ~~**MULT-02**~~ | ~~Phase 6~~ | ❌ **REMOVIDA** |
+| ~~**MULT-03**~~ | ~~Phase 6~~ | ❌ **REMOVIDA** |
+| ~~**MOBL-01**~~ | ~~Phase 7~~ | ❌ **REMOVIDA** |
+| ~~**MOBL-02**~~ | ~~Phase 7~~ | ❌ **REMOVIDA** |
+| **CONF-01** | Phase 5 | ✅ Complete |
+| **CONF-02** | Phase 5 | ✅ Complete |
+| **CONF-03** | Phase 5 | ✅ Complete |
+| **CONF-04** | Phase 5 | ✅ Complete |
+| **SHAR-01** | Phase 6 | ✅ Complete |
+| **SHAR-02** | Phase 6 | Pending |
+| **SHAR-03** | Phase 6 | Pending |
+| **MONY-01** | Phase 7 | Pending |
+| **MONY-02** | Phase 7 | Pending |
+| **MONY-03** | Phase 7 | Pending |
+| **MONY-04** | Phase 7 | ✅ Complete |
+| **MONY-05** | Phase 7 | ✅ Complete |
+| **MONY-06** | Phase 7 | Pending |
+| **DEPL-01** | Phase 8 | Pending |
+| **DEPL-02** | Phase 8 | Pending |
+| **DEPL-03** | Phase 8 | Pending |
+| **DEPL-04** | Phase 8 | Pending |
+| **DSGN-01** | Phase 9 | ✅ Complete |
+| **DSGN-02** | Phase 9 | ✅ Complete |
+| **DSGN-03** | Phase 9 | Pending |
+| **DSGN-04** | Phase 9 | Pending |
+| **QUAL-01** | Phase 10 | Pending |
+| **QUAL-02** | Phase 10 | Pending |
+| **QUAL-03** | Phase 10 | Pending |
+| **QUAL-04** | Phase 10 | Pending |
+| **QUAL-05** | Phase 10 | Pending |
+| **QUAL-06** | Phase 10 | Pending |
 
 **Coverage:**
-- v1 requirements: 61 total
-- Mapped to phases: 61
+- v1 requirements: **45 total** (após remoção de AI, Multi-Document, Mobile)
+- Mapped to phases: 45
 - Unmapped: 0
+
+**Requirements Delivered:**
+- Phase 1 (AUTH): 5/5 ✅
+- Phase 2 (ANNO): 7/7 ✅
+- Phase 3 (CLAU): 6/6 ✅
+- Phase 5 (CONF): 4/4 ✅
+- Phase 6 (SHAR): 1/3 ⚠️
+- Phase 7 (MONY): 2/6 ⚠️
+- Phase 9 (DSGN): 2/4 ⚠️
+
+**Total: 30/45 requirements (66.7%)**
 
 ---
 *Requirements defined: 2025-02-04*
-*Last updated: 2025-02-04 after roadmap creation*
+*Last updated: 2026-02-07 after removing Advanced AI, Multi-Document Review, and Mobile Support*

@@ -12,7 +12,7 @@ Se isso não funcionar, nada mais importa.
 
 ## Requirements
 
-### Validated
+### Validated (✅ Complete)
 
 <!-- Recursos existentes que funcionam -->
 
@@ -22,57 +22,48 @@ Se isso não funcionar, nada mais importa.
 - ✓ Stack TypeScript + React + Vite + Bun — existing
 - ✓ Sanitização de conteúdo com DOMPurify — existing
 - ✓ Path validation para segurança (path traversal) — existing
+- ✓ **Autenticação completa** (Supabase Auth, login/signup, OAuth) — ✅ 2026-02-07
+- ✓ **Integração Claude Code completa** (hooks, export, prompt editor) — ✅ 2026-02-05
+- ✓ **Configurações dentro do editor** (SettingsPanel, sem /settings ou /dashboard) — ✅ 2026-02-07
+- ✓ **Theme system** (dark/light mode automático) — existing
 
-### Active
+### Active (⚠️ In Progress)
 
 <!-- O que precisamos construir/evoluir -->
 
-**Integração Claude Code:**
-- [ ] Hook que abre o reviewer automaticamente ao criar nota no Obsidian
-- [ ] Hook que abre o reviewer automaticamente ao ativar plan mode no Claude Code
-- [ ] Envio de anotações estruturadas de volta ao Claude Code (edições, comentários globais/individuais, exclusões, marcações)
-- [ ] Prompt fixo automático que formata as revisões para o Claude Code
-- [ ] Campo editável para customizar o prompt antes de enviar
+**Colaboração em Tempo Real:**
+- [ ] Indicadores de presença de outros usuários
+- [ ] Cursores e avatares em tempo real (Liveblocks)
+- [ ] Multi-usuário podem ver e revisar planos compartilhados
+- [ ] Guest access permite visualizar reviews sem login
+- [ ] Workflow nativo com Obsidian vault (acesso local)
 
-**Autenticação e Usuários:**
-- [ ] Sistema de cadastro/login de usuários
-- [ ] Gerenciamento de sessões com JWT
-- [ ] Perfis de usuário com configurações
-
-**Compartilhamento e Colaboração:**
-- [ ] Compartilhamento de reviews com URL amigável (slug-based: r.alexdonega.com.br/plan/nome-do-plano)
+**Compartilhamento (Parcial):**
+- [x] URLs amigáveis com slug (SharedDocument.tsx existe) — ✅ 2026-02-07
 - [ ] Multi-usuário podem ver e revisar planos compartilhados
 - [ ] Controle de permissões (criador vs colaborador)
 - [ ] Atividade em tempo real (edições, comentários)
 
-**Configurações (DENTRO do editor):**
-- [ ] Painel de configurações integrado no editor (não é página separada /settings)
-- [ ] Autenticação (conta, login, cadastro, logout) dentro do editor
-- [ ] Preferências (theme dark/light, notificações) acessíveis via modal/sidebar no editor
-- [ ] Integrações (chaves de API do Obsidian/Claude) configuradas no editor
-- [ ] Local para salvar notas (vault Obsidian vs nuvem vs ambos)
-- [ ] Prompt customizável para integração Claude Code
-- [ ] **IMPORTANTE:** Não existe página /settings nem /dashboard — tudo fica no editor
-
-**Monetização (Stripe):**
+**Monetização Stripe (Parcial):**
 - [ ] Modelo freemium funcional
 - [ ] Plano free: uso individual sem colaboradores
 - [ ] Plano pago: colaboradores + recursos avançados + suporte
-- [ ] Assinatura lifetime disponível
-- [ ] Configuração completa do Stripe (webhooks, checkout, billing)
+- [x] Assinatura lifetime disponível (Pricing.tsx) — ✅ 2026-02-07
+- [x] Configuração Stripe checkout (useStripeCheckout) — ✅ 2026-02-07
+- [ ] Webhooks do Stripe com signature verification
+- [ ] Sistema de freemium com limites de colaboradores
 
 **Deploy e Domínio:**
-- [ ] Deploy na Vercel com domínio r.alexdonega.com.br
+- [ ] Deploy na Vercel
+- [ ] Domínio r.alexdonega.com.br configurado
 - [ ] Configuração de subdomínio e DNS
-- [ ] URLs amigáveis com slug para compartilhamento
 - [ ] Ambiente de produção configurado
 
-**Design e UX:**
-- [ ] Design minimalista estilo Apple/macOS
-- [ ] Theme system (dark/light mode automático)
-- [ ] Cores personalizáveis
-- [ ] UX focada em usabilidade
-- [ ] Responsivo para mobile
+**Design e UX (Parcial):**
+- [x] Design minimalista estilo Apple/macOS — existing
+- [x] Theme system (dark/light mode automático) — ✅ 2026-02-07
+- [ ] Cores personalizáveis pelo usuário
+- [ ] Auditoria UX completa
 
 **Qualidade e Estabilidade:**
 - [ ] Remover todos os console.logs de produção
@@ -87,30 +78,35 @@ Se isso não funcionar, nada mais importa.
 
 <!-- O que não vamos fazer agora -->
 
+- **IA Avançada** — AI-suggested annotations, vault context understanding, summarization
+- **Multi-Document Review** — Tabbed interface para múltiplos documentos simultâneos
+- **Mobile Support avançado** — Breakpoint comparison, touch optimization (responsivo básico já existe)
 - **Aplicativo mobile nativo** — web-first, mobile responsive é suficiente para v1
 - **Edição colaborativa em tempo real (tipo Google Docs)** — complexidade alta, não é core
 - **Exportação para múltiplos formatos (PDF, DOCX)** — JSON é suficiente para v1
 - **Sistema de permissões granulares** — simples (criador vs colaborador) é suficiente
 - **Integração com outras ferramentas além de Claude Code/Obsidian** — foco nestes dois
-- **Páginas separadas de configurações (/settings, /dashboard)** — todas as configurações ficam DENTRO do editor
+- **Páginas separadas de configurações (/settings, /dashboard)** — todas as configurações ficam DENTRO do editor ✅
 
 ## Context
 
 **O que existe hoje:**
-- Código base funcional com interface de revisão visual
-- Sistema de anotações implementado (mas não integrado com Claude Code)
-- Estrutura monorepo com apps e pacotes
-- Stack moderna (TypeScript, React, Vite, Bun, Supabase)
-- Hooks parciais (PostToolUse, Write) para trigger automático
+- ✓ Código base funcional com interface de revisão visual
+- ✓ Sistema de anotações implementado e integrado
+- ✓ Estrutura monorepo com apps e pacotes
+- ✓ Stack moderna (TypeScript, React, Vite, Bun, Supabase)
+- ✓ Hooks completos (PostToolUse, Write) para trigger automático
+- ✓ Autenticação completa com Supabase
+- ✓ Configurações integradas no editor
+- ✓ Theme system com dark/light mode
 
 **Problemas conhecidos:**
 - App só funciona em localhost, não está configurado para domínio
-- Hook do plan mode não abre o reviewer
-- Anotações não são enviadas de forma estruturada para o Claude Code
+- Colaboração em tempo real não implementada
+- Sistema de freemium não implementado
 - Console logs em produção
 - Mixed language UI (português hardcoded em componentes)
 - Componentes grandes (Viewer.tsx com 1,449 linhas)
-- Sistema single-user atualmente
 
 **Usuário alvo:**
 - Desenvolvedores que usam Claude Code e querem revisar planos visualmente
@@ -122,23 +118,24 @@ Se isso não funcionar, nada mais importa.
 - **Tech Stack**: TypeScript + React + Vite + Bun (mantido do código existente)
 - **Hospedagem**: Vercel (plano free excelente, fácil deploy)
 - **Database**: Supabase (PostgreSQL) — já configurado
-- **Auth**: Supabase Auth ou Clerk (verificar qual está melhor integrado)
+- **Auth**: Supabase Auth — já implementado ✅
 - **Domínio**: r.alexdonega.com.br (já configurado, precisa apontar para Vercel)
 - **Monetização**: Stripe Freemium (free sem colaboradores, pago com lifetime)
-- **Design**: Minimalista estilo Apple, dark/light mode
+- **Design**: Minimalista estilo Apple, dark/light mode ✅
 
 ## Key Decisions
 
-| Decision | Rationale | Outcome |
-|----------|-----------|---------|
-| Manter stack atual (TS/React/Vite/Bun) | Código já existe, é moderno e funcional | — Pending |
-| Vercel para hospedagem | Plano free generoso, deploy fácil, bom para Next.js/React | — Pending |
+| Decision | Rationale | Status |
+|----------|-----------|--------|
+| Manter stack atual (TS/React/Vite/Bun) | Código já existe, é moderno e funcional | ✓ Confirmed |
+| Vercel para hospedagem | Plano free generoso, deploy fácil | — Pending |
 | Subdomínio r.alexdonega.com.br | Domínio já existe, profissional e curto | — Pending |
 | Freemium com lifetime | Atrai usuários, receita recorrente + option lifetime | — Pending |
-| URLs com slug | Mais amigável e SEO-friendly que IDs/hashes | — Pending |
-| Prompt fixo automático + campo editável | Conveniência para maioria, flexibilidade para avançados | — Pending |
-| Design estilo Apple/macOS | UX minimalista focada em usabilidade | — Pending |
-| **Configurações dentro do editor** | O editor é a página principal, sem /settings nem /dashboard separados. Melhor UX, menos navegação. | ✓ Good |
+| URLs com slug | Mais amigável e SEO-friendly que IDs/hashes | ✓ Partial (SharedDocument) |
+| Prompt fixo automático + campo editável | Conveniência para maioria, flexibilidade para avançados | ✓ Complete |
+| Design estilo Apple/macOS | UX minimalista focada em usabilidade | ✓ Complete |
+| **Configurações dentro do editor** | O editor é a página principal, sem /settings nem /dashboard separados | ✓ Complete |
+| **Remover IA Avançada, Multi-Document, Mobile avançado** | Não são prioridades no momento | ✓ Confirmed |
 
 ---
-*Last updated: 2026-02-06 after decision to move all settings into editor (no /settings or /dashboard pages)*
+*Last updated: 2026-02-07 after removing Advanced AI, Multi-Document Review, and Mobile Support from roadmap*
