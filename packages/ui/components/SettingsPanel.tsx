@@ -103,37 +103,65 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   // Load saved configuration on mount and when panel opens
   useEffect(() => {
     if (isOpen) {
-      setIdentity(getIdentity());
-      setDisplayNameState(getDisplayName());
-      setAnonymousIdentity(getAnonymousIdentity());
+      try {
+        // Load identity with fallback
+        setIdentity(getIdentity() || '');
+        setDisplayNameState(getDisplayName() || '');
+        setAnonymousIdentity(getAnonymousIdentity() || '');
 
-      // Load all saved paths and templates
-      const noteTypes = getNoteTypesByCategory();
-      const paths: Record<string, string> = {};
-      const templates: Record<string, string> = {};
+        // Load all saved paths and templates
+        const noteTypes = getNoteTypesByCategory();
+        const paths: Record<string, string> = {};
+        const templates: Record<string, string> = {};
 
-      [...noteTypes.terceiros, ...noteTypes.atomica, ...noteTypes.organizacional, ...noteTypes.alex].forEach(({ tipo }) => {
-        paths[tipo] = getNoteTypePath(tipo);
-        templates[tipo] = getNoteTypeTemplate(tipo);
-      });
+        [...noteTypes.terceiros, ...noteTypes.atomica, ...noteTypes.organizacional, ...noteTypes.alex].forEach(({ tipo }) => {
+          try {
+            paths[tipo] = getNoteTypePath(tipo) || '';
+            templates[tipo] = getNoteTypeTemplate(tipo) || '';
+          } catch (error) {
+            console.error(`Failed to load settings for ${tipo}:`, error);
+            paths[tipo] = '';
+            templates[tipo] = '';
+          }
+        });
 
-      setNotePaths(paths);
-      setNoteTemplates(templates);
+        setNotePaths(paths);
+        setNoteTemplates(templates);
 
-      // If there's no general note path set, use the first available path
-      const currentNotePath = getNotePath();
-      if (!currentNotePath || currentNotePath.trim() === '') {
-        const firstPath = Object.values(paths).find(p => p.trim() !== '');
-        if (firstPath) {
-          setNotePath(firstPath);
-          onNotePathChange?.(firstPath);
+        // If there's no general note path set, use the first available path
+        const currentNotePath = getNotePath();
+        if (!currentNotePath || currentNotePath.trim() === '') {
+          const firstPath = Object.values(paths).find(p => p.trim() !== '');
+          if (firstPath) {
+            setNotePath(firstPath);
+            onNotePathChange?.(firstPath);
+          }
         }
-      }
 
-      // Load language preference
-      const savedLang = localStorage.getItem('app-language') || 'pt-BR';
-      setCurrentLanguage(savedLang);
-      // In full implementation, this would call i18n.changeLanguage(savedLang);
+        // Load language preference
+        const savedLang = localStorage.getItem('app-language') || 'pt-BR';
+        setCurrentLanguage(savedLang);
+        // In full implementation, this would call i18n.changeLanguage(savedLang);
+
+        // Load hooks from localStorage
+        const savedHooks = localStorage.getItem('obsreview-hooks');
+        if (savedHooks) {
+          try {
+            const parsedHooks = JSON.parse(savedHooks);
+            if (Array.isArray(parsedHooks)) {
+              setHooks(parsedHooks);
+            }
+          } catch (error) {
+            console.error('Failed to load hooks:', error);
+            // Keep default hooks if loading fails
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load settings:', error);
+        // Set defaults if loading fails
+        setNotePaths({});
+        setNoteTemplates({});
+      }
     }
   }, [isOpen, onNotePathChange]);
 
