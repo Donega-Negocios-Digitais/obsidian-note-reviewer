@@ -22,7 +22,7 @@ export default defineConfig({
   plugins: [react(), tailwindcss(), viteCSPPortal()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, '.'),
+      '@': path.resolve(__dirname, './src'),
       '@obsidian-note-reviewer/ui': path.resolve(__dirname, '../../packages/ui'),
       '@obsidian-note-reviewer/editor/styles': path.resolve(__dirname, '../../packages/editor/index.css'),
       '@obsidian-note-reviewer/editor': path.resolve(__dirname, '../../packages/editor/App.tsx'),

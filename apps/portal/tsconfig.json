@@ -19,7 +19,7 @@
     "allowJs": true,
     "jsx": "react-jsx",
     "paths": {
-      "@/*": ["./*"],
+      "@/*": ["./src/*"],
       "@obsidian-note-reviewer/ui/*": ["../../packages/ui/*"],
       "@obsidian-note-reviewer/editor": ["../../packages/editor/App.tsx"],
       "@obsidian-note-reviewer/editor/*": ["../../packages/editor/*"]
