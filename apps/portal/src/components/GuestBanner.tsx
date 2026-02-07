@@ -2,6 +2,7 @@
  * Guest Banner Component
  *
  * Banner shown to guest users encouraging them to sign up.
+ * Per CONTEXT.md locked decision: "Indicador de modo guest: Indicador sutil no topo (icone de usuario + 'Convidado')"
  */
 
 import React from 'react';
@@ -13,6 +14,7 @@ export interface GuestBannerProps {
 
 /**
  * Gradient banner displayed to guest users with signup call-to-action
+ * Per locked decision: User icon + "Convidado" indicator
  */
 export function GuestBanner({ className = '' }: GuestBannerProps) {
   const navigate = useNavigate();
@@ -21,12 +23,14 @@ export function GuestBanner({ className = '' }: GuestBannerProps) {
     <div className={`bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-3 ${className}`}>
       <div className="flex items-center justify-between gap-4 max-w-7xl mx-auto">
         <div className="flex items-center gap-3">
-          <svg className="w-6 h-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+          {/* User icon - per CONTEXT.md locked decision */}
+          <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
           </svg>
+
           <div>
-            <p className="font-medium">Visualizando como visitante</p>
-            <p className="text-sm text-blue-100">
+            <p className="font-medium text-sm">Visualizando como Convidado</p>
+            <p className="text-xs text-blue-100">
               Crie uma conta gratuita para anotar, comentar e colaborar
             </p>
           </div>
