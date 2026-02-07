@@ -313,7 +313,7 @@ const App: React.FC = () => {
 
   // Intersection Observer for sticky bar - shows when header is out of viewport
   useEffect(() => {
-    if (!headerRef.current) return;
+    if (!headerRef.current || isSettingsPanelOpen) return;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -325,7 +325,7 @@ const App: React.FC = () => {
 
     observer.observe(headerRef.current);
     return () => observer.disconnect();
-  }, []);
+  }, [isSettingsPanelOpen]);
 
 
   // Check if we're in API mode (served from Bun hook server)
@@ -502,6 +502,7 @@ const App: React.FC = () => {
       if (e.key === '?') {
         e.preventDefault();
         setIsSettingsPanelOpen(true);
+        setShowStickyBar(false);
       }
     };
 
@@ -673,6 +674,10 @@ const App: React.FC = () => {
   };
 
   // State for showing copy feedback toast
+  // State for share dialog
+  const [showShareDialog, setShowShareDialog] = useState(false);
+
+  // State for showing copy feedback toast
   const [showCopyToast, setShowCopyToast] = useState(false);
 
   const handleSaveToVault = async () => {
@@ -787,7 +792,10 @@ const App: React.FC = () => {
         {isSettingsPanelOpen ? (
           <SettingsPanel
             isOpen={isSettingsPanelOpen}
-            onClose={() => setIsSettingsPanelOpen(false)}
+            onClose={() => {
+              setIsSettingsPanelOpen(false);
+              setShowStickyBar(false);
+            }}
             onIdentityChange={handleIdentityChange}
             onNoteTypeChange={handleNoteTypeChange}
             onNotePathChange={handleNotePathChange}
@@ -896,7 +904,10 @@ const App: React.FC = () => {
               </svg>
             </button>
             <button
-              onClick={() => setIsSettingsPanelOpen(!isSettingsPanelOpen)}
+              onClick={() => {
+                setIsSettingsPanelOpen(!isSettingsPanelOpen);
+                if (!isSettingsPanelOpen) setShowStickyBar(false);
+              }}
               className={`p-1.5 rounded-md text-xs font-medium transition-all ${
                 isSettingsPanelOpen
                   ? 'bg-primary/15 text-primary'
@@ -933,6 +944,17 @@ const App: React.FC = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
               </svg>
               <span className="hidden md:inline">Exportar</span>
+            </button>
+
+            <button
+              onClick={() => setShowShareDialog(true)}
+              className="p-1.5 md:px-2.5 md:py-1 rounded-md text-xs font-medium bg-blue-600/20 text-blue-600 hover:bg-blue-600/30 transition-colors flex items-center gap-1.5"
+              title="Compartilhar"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+              </svg>
+              <span className="hidden md:inline">Compartilhar</span>
             </button>
           </div>
         </header>
@@ -992,7 +1014,10 @@ const App: React.FC = () => {
 
                 {/* Configurações */}
                 <button
-                  onClick={() => setIsSettingsPanelOpen(true)}
+                  onClick={() => {
+                    setIsSettingsPanelOpen(true);
+                    setShowStickyBar(false);
+                  }}
                   className="p-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
                   title="Configurações"
                 >
@@ -1097,7 +1122,7 @@ const App: React.FC = () => {
                 <h3 id="help-video-title" className="font-semibold text-sm">Como o Obsidian Note Reviewer Funciona</h3>
                 <button
                   onClick={() => setShowHelpVideo(false)}
-                  className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                  className="p-1.5 rounded-md hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -1108,11 +1133,12 @@ const App: React.FC = () => {
                 <iframe
                   width="100%"
                   height="100%"
-                  src="https://www.youtube.com/embed/bCkCWnmAD-o?autoplay=1"
+                  src="https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=0&rel=0"
                   title="Como o Obsidian Note Reviewer Funciona"
                   frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   allowFullScreen
+                  referrerPolicy="strict-origin-when-cross-origin"
                 />
               </div>
             </div>
@@ -1260,6 +1286,62 @@ const App: React.FC = () => {
               <div>
                 <p className="text-sm font-medium text-foreground">Alterações copiadas!</p>
                 <p className="text-xs text-muted-foreground">Cole no Claude Code para processar</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Share Dialog - Simple inline implementation */}
+        {showShareDialog && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50" onClick={() => setShowShareDialog(false)}>
+            <div
+              className="bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-foreground">
+                  Compartilhar Documento
+                </h2>
+                <button
+                  onClick={() => setShowShareDialog(false)}
+                  className="p-1 text-muted-foreground hover:text-foreground"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Description */}
+              <p className="text-sm text-muted-foreground mb-4">
+                Use a opção "Exportar" para gerar um link de compartilhamento temporário.
+              </p>
+
+              {/* Info note */}
+              <div className="mb-6 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                <p className="text-xs text-blue-500">
+                  O compartilhamento via Supabase será implementado em breve. Por enquanto, use o recurso de Exportar.
+                </p>
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => {
+                    setShowShareDialog(false);
+                    setShowExport(true);
+                  }}
+                  className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 rounded-lg transition-colors"
+                >
+                  Abrir Exportar
+                </button>
+                <button
+                  onClick={() => setShowShareDialog(false)}
+                  className="px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted rounded-lg transition-colors"
+                >
+                  Fechar
+                </button>
               </div>
             </div>
           </div>
