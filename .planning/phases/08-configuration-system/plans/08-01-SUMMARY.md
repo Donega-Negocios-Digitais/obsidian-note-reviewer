@@ -231,18 +231,52 @@ All settings use **localStorage** for persistence:
 
 ## 4. Editor Integration Pattern
 
-### 4.1 State Management
+### 4.1 CRITICAL: Full Viewport Replacement Issue
+
+**Main Finding:** The current implementation REPLACES the entire editor view with SettingsPanel.
+
+**Location:** `packages/editor/App.tsx` lines 788-799
+
+```tsx
+{isSettingsPanelOpen ? (
+  <SettingsPanel
+    isOpen={isSettingsPanelOpen}
+    onClose={() => {
+      setIsSettingsPanelOpen(false);
+      setShowStickyBar(false);
+    }}
+    onIdentityChange={handleIdentityChange}
+    onNoteTypeChange={handleNoteTypeChange}
+    onNotePathChange={handleNotePathChange}
+    onNoteNameChange={handleNoteNameChange}
+  />
+) : (
+  // ... ENTIRE editor UI (header, viewer, annotation panel)
+)}
+```
+
+**Problem Breakdown:**
+
+1. **User loses document context** - Cannot see the note being configured
+2. **Navigation friction** - Must close settings to see changes
+3. **Inconsistent with modern UI** - Overlay/slide-over is standard pattern
+4. **Sticky bar behavior** - Sticky bar hidden when settings open (line 793, 905)
+
+**This is the PRIMARY issue to fix in the redesign.**
+
+### 4.2 State Management
 
 **Location:** `packages/editor/App.tsx`
 
-| State Variable | Purpose | Initial Value |
-|----------------|---------|---------------|
-| `isSettingsPanelOpen` | Controls settings visibility | `false` |
-| `savePath` | Current note save path | From `getNotePath()` |
+| State Variable | Purpose | Initial Value | Declaration Line |
+|----------------|---------|---------------|------------------|
+| `isSettingsPanelOpen` | Controls settings visibility | `false` | 229 |
+| `savePath` | Current note save path | From `getNotePath()` | 212-216 |
+| `showStickyBar` | Controls sticky action bar visibility | `false` | 237 |
 
-### 4.2 Settings Toggle
+### 4.3 Settings Toggle - Two Locations
 
-**Header Button:** Line 902-918
+**Header Button:** Lines 902-918
 ```tsx
 <button
   onClick={() => {
@@ -252,48 +286,97 @@ All settings use **localStorage** for persistence:
   className={/* ... */}
   title="Configurações"
 >
-  {/* Gear icon */}
+  {/* Gear icon svg */}
 </button>
 ```
 
-**Sticky Bar Button:** Line 1001-1013 (duplicate for sticky bar)
+**Sticky Bar Button:** Lines 1001-1013 (duplicate for sticky bar visibility)
+```tsx
+<button
+  onClick={() => {
+    setIsSettingsPanelOpen(true);
+    setShowStickyBar(false);
+  }}
+  className={/* ... */}
+  title="Configurações"
+>
+  {/* Gear icon svg */}
+</button>
+```
 
-### 4.3 Keyboard Shortcuts
+**Note:** Sticky bar only appears when header scrolls out of viewport (IntersectionObserver at lines 316-328).
 
-| Key | Action | Lines |
-|-----|--------|-------|
-| `?` | Open settings panel | 502-506 |
-| `ESC` | Close settings panel (via onClose) | N/A (handled by SettingsPanel) |
+### 4.4 Keyboard Shortcuts
 
-### 4.4 Callback Handlers
+| Key | Action | Handler Lines | Notes |
+|-----|--------|---------------|-------|
+| `?` | Open settings panel | 502-506 | Prevents default, opens settings |
+| `ESC` | Close settings panel | N/A | Handled by SettingsPanel onClose callback |
 
+**Implementation:** Lines 452-511 in global keyboard shortcuts useEffect
 ```typescript
-// Identity change - updates all annotations with new identity
+// ? to open settings (shortcuts tab)
+if (e.key === '?') {
+  e.preventDefault();
+  setIsSettingsPanelOpen(true);
+  setShowStickyBar(false);
+}
+```
+
+### 4.5 Callback Handlers - Parent Integration
+
+**handleIdentityChange** (Lines 625-629):
+```typescript
 const handleIdentityChange = (oldIdentity: string, newIdentity: string) => {
   setAnnotations(prev => prev.map(ann =>
     ann.author === oldIdentity ? { ...ann, author: newIdentity } : ann
   ));
 };
+```
+- **Purpose:** Update all existing annotations when reviewer identity changes
+- **Use case:** User regenerates identity or changes display name
 
-// Note path change - updates save path for saving
+**handleNotePathChange** (Lines 621-623):
+```typescript
 const handleNotePathChange = (notePath: string) => {
   setSavePath(notePath);
 };
+```
+- **Purpose:** Update save path for "Salvar no Obsidian" button
+- **Used by:** SettingsPanel path changes, default path loading
 
-// Note type change - placeholder
+**handleNoteTypeChange** (Lines 631-633):
+```typescript
 const handleNoteTypeChange = (tipo: TipoNota) => {
   // Just save the type, path comes from handleNotePathChange
 };
+```
+- **Purpose:** Placeholder for note type selection
+- **Current:** Not fully implemented (comment says "path comes from handleNotePathChange")
 
-// Note name change - placeholder
+**handleNoteNameChange** (Lines 635-637):
+```typescript
 const handleNoteNameChange = (name: string) => {
   // Note name is handled via handleNotePathChange
 };
 ```
+- **Purpose:** Placeholder for note naming
+- **Current:** Not fully implemented (comment says "handled via handleNotePathChange")
 
-### 4.5 Data Loading
+### 4.6 Data Loading Flow
 
-**useEffect on mount/open:** Lines 77-106 in SettingsPanel.tsx
+**SettingsPanel.tsx useEffect (Lines 77-106):**
+
+**Trigger:** When `isOpen` becomes true (settings opened)
+
+**Sequence:**
+1. Load identity: `getIdentity()`, `getDisplayName()`, `getAnonymousIdentity()`
+2. Load all note types from categories
+3. For each note type, load path and template from localStorage
+4. If general note path is empty, use first available path
+5. Update parent via `onNotePathChange` callback if path auto-set
+
+**Code:**
 ```typescript
 useEffect(() => {
   if (isOpen) {
@@ -326,6 +409,34 @@ useEffect(() => {
   }
 }, [isOpen, onNotePathChange]);
 ```
+
+**Dependencies:** `[isOpen, onNotePathChange]`
+- **Issue:** Re-runs on every panel open even if data unchanged
+- **Optimization opportunity:** Could cache or check if already loaded
+
+### 4.7 Settings Panel Close Flow
+
+**OnClose Callback (Lines 791-794):**
+```typescript
+onClose={() => {
+  setIsSettingsPanelOpen(false);
+  setShowStickyBar(false);
+}}
+```
+
+**Effects:**
+1. `isSettingsPanelOpen` becomes `false`
+2. Conditional rendering switches back to editor view
+3. `showStickyBar` explicitly set to `false` (prevents sticky bar flash)
+
+### 4.8 Import Statement
+
+**Line 12:**
+```typescript
+import { SettingsPanel } from '@obsidian-note-reviewer/ui/components/SettingsPanel';
+```
+
+**Pattern:** Monorepo workspace package import (`@obsidian-note-reviewer/ui`)
 
 ---
 
