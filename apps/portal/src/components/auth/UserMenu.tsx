@@ -108,18 +108,11 @@ export function UserMenu(): React.ReactElement | null {
             {/* Navigation Items */}
             <div className="py-1" role="none">
               <button
-                onClick={() => handleNavigate('/dashboard')}
+                onClick={() => handleNavigate('/editor')}
                 className="block w-full text-left px-4 py-2 text-sm hover:bg-accent transition-colors"
                 role="menuitem"
               >
-                Dashboard
-              </button>
-              <button
-                onClick={() => handleNavigate('/settings')}
-                className="block w-full text-left px-4 py-2 text-sm hover:bg-accent transition-colors"
-                role="menuitem"
-              >
-                Configurações
+                Editor
               </button>
             </div>
 

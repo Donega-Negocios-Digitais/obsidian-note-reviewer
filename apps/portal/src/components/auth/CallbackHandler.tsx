@@ -78,7 +78,7 @@ export function CallbackHandler() {
             const now = new Date()
             const isNewUser = (now.getTime() - createdAt.getTime()) < 30000 // 30 seconds
 
-            const targetPath = redirectTo || (isNewUser ? '/welcome' : '/dashboard')
+            const targetPath = redirectTo || (isNewUser ? '/welcome' : '/editor')
             console.log('✅ [Callback] Redirecionando para:', targetPath, '(novo usuário:', isNewUser, ')')
 
             setProcessing(false)

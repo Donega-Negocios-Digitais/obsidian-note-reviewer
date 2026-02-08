@@ -1,233 +1,194 @@
 /**
  * Settings Page
  *
- * Main settings page with Apple-style design.
+ * TEMPORARILY DISABLED AUTH - shows mock settings
  */
 
-import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
-import { SettingsLayout } from '../components/SettingsLayout';
-import { SettingsSection, SettingsToggle, SettingsItem } from '../components/SettingsItem';
+import React, { useState } from 'react'
 
-export function Settings() {
-  return (
-    <SettingsLayout>
-      <Routes>
-        <Route path="/" element={<Navigate to="/settings/general" replace />} />
-        <Route path="/general" element={<GeneralSettings />} />
-        <Route path="/appearance" element={<AppearanceSettings />} />
-        <Route path="/annotations" element={<AnnotationsSettings />} />
-        <Route path="/integration" element={<IntegrationSettings />} />
-        <Route path="/about" element={<AboutSettings />} />
-      </Routes>
-    </SettingsLayout>
-  );
+interface Hook {
+  id: string
+  name: string
+  description: string
+  trigger: string
+  enabled: boolean
 }
 
-function GeneralSettings() {
+export function SettingsPage(): React.ReactElement {
+  const [theme, setTheme] = useState('dark')
+  const [vaultPath, setVaultPath] = useState('C:\\Users\\Alex\\ObsidianVault')
+
+  // Hooks configuration
+  const [hooks, setHooks] = useState<Hook[]>([
+    {
+      id: 'plan-mode',
+      name: 'Plan Mode',
+      description: 'Ativa automaticamente o Note Reviewer quando o Claude Code entra em modo de planejamento',
+      trigger: '/plan',
+      enabled: true,
+    },
+    {
+      id: 'obsidian-note',
+      name: 'Criar Nota Obsidian',
+      description: 'Abre o Note Reviewer quando você usa a skill para criar notas no Obsidian',
+      trigger: 'nota-obsidian',
+      enabled: true,
+    },
+  ])
+
+  const toggleHook = (id: string) => {
+    setHooks(hooks.map(hook =>
+      hook.id === id ? { ...hook, enabled: !hook.enabled } : hook
+    ))
+  }
+
   return (
-    <div>
-      <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">
-        Geral
-      </h2>
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <div className="space-y-6">
+          {/* Header */}
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">
+              Configurações
+            </h1>
+            <p className="text-muted-foreground">
+              Personalize sua experiência
+            </p>
+          </div>
 
-      <SettingsSection>
-        <SettingsToggle
-          label="Notificações"
-          description="Receber notificações sobre atualizações e mudanças"
-          checked={true}
-          onChange={() => {}}
-          icon="🔔"
-        />
-        <SettingsToggle
-          label="Som de notificação"
-          description="Tocar som ao receber notificações"
-          checked={false}
-          onChange={() => {}}
-          icon="🔊"
-        />
-      </SettingsSection>
-
-      <SettingsSection title="Idioma">
-        <SettingsItem
-          title="Idioma"
-          description="Selecione o idioma da interface"
-          icon="🌐"
-          action={
-            <select className="px-3 py-2 bg-gray-100 dark:bg-gray-700 border-0 rounded-lg text-sm text-gray-900 dark:text-white">
-              <option>Português (Brasil)</option>
-              <option>English</option>
-              <option>Español</option>
-            </select>
-          }
-        />
-      </SettingsSection>
-    </div>
-  );
-}
-
-function AppearanceSettings() {
-  return (
-    <div>
-      <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">
-        Aparência
-      </h2>
-
-      <SettingsSection>
-        <SettingsItem
-          title="Tema"
-          description="Escolha o tema da aplicação"
-          icon="🎨"
-          action={
-            <select className="px-3 py-2 bg-gray-100 dark:bg-gray-700 border-0 rounded-lg text-sm text-gray-900 dark:text-white">
-              <option>Claro</option>
-              <option>Escuro</option>
-              <option>Automático (Sistema)</option>
-            </select>
-          }
-        />
-      </SettingsSection>
-
-      <SettingsSection title="Cores de destaque">
-        <SettingsItem
-          title="Cor de destaque"
-          description="Cor usada para elementos interativos"
-          icon="💙"
-          action={
-            <div className="flex gap-2">
-              <button className="w-8 h-8 rounded-full bg-blue-600 ring-2 ring-offset-2 ring-blue-600" />
-              <button className="w-8 h-8 rounded-full bg-purple-600" />
-              <button className="w-8 h-8 rounded-full bg-green-600" />
-              <button className="w-8 h-8 rounded-full bg-orange-600" />
+          {/* Appearance */}
+          <div className="bg-card p-6 rounded-lg border">
+            <h2 className="text-lg font-semibold mb-4">Aparência</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Tema</label>
+                <select
+                  value={theme}
+                  onChange={(e) => setTheme(e.target.value)}
+                  className="w-full p-2 rounded-lg border bg-background"
+                >
+                  <option value="dark">Escuro</option>
+                  <option value="light">Claro</option>
+                  <option value="system">Sistema</option>
+                </select>
+              </div>
             </div>
-          }
-        />
-      </SettingsSection>
+          </div>
+
+          {/* Hooks Configuration */}
+          <div className="bg-card p-6 rounded-lg border">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-lg font-semibold">Hooks</h2>
+                <p className="text-sm text-muted-foreground">
+                  Configure quais ações disparam o Note Reviewer automaticamente
+                </p>
+              </div>
+              <button className="px-3 py-1.5 bg-primary/10 text-primary text-sm rounded-lg hover:bg-primary/20 transition-colors">
+                + Adicionar Hook
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {hooks.map((hook) => (
+                <div
+                  key={hook.id}
+                  className={`p-4 rounded-lg border-2 transition-all ${
+                    hook.enabled
+                      ? 'border-primary/50 bg-primary/5'
+                      : 'border-border/50 bg-muted/30'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-semibold">{hook.name}</h3>
+                        {hook.enabled && (
+                          <span className="px-2 py-0.5 text-xs bg-green-500/20 text-green-600 dark:text-green-400 rounded-full">
+                            Ativo
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        {hook.description}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs px-2 py-1 bg-muted rounded-md font-mono">
+                          Trigger: {hook.trigger}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Toggle Switch */}
+                    <button
+                      onClick={() => toggleHook(hook.id)}
+                      className={`relative w-14 h-7 rounded-full transition-colors ${
+                        hook.enabled ? 'bg-primary' : 'bg-muted'
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow-md transition-transform ${
+                          hook.enabled ? 'translate-x-7' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              {/* Empty state / Add new hook hint */}
+              <div className="p-4 rounded-lg border border-dashed border-border/50 text-center">
+                <p className="text-sm text-muted-foreground">
+                  Mais hooks serão adicionados em breve
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Obsidian Settings */}
+          <div className="bg-card p-6 rounded-lg border">
+            <h2 className="text-lg font-semibold mb-4">Obsidian</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Caminho do Vault</label>
+                <input
+                  type="text"
+                  value={vaultPath}
+                  onChange={(e) => setVaultPath(e.target.value)}
+                  className="w-full p-2 rounded-lg border bg-background"
+                  placeholder="C:\Users\SeuUsuario\ObsidianVault"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Caminho onde suas notas do Obsidian estão salvas
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* About */}
+          <div className="bg-card p-6 rounded-lg border">
+            <h2 className="text-lg font-semibold mb-4">Sobre</h2>
+            <div className="space-y-2 text-sm">
+              <p><strong>Produto:</strong> Obsidian Note Reviewer</p>
+              <p><strong>Versão:</strong> 0.2.1</p>
+              <p><strong>Licença:</strong> BSL-1.1</p>
+              <p className="text-muted-foreground mt-4">
+                Desenvolvido por Alex Donega
+              </p>
+            </div>
+          </div>
+
+          {/* Status */}
+          <div className="bg-primary/10 p-6 rounded-lg border border-primary/20">
+            <h2 className="text-lg font-semibold mb-2">Modo Desenvolvimento</h2>
+            <p className="text-sm text-muted-foreground">
+              As configurações são apenas visuais. Configure o Supabase para persistir dados.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
-  );
+  )
 }
 
-function AnnotationsSettings() {
-  return (
-    <div>
-      <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">
-        Anotações
-      </h2>
-
-      <SettingsSection>
-        <SettingsToggle
-          label="Auto-save"
-          description="Salvar anotações automaticamente enquanto você edits"
-          checked={true}
-          onChange={() => {}}
-          icon="💾"
-        />
-        <SettingsToggle
-          label="Mostrar números de linha"
-          description="Exibir números de linha no editor"
-          checked={false}
-          onChange={() => {}}
-          icon="🔢"
-        />
-      </SettingsSection>
-
-      <SettingsSection title="Local de salvamento">
-        <SettingsItem
-          title="Salvar em"
-          description="Onde suas anotações são salvas"
-          icon="📁"
-          action={
-            <select className="px-3 py-2 bg-gray-100 dark:bg-gray-700 border-0 rounded-lg text-sm text-gray-900 dark:text-white">
-              <option>Vault do Obsidian</option>
-              <option>Nuvem</option>
-              <option>Ambos</option>
-            </select>
-          }
-        />
-      </SettingsSection>
-    </div>
-  );
-}
-
-function IntegrationSettings() {
-  return (
-    <div>
-      <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">
-        Integração
-      </h2>
-
-      <SettingsSection>
-        <SettingsItem
-          title="Claude Code"
-          description="Configurar integração com Claude Code"
-          icon="🤖"
-          action={
-            <button className="text-sm text-blue-600 dark:text-blue-400 font-medium">
-              Configurar
-            </button>
-          }
-        />
-        <SettingsToggle
-          label="Hook automático"
-          description="Abrir revisor automaticamente ao criar nota"
-          checked={true}
-          onChange={() => {}}
-          icon="⚡"
-        />
-      </SettingsSection>
-    </div>
-  );
-}
-
-function AboutSettings() {
-  return (
-    <div>
-      <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">
-        Sobre
-      </h2>
-
-      <SettingsSection>
-        <SettingsItem
-          title="Versão"
-          description="Obsidian Note Reviewer"
-          icon="ℹ️"
-          action={
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              v1.0.0
-            </span>
-          }
-        />
-        <SettingsItem
-          title="Licença"
-          description="MIT License"
-          icon="📜"
-        />
-      </SettingsSection>
-
-      <SettingsSection title="Links">
-        <SettingsItem
-          title="GitHub"
-          description="Código fonte e issues"
-          icon="🔗"
-          action={
-            <a href="#" className="text-sm text-blue-600 dark:text-blue-400 font-medium">
-              Abrir
-            </a>
-          }
-        />
-        <SettingsItem
-          title="Documentação"
-          description="Guia de uso e API"
-          icon="📚"
-          action={
-            <a href="#" className="text-sm text-blue-600 dark:text-blue-400 font-medium">
-              Abrir
-            </a>
-          }
-        />
-      </SettingsSection>
-    </div>
-  );
-}
-
-export default Settings;
+export default SettingsPage

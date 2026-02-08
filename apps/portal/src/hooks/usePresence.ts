@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useState, useRef } from 'react';
-import type { PresenceUser } from '@obsidian-note-reviewer/collaboration/types';
+import type { PresenceUser } from '@obsidian-note-reviewer/collaboration';
 
 export interface UsePresenceOptions {
   roomId: string;

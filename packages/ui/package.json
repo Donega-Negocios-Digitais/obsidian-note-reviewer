@@ -4,6 +4,8 @@
   "type": "module",
   "exports": {
     "./components/*": "./components/*.tsx",
+    "./markdown": "./components/MarkdownRenderer.tsx",
+    "./annotation": "./lib/annotation.ts",
     "./utils/*": "./utils/*.ts",
     "./hooks/*": "./hooks/*.ts",
     "./types": "./types.ts"

@@ -27,7 +27,7 @@ export const SalesPageV1: React.FC<SalesPageV1Props> = ({ onEnter }) => {
             Beta
           </span>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <div className="hidden md:flex items-center gap-3 text-sm">
             <a
               href="#como-funciona"
@@ -41,6 +41,20 @@ export const SalesPageV1: React.FC<SalesPageV1Props> = ({ onEnter }) => {
               className="text-muted-foreground hover:text-foreground transition-colors"
             >
               Benefícios
+            </a>
+          </div>
+          <div className="flex items-center gap-2">
+            <a
+              href="http://localhost:3001/auth/login"
+              className="px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted rounded-lg transition-colors"
+            >
+              Entrar
+            </a>
+            <a
+              href="http://localhost:3001/auth/register"
+              className="px-4 py-2 text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-colors"
+            >
+              Criar conta
             </a>
           </div>
           <ModeToggle />

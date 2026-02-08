@@ -25,8 +25,8 @@ export function WelcomePage() {
     // Check if user already completed onboarding
     // If user has full_name in metadata, they've been here before
     if (!loading && user?.user_metadata?.full_name) {
-      // Redirect to dashboard to avoid repeated onboarding
-      navigate('/dashboard', { replace: true })
+      // Redirect to editor to avoid repeated onboarding
+      navigate('/editor', { replace: true })
     }
   }, [user, loading, navigate])
 
@@ -65,7 +65,7 @@ export function WelcomePage() {
         {/* Profile Form */}
         <div className="bg-card p-6 rounded-lg border shadow-sm">
           <ProfileForm
-            onComplete={() => navigate('/dashboard', { replace: true })}
+            onComplete={() => navigate('/editor', { replace: true })}
           />
         </div>
 

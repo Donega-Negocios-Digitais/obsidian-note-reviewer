@@ -97,7 +97,7 @@ export function ProfileForm({ onComplete }: ProfileFormProps) {
       if (onComplete) {
         onComplete()
       } else {
-        navigate('/dashboard')
+        navigate('/editor')
       }
     } catch (error: any) {
       setError(error.message || 'Erro ao atualizar perfil.')
