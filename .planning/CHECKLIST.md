@@ -287,5 +287,77 @@
 
 ---
 
+---
+
+## 🆕 Phase 11: Sistema de Configurações Completo - BACKLOG
+
+### Status: 📋 PLANEJADO
+
+**Objetivo:** Implementar sistema completo de configurações com gestão de templates, integrações e perfil.
+
+### Estrutura de Rotas
+
+| Rota | Descrição | Status |
+|------|-----------|--------|
+| `/settings` | Dashboard de configurações | ⏳ Pending |
+| `/settings/caminhos-templates` | Gestão de categorias e templates | ⏳ Pending |
+| `/settings/perfil` | Perfil do usuário + Identidade do Revisor | ⏳ Pending |
+| `/settings/colaboracao` | Configurações de colaboração | ⏳ Pending |
+| `/settings/integracoes` | Integrações (WhatsApp, Telegram) | ⏳ Pending |
+| `/settings/hooks` | Configuração de hooks | ⏳ Pending |
+| `/settings/regras-workflow` | Reservado | ⏳ Future |
+| `/settings/idiomas` | Reservado | ⏳ Future |
+| `/settings/atalhos` | Reservado | ⏳ Future |
+
+### Entregáveis Prioritários
+
+#### Alta Prioridade
+- [ ] Correção: Menu Perfil visível
+- [ ] Correção: Menu Colaboração visível
+- [ ] Sistema de categorias de templates
+- [ ] Criação de templates com popup
+- [ ] Mover "Identidade do Revisor" para dentro de Perfil
+
+#### Média Prioridade
+- [ ] Novo menu "Integrações" com cards
+- [ ] Card WhatsApp com configuração
+- [ ] Card Telegram com configuração
+- [ ] Atualização do menu Hooks com ícones
+
+#### Baixa Prioridade
+- [ ] Placeholders para menus futuros
+- [ ] Documentação completa
+
+### Requisitos Técnicos
+
+#### Frontend
+- [ ] Design system consistente entre todos menus
+- [ ] Modals/popups com overlay e ESC para fechar
+- [ ] Loading states para operações async
+- [ ] Validação em tempo real nos formulários
+- [ ] Feedback toast/snackbar para ações
+
+#### Backend
+- [ ] `POST /api/integrations/whatsapp/configure`
+- [ ] `POST /api/integrations/telegram/configure`
+- [ ] `GET /api/integrations/status`
+- [ ] `POST /api/categorias` (CRUD completo)
+- [ ] `POST /api/templates` (CRUD completo)
+
+#### Banco de Dados
+- [ ] Nova tabela: `integrations`
+- [ ] Nova tabela: `template_categories`
+- [ ] Nova tabela: `templates`
+
+### Ordem de Desenvolvimento Sugerida
+1. Corrigir visibilidade dos menus existentes
+2. Implementar estrutura de rotas `/settings/*`
+3. Desenvolver menu Caminhos e Templates
+4. Reestruturar menu Perfil
+5. Criar menu Integrações
+6. Atualizar menu Hooks
+
+---
+
 *Atualizado em: 2026-02-08*
-*Status: PROJETO 100% COMPLETO* 🎉
+*Status: PROJETO 100% COMPLETO + Phase 11 BACKLOG* 🎉
