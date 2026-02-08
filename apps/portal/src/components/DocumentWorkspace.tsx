@@ -2,6 +2,7 @@
  * Document Workspace Component
  *
  * Main workspace container with tabs and document content display.
+ * Now includes real-time collaboration with Liveblocks.
  */
 
 import React, { useEffect, useCallback, useState } from 'react';
@@ -15,6 +16,13 @@ import { MarkdownRenderer } from '@obsidian-note-reviewer/ui/markdown';
 import { AnnotationExport } from '@obsidian-note-reviewer/ui/annotation';
 import type { Annotation } from '@obsidian-note-reviewer/ui/types';
 import { ShareButton } from '@/components/ShareButton';
+import { CollaborationRoom } from '@/components/collaboration/RoomProvider';
+import { PresenceList } from '@/components/collaboration/PresenceList';
+import { LiveCursors } from '@/components/collaboration/LiveCursors';
+import { useCursorTracking, useSelectionTracking } from '@/hooks/useCursorTracking';
+import { getRoomId } from '@/lib/roomUtils';
+import { useCurrentUser } from '@obsidian-note-reviewer/security/auth';
+import { getCursorColor } from '@/lib/cursor-colors';
 
 export interface Document {
   id: string;
@@ -35,6 +43,7 @@ export interface DocumentWorkspaceProps {
  * Full workspace component with tabs and document viewer
  *
  * Manages multiple open documents with tab navigation.
+ * Includes real-time collaboration features for the active document.
  */
 export function DocumentWorkspace({
   initialDocuments = [],
@@ -53,6 +62,13 @@ export function DocumentWorkspace({
     moveTab,
     updateTab,
   } = useDocumentTabs();
+
+  // Get current user for collaboration presence
+  const currentUser = useCurrentUser();
+
+  // Enable cursor and selection tracking for real-time collaboration
+  useCursorTracking();
+  useSelectionTracking();
 
   // Cross-reference panel state
   const [showReferences, setShowReferences] = useState(false);
@@ -161,7 +177,12 @@ export function DocumentWorkspace({
 
   const TabsComponent = compactTabs ? DocumentTabsCompact : DocumentTabs;
 
-  return (
+  // Prepare user presence for Liveblocks
+  const userName = currentUser?.user_metadata?.name || currentUser?.email || 'Usuário';
+  const userColor = getCursorColor(userName);
+
+  // Only wrap with CollaborationRoom when there's an active document
+  const workspaceContent = (
     <div className={`document-workspace flex flex-col h-full ${className}`}>
       <BreakpointPreview>
         {/* Tab Bar */}
@@ -174,7 +195,7 @@ export function DocumentWorkspace({
         />
 
       {/* Content Area */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto relative">
         {activeTab ? (
           <div className={`
             grid gap-4 h-full
@@ -186,7 +207,7 @@ export function DocumentWorkspace({
             }
           `}>
             {/* Document Content */}
-            <div className={`${isMobile ? 'p-4' : 'p-6'} ${!isMobile && !showReferences ? 'lg:col-span-2' : ''}`}>
+            <div className={`${isMobile ? 'p-4' : 'p-6'} ${!isMobile && !showReferences ? 'lg:col-span-2' : ''} relative`}>
               <div className="max-w-3xl mx-auto">
                 {/* Document Header */}
                 <div className="mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
@@ -200,10 +221,14 @@ export function DocumentWorkspace({
                         onClick={() => setShowReferences(!showReferences)}
                       />
                     </div>
-                    <ShareButton
-                      documentId={activeTab.documentId}
-                      documentTitle={activeTab.title}
-                    />
+                    <div className="flex items-center gap-2">
+                      {/* Presence List - shows active users in this document */}
+                      <PresenceList className="mr-2" />
+                      <ShareButton
+                        documentId={activeTab.documentId}
+                        documentTitle={activeTab.title}
+                      />
+                    </div>
                   </div>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                     {activeTab.modified && (
@@ -213,6 +238,9 @@ export function DocumentWorkspace({
                     )}
                   </p>
                 </div>
+
+                {/* Live Cursors Overlay - renders other users' cursors */}
+                <LiveCursors />
 
                 {/* Markdown Content */}
                 <MarkdownRenderer content={activeTab.content} />
@@ -283,6 +311,24 @@ export function DocumentWorkspace({
       </BreakpointPreview>
     </div>
   );
+
+  // Wrap with CollaborationRoom only when there's an active document
+  // This ensures the room is properly scoped to the current document
+  if (activeTab) {
+    return (
+      <CollaborationRoom
+        documentId={activeTab.documentId}
+        initialPresence={{
+          name: userName,
+          color: userColor,
+        }}
+      >
+        {workspaceContent}
+      </CollaborationRoom>
+    );
+  }
+
+  return workspaceContent;
 }
 
 export default DocumentWorkspace;
