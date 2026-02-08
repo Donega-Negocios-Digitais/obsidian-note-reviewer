@@ -15,7 +15,7 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 - ~~Phase 6: Multi-Document Review~~ — Tabs para múltiplos docs não é prioridade
 - ~~Phase 7: Mobile Support~~ — Responsivo básico já existe
 
-**Progress:** ████████████████░░░░░░░ 67.4% (29 of 43 plans complete)
+**Progress:** ████████████████░░░░░░░ 69.8% (30 of 43 plans complete)
 
 ## Phase Status (Updated)
 
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 | 1 | Authentication | ✅ Complete | 2026-02-07 |
 | 2 | Annotation System | ✅ Complete (90% gaps) | 2025-02-05 |
 | 3 | Claude Code Integration | ✅ Complete | 2026-02-05 |
-| 4 | Real-Time Collaboration | ⚠️ In Progress (60%) | 2026-02-07 |
+| 4 | Real-Time Collaboration | ⚠️ In Progress (67%) | 2026-02-07 |
 | 5 | Configuration System | ✅ Complete | 2026-02-07 |
 | 6 | Sharing Infrastructure | ⚠️ Partial (33%) | - |
 | 7 | Stripe Monetization | ⚠️ Partial (40%) | - |
@@ -49,6 +49,7 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 - **2026-02-07**: ROADMAP atualizado para refletir status real — 28/52 plans (53.8%), 30/61 requisitos (49.2%)
 - **2026-02-07**: Fases removidas do ROADMAP — Advanced AI, Multi-Document Review, Mobile Support
 - **2026-02-07**: ROADMAP renumerado (13 → 10 fases) e progresso atualizado — 28/43 plans (65.1%), 30/45 requisitos (66.7%)
+- **2026-02-07**: 04-08 completado — ShareButton integrado no DocumentWorkspace toolbar
 
 ### Key Architecture Decisions
 
@@ -64,6 +65,7 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 | **Remover IA Avançada** | AI-suggested annotations, vault context, summarization não são prioridade | ✓ Confirmed |
 | **Remover Multi-Document Review** | Tabbed interface para múltiplos docs não é prioridade | ✓ Confirmed |
 | **Remover Mobile Support avançado** | Responsivo básico já existe, breakpoint comparison não é prioridade | ✓ Confirmed |
+| **ShareButton no editor** | Botão de compartilhar integrado na toolbar principal para fácil acesso | ✓ Complete |
 
 ## Completed Work
 
@@ -99,15 +101,31 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 - Language preference storage (pt-BR/en-US)
 - Hooks configuration com status badges e test buttons
 
+### Phase 4: Real-Time Collaboration ⚠️
+**In Progress:** 67% (6/9 plans)
+
+**Completed:**
+- 04-01: Liveblocks room provider with presence
+- 04-02: Liveblocks hooks para colaboração em tempo real
+- 04-03: Guest access para documentos compartilhados
+- 04-04: SharedDocument page com visualização de markdown
+- 04-05: Slug-based shareable link system
+- 04-06: Liveblocks authentication endpoint
+- 04-07: ShareDialog component para geração de links
+- 04-08: ShareButton integrado no DocumentWorkspace toolbar
+
+**Remaining:**
+- 04-09: Vault configuration para editor
+
 ## Next Steps
 
 ### Recommended Priority Order:
 
-1. **Phase 4: Real-Time Collaboration** (0% — highest priority for multi-user)
+1. **Phase 4: Real-Time Collaboration** (67% — complete remaining)
    - Integrate Liveblocks for presence/cursors
    - Shareable link system with slug
-   - Guest access
-   - Obsidian vault integration
+   - Vault configuration integration (04-09)
+   - Multi-user annotations (phase 6)
 
 2. **Phase 6: Sharing Infrastructure** (33% — complete remaining)
    - Multi-user annotation system
@@ -135,8 +153,8 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 
 ## Session Continuity
 
-Last session: 2026-02-07T19:44:00Z
-Stopped at: Completed 04-03-PLAN.md (Guest Access for Shared Documents)
+Last session: 2026-02-07T21:25:00Z
+Stopped at: Completed 04-08-PLAN.md (Share Button in Editor)
 Resume file: None
 
 ---
