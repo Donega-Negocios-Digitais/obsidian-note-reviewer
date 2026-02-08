@@ -10,26 +10,59 @@ Ferramenta de revisão visual de notas do Obsidian e planos para agentes de IA c
 
 Se isso não funcionar, nada mais importa.
 
+## Project Status (2026-02-08)
+
+**Overall Progress:** 66.7% (30/45 requirements delivered)
+
+### Recently Completed ✅
+
+- **Autenticação completa** (Supabase Auth, login/signup, OAuth) — 2026-02-07
+- **Integração Claude Code completa** (hooks, export, prompt editor) — 2026-02-05
+- **Configurações dentro do editor** (SettingsPanel, sem /settings ou /dashboard) — 2026-02-07
+- **Theme system** (dark/light mode automático) — 2026-02-07
+- **URLs amigáveis com slug** (SharedDocument.tsx) — 2026-02-07
+- **Configuração Stripe checkout** (useStripeCheckout) — 2026-02-07
+
+### Currently Active ⚠️
+
+**Colaboração em Tempo Real (0%):**
+- Indicadores de presença de outros usuários
+- Cursores e avatares em tempo real (Liveblocks)
+- Multi-usuário podem ver e revisar planos compartilhados
+- Guest access permite visualizar reviews sem login
+- Workflow nativo com Obsidian vault (acesso local)
+
+**Monetização Stripe (40%):**
+- Modelo freemium funcional (PENDENTE)
+- Plano free: uso individual sem colaboradores (PENDENTE)
+- Plano pago: colaboradores + recursos avançados + suporte (PENDENTE)
+- Assinatura lifetime disponível (Pricing.tsx) ✅
+- Configuração Stripe checkout (useStripeCheckout) ✅
+- Webhooks do Stripe com signature verification (PENDENTE)
+- Sistema de freemium com limites de colaboradores (PENDENTE)
+
+**Deploy e Domínio (0%):**
+- Deploy na Vercel (PENDENTE)
+- Domínio r.alexdonega.com.br configurado (PENDENTE)
+- Configuração de subdomínio e DNS (PENDENTE)
+- Ambiente de produção configurado (PENDENTE)
+
 ## Requirements
 
 ### Validated (✅ Complete)
 
-<!-- Recursos existentes que funcionam -->
-
-- ✓ Interface de revisão visual com markdown rendering — existing
-- ✓ Sistema de anotações (destaques, comentários, edições) — existing
-- ✓ Estrutura monorepo com apps hook/portal/marketing — existing
-- ✓ Stack TypeScript + React + Vite + Bun — existing
-- ✓ Sanitização de conteúdo com DOMPurify — existing
-- ✓ Path validation para segurança (path traversal) — existing
-- ✓ **Autenticação completa** (Supabase Auth, login/signup, OAuth) — ✅ 2026-02-07
-- ✓ **Integração Claude Code completa** (hooks, export, prompt editor) — ✅ 2026-02-05
-- ✓ **Configurações dentro do editor** (SettingsPanel, sem /settings ou /dashboard) — ✅ 2026-02-07
-- ✓ **Theme system** (dark/light mode automático) — existing
+- ✓ Interface de revisão visual com markdown rendering
+- ✓ Sistema de anotações (destaques, comentários, edições)
+- ✓ Estrutura monorepo com apps hook/portal/marketing
+- ✓ Stack TypeScript + React + Vite + Bun
+- ✓ Sanitização de conteúdo com DOMPurify
+- ✓ Path validation para segurança (path traversal)
+- ✓ Autenticação completa (Supabase Auth, login/signup, OAuth)
+- ✓ Integração Claude Code completa (hooks, export, prompt editor)
+- ✓ Configurações dentro do editor (SettingsPanel, sem /settings ou /dashboard)
+- ✓ Theme system (dark/light mode automático)
 
 ### Active (⚠️ In Progress)
-
-<!-- O que precisamos construir/evoluir -->
 
 **Colaboração em Tempo Real:**
 - [ ] Indicadores de presença de outros usuários
@@ -39,7 +72,7 @@ Se isso não funcionar, nada mais importa.
 - [ ] Workflow nativo com Obsidian vault (acesso local)
 
 **Compartilhamento (Parcial):**
-- [x] URLs amigáveis com slug (SharedDocument.tsx existe) — ✅ 2026-02-07
+- [x] URLs amigáveis com slug (SharedDocument.tsx existe)
 - [ ] Multi-usuário podem ver e revisar planos compartilhados
 - [ ] Controle de permissões (criador vs colaborador)
 - [ ] Atividade em tempo real (edições, comentários)
@@ -48,8 +81,8 @@ Se isso não funcionar, nada mais importa.
 - [ ] Modelo freemium funcional
 - [ ] Plano free: uso individual sem colaboradores
 - [ ] Plano pago: colaboradores + recursos avançados + suporte
-- [x] Assinatura lifetime disponível (Pricing.tsx) — ✅ 2026-02-07
-- [x] Configuração Stripe checkout (useStripeCheckout) — ✅ 2026-02-07
+- [x] Assinatura lifetime disponível (Pricing.tsx)
+- [x] Configuração Stripe checkout (useStripeCheckout)
 - [ ] Webhooks do Stripe com signature verification
 - [ ] Sistema de freemium com limites de colaboradores
 
@@ -60,8 +93,8 @@ Se isso não funcionar, nada mais importa.
 - [ ] Ambiente de produção configurado
 
 **Design e UX (Parcial):**
-- [x] Design minimalista estilo Apple/macOS — existing
-- [x] Theme system (dark/light mode automático) — ✅ 2026-02-07
+- [x] Design minimalista estilo Apple/macOS
+- [x] Theme system (dark/light mode automático)
 - [ ] Cores personalizáveis pelo usuário
 - [ ] Auditoria UX completa
 
@@ -76,8 +109,6 @@ Se isso não funcionar, nada mais importa.
 
 ### Out of Scope
 
-<!-- O que não vamos fazer agora -->
-
 - **IA Avançada** — AI-suggested annotations, vault context understanding, summarization
 - **Multi-Document Review** — Tabbed interface para múltiplos documentos simultâneos
 - **Mobile Support avançado** — Breakpoint comparison, touch optimization (responsivo básico já existe)
@@ -90,6 +121,36 @@ Se isso não funcionar, nada mais importa.
 
 ## Context
 
+**Stack Tecnológica Atual:**
+- TypeScript 5.8-5.9
+- React 19.2.3
+- Vite 6.2.0
+- Bun 1.x (runtime e package manager)
+- Tailwind CSS 4.1.18
+- Supabase (PostgreSQL + Auth + Edge Functions)
+- Liveblocks 3.13.4 (colaboração em tempo real)
+- Stripe (pagamentos e assinaturas)
+- Anthropic Claude SDK 0.32.0 (integração AI)
+
+**Arquitetura Monorepo:**
+```
+obsidian-note-reviewer/
+├── apps/
+│   ├── hook/          # Claude Code integration (port 3000)
+│   ├── portal/        # Web dashboard (port 3001)
+│   └── marketing/     # Landing page (port 3002)
+├── packages/
+│   ├── ui/            # Component library (40+ componentes)
+│   ├── editor/        # Main editor App component
+│   ├── security/      # Auth + CSP + Supabase client
+│   ├── ai/            # Claude integration (suggestions)
+│   ├── collaboration/ # Liveblocks + sharing
+│   ├── api/           # Stripe + webhooks
+│   ├── core/          # Logger + utilities
+│   └── shared/        # Pricing + types
+└── supabase/          # Migrations + Edge Functions
+```
+
 **O que existe hoje:**
 - ✓ Código base funcional com interface de revisão visual
 - ✓ Sistema de anotações implementado e integrado
@@ -99,6 +160,8 @@ Se isso não funcionar, nada mais importa.
 - ✓ Autenticação completa com Supabase
 - ✓ Configurações integradas no editor
 - ✓ Theme system com dark/light mode
+- ✓ Integração Stripe parcial (checkout sem webhooks)
+- ✓ URLs amigáveis com slug
 
 **Problemas conhecidos:**
 - App só funciona em localhost, não está configurado para domínio
@@ -106,7 +169,10 @@ Se isso não funcionar, nada mais importa.
 - Sistema de freemium não implementado
 - Console logs em produção
 - Mixed language UI (português hardcoded em componentes)
-- Componentes grandes (Viewer.tsx com 1,449 linhas)
+- Componentes grandes (Viewer.tsx com 1,493 linhas)
+- TypeScript any type usage em vários arquivos
+- Falta de otimização React (memo, useMemo, useCallback)
+- Sistema de undo/redo não implementado
 
 **Usuário alvo:**
 - Desenvolvedores que usam Claude Code e querem revisar planos visualmente
@@ -137,5 +203,67 @@ Se isso não funcionar, nada mais importa.
 | **Configurações dentro do editor** | O editor é a página principal, sem /settings nem /dashboard separados | ✓ Complete |
 | **Remover IA Avançada, Multi-Document, Mobile avançado** | Não são prioridades no momento | ✓ Confirmed |
 
+## Development Environment
+
+**Ports:**
+- Hook app: 3000 (Claude Code integration)
+- Portal app: 3001 (main web app)
+- Marketing app: 3002 (landing page)
+- Portal API proxy: 3002 (via dev-server.ts)
+
+**Environment Variables Required:**
+```bash
+# Supabase (Primary Backend)
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
+
+# Liveblocks (Real-time Collaboration)
+VITE_LIVEBLOCKS_PUBLIC_KEY=
+LIVEBLOCKS_SECRET_KEY=
+
+# Stripe (Payments)
+VITE_STRIPE_PUBLISHABLE_KEY=
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+VITE_STRIPE_PRICE_PRO_MONTHLY=
+VITE_STRIPE_PRICE_PRO_YEARLY=
+VITE_STRIPE_PRICE_LIFETIME=
+
+# Upstash (Rate Limiting - Production)
+UPSTASH_REDIS_URL=
+UPSTASH_REDIS_TOKEN=
+
+# Supabase Edge Functions
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+SUPABASE_PROJECT_REF=
+SUPABASE_ACCESS_TOKEN=
+
+# Optional
+OBSIDIAN_PLAN_DIRS=
+ALLOWED_ORIGINS=
+```
+
+## Next Steps Priority
+
+**High Priority (Blocking Production):**
+1. Deploy na Vercel com domínio configurado
+2. Implementar webhooks do Stripe com signature verification
+3. Sistema de freemium com limites de colaboradores
+4. Remover console.logs e implementar logging apropriado
+
+**Medium Priority (User Experience):**
+1. Implementar colaboração em tempo real (Liveblocks)
+2. Guest access para visualizar reviews sem login
+3. Sistema de undo/redo para anotações
+4. Sistema i18n (separar português de hardcoded strings)
+
+**Low Priority (Future):**
+1. Cores personalizáveis pelo usuário
+2. Auditoria UX completa
+3. Testes automatizados para features críticas
+4. Performance otimizada (React.memo, virtual scrolling)
+
 ---
-*Last updated: 2026-02-07 after removing Advanced AI, Multi-Document Review, and Mobile Support from roadmap*
+*Last updated: 2026-02-08*
+*Overall progress: 66.7% (30/45 requirements)*

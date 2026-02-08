@@ -132,3 +132,37 @@ function getPublicKey(): string {
 
 // Export types
 export type { LiveblocksConfig, PresenceUser, RoomInfo, PresenceState };
+
+// Export collaborators API
+export {
+  getDocumentCollaborators,
+  inviteCollaborator,
+  removeCollaborator,
+  updateCollaboratorRole,
+  getDocumentInvites,
+  acceptInvite,
+  cancelInvite,
+  checkDocumentAccess,
+  getUserDocumentRole,
+  getCurrentUserRole,
+} from './collaborators';
+
+export type {
+  Collaborator,
+  CollaboratorRole,
+  CollaboratorStatus,
+  DocumentInvite,
+  InviteStatus,
+  InviteResult,
+  RemoveCollaboratorResult,
+} from './collaborators';
+
+// Export React hooks
+export {
+  useDocumentPresence,
+  useCursorTracking,
+} from './hooks';
+
+export type {
+  UseDocumentPresenceReturn,
+} from './hooks';

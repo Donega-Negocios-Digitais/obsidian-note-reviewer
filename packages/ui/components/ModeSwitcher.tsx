@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { EditorMode } from '../types';
 
 interface ModeSwitcherProps {
@@ -9,6 +10,7 @@ interface ModeSwitcherProps {
 }
 
 export const ModeSwitcher: React.FC<ModeSwitcherProps> = ({ mode, onChange, onEditMarkdown, onGlobalComment }) => {
+  const { t } = useTranslation();
   return (
     <div className="inline-flex items-center bg-muted/50 rounded-lg p-0.5 border border-border/30">
       <ModeButton
@@ -23,7 +25,7 @@ export const ModeSwitcher: React.FC<ModeSwitcherProps> = ({ mode, onChange, onEd
             <path d="M9 6v12"/>
           </svg>
         }
-        label="Seleção"
+        label={t('toolbar.selection')}
       />
       <ModeButton
         active={mode === 'edit'}
@@ -33,7 +35,7 @@ export const ModeSwitcher: React.FC<ModeSwitcherProps> = ({ mode, onChange, onEd
             <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
           </svg>
         }
-        label="Editar Nota"
+        label={t('toolbar.editNote')}
       />
       <ModeButton
         active={false}
@@ -43,7 +45,7 @@ export const ModeSwitcher: React.FC<ModeSwitcherProps> = ({ mode, onChange, onEd
             <path strokeLinecap="round" strokeLinejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
           </svg>
         }
-        label="Editar MD"
+        label={t('toolbar.editMarkdown')}
       />
       <ModeButton
         active={mode === 'redline'}
@@ -53,23 +55,23 @@ export const ModeSwitcher: React.FC<ModeSwitcherProps> = ({ mode, onChange, onEd
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9.75L14.25 12m0 0l2.25 2.25M14.25 12l2.25-2.25M14.25 12L12 14.25m-2.58 4.92l-6.375-6.375a1.125 1.125 0 010-1.59L9.42 4.83c.211-.211.498-.33.796-.33H19.5a2.25 2.25 0 012.25 2.25v10.5a2.25 2.25 0 01-2.25 2.25h-9.284c-.298 0-.585-.119-.796-.33z" />
           </svg>
         }
-        label="Exclusão"
+        label={t('toolbar.deletion')}
         destructive
       />
 
       {/* Separador */}
       <div className="w-px h-5 bg-border/50 mx-1" />
 
-      {/* Comentário Global */}
+      {/* Global Comment */}
       <button
         onClick={() => onGlobalComment?.()}
         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all text-blue-600 hover:bg-blue-500/20 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-        title="Adicionar Comentário Global"
+        title={t('toolbar.addGlobalComment')}
       >
         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
         </svg>
-        <span className="hidden md:inline">Comentário</span>
+        <span className="hidden md:inline">{t('toolbar.globalComment')}</span>
       </button>
     </div>
   );

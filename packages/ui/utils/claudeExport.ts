@@ -38,6 +38,8 @@ function getClaudeAnnotationType(internalType: AnnotationType): ClaudeAnnotation
     [AnnotationType.COMMENT]: 'comment_individual' as ClaudeAnnotationType,
     // GLOBAL_COMMENT: Document-level comment
     [AnnotationType.GLOBAL_COMMENT]: 'comment_global' as ClaudeAnnotationType,
+    // IMAGE_COMMENT: Drawing/comment on image
+    [AnnotationType.IMAGE_COMMENT]: 'comment_individual' as ClaudeAnnotationType,
   };
 
   return typeMap[internalType];

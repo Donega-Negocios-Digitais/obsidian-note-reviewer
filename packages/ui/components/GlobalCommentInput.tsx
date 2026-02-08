@@ -6,6 +6,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { getIdentity } from '../utils/identity';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 
@@ -20,6 +21,7 @@ export const GlobalCommentInput: React.FC<GlobalCommentInputProps> = ({
   onClose,
   onSubmit,
 }) => {
+  const { t } = useTranslation();
   const [comment, setComment] = useState('');
   const [author, setAuthor] = useState('');
   const modalRef = useRef<HTMLDivElement>(null);
@@ -47,7 +49,7 @@ export const GlobalCommentInput: React.FC<GlobalCommentInputProps> = ({
   const handleSubmit = () => {
     if (!comment.trim()) return;
 
-    const finalAuthor = author.trim() || 'Anônimo';
+    const finalAuthor = author.trim() || t('globalCommentInput.anonymous');
     onSubmit(comment, finalAuthor);
     setComment('');
     onClose();
@@ -84,7 +86,7 @@ export const GlobalCommentInput: React.FC<GlobalCommentInputProps> = ({
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h3 id="global-comment-modal-title" className="font-semibold text-sm">Comentário Global</h3>
+              <h3 id="global-comment-modal-title" className="font-semibold text-sm">{t('globalCommentInput.title')}</h3>
             </div>
             <button
               onClick={onClose}
@@ -102,14 +104,14 @@ export const GlobalCommentInput: React.FC<GlobalCommentInputProps> = ({
           {/* Author Input */}
           <div>
             <label htmlFor="author" className="block text-xs font-medium text-muted-foreground mb-2">
-              Autor
+              {t('globalCommentInput.author')}
             </label>
             <input
               id="author"
               type="text"
               value={author}
               onChange={(e) => setAuthor(e.target.value)}
-              placeholder="Seu nome (opcional)"
+              placeholder={t('globalCommentInput.authorPlaceholder')}
               className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
           </div>
@@ -117,20 +119,20 @@ export const GlobalCommentInput: React.FC<GlobalCommentInputProps> = ({
           {/* Comment Textarea */}
           <div>
             <label htmlFor="comment" className="block text-xs font-medium text-muted-foreground mb-2">
-              Comentário sobre o documento
+              {t('globalCommentInput.commentLabel')}
             </label>
             <textarea
               id="comment"
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Adicione um comentário que se aplica ao documento inteiro..."
+              placeholder={t('globalCommentInput.commentPlaceholder')}
               rows={6}
               autoFocus
               className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none h-32"
             />
             <p className="mt-1 text-xs text-muted-foreground">
-              Dica: Ctrl/Cmd + Enter para enviar
+              {t('globalCommentInput.submitHint')}
             </p>
           </div>
         </div>
@@ -141,7 +143,7 @@ export const GlobalCommentInput: React.FC<GlobalCommentInputProps> = ({
             onClick={onClose}
             className="px-4 py-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           >
-            Cancelar
+            {t('globalCommentInput.cancel')}
           </button>
           <button
             onClick={handleSubmit}
@@ -152,7 +154,7 @@ export const GlobalCommentInput: React.FC<GlobalCommentInputProps> = ({
                 : 'bg-muted text-muted-foreground cursor-not-allowed'
             }`}
           >
-            Adicionar Comentário
+            {t('globalCommentInput.addComment')}
           </button>
         </div>
       </div>

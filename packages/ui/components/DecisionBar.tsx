@@ -1,4 +1,5 @@
 ﻿import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface DecisionBarProps {
   onApprove: () => Promise<void>;
@@ -13,6 +14,7 @@ export const DecisionBar: React.FC<DecisionBarProps> = ({
   annotationCount,
   getFeedback
 }) => {
+  const { t } = useTranslation();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState<'approved' | 'denied' | null>(null);
 
@@ -63,25 +65,30 @@ export const DecisionBar: React.FC<DecisionBarProps> = ({
           {/* Message */}
           <div className="space-y-2">
             <h2 className="text-xl font-semibold text-foreground">
-              {submitted === 'approved' ? 'Nota Aprovada' : 'Alterações Solicitadas'}
+              {submitted === 'approved' ? t('decisionBar.noteApproved') : t('decisionBar.changesRequested')}
             </h2>
             <p className="text-muted-foreground">
               {submitted === 'approved'
-                ? 'A nota será salva no Obsidian.'
-                : 'Claude irá revisar a nota com base nas suas anotações.'}
+                ? t('decisionBar.willBeSaved')
+                : t('decisionBar.willReview')}
             </p>
           </div>
 
           {/* Instruction */}
           <div className="pt-4 border-t border-border">
-            <p className="text-sm text-muted-foreground">
-              Retorne ao <span className="text-foreground font-medium">terminal do Claude Code</span> para continuar.
-            </p>
+            <p className="text-sm text-muted-foreground" dangerouslySetInnerHTML={{ __html: t('decisionBar.returnToTerminal') }} />
           </div>
         </div>
       </div>
     );
   }
+
+  const getAnnotationsLabel = () => {
+    if (annotationCount === 1) {
+      return t('decisionBar.annotationsToSend_one', { count: annotationCount });
+    }
+    return t('decisionBar.annotationsToSend', { count: annotationCount });
+  };
 
   return (
     <div className="fixed bottom-0 left-0 right-0 p-4 bg-card/95 backdrop-blur-xl border-t border-border z-50">
@@ -89,9 +96,9 @@ export const DecisionBar: React.FC<DecisionBarProps> = ({
         {/* Status info */}
         <div className="flex-1 text-sm text-muted-foreground">
           {annotationCount > 0 ? (
-            <span>{annotationCount} {annotationCount !== 1 ? 'anotações' : 'anotação'} para enviar como feedback</span>
+            <span>{getAnnotationsLabel()}</span>
           ) : (
-            <span>Revise a nota, depois aprove ou solicite alterações</span>
+            <span>{t('decisionBar.reviewNote')}</span>
           )}
         </div>
 
@@ -100,7 +107,7 @@ export const DecisionBar: React.FC<DecisionBarProps> = ({
           <button
             onClick={handleDeny}
             disabled={isSubmitting}
-            aria-label="Solicitar alterações na nota"
+            aria-label={t('decisionBar.requestChangesAria')}
             className={`
               px-4 py-2 rounded-lg text-sm font-medium transition-all
               focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none
@@ -110,13 +117,13 @@ export const DecisionBar: React.FC<DecisionBarProps> = ({
               }
             `}
           >
-            {isSubmitting ? 'Enviando...' : 'Solicitar Alterações'}
+            {isSubmitting ? t('decisionBar.sending') : t('decisionBar.requestChanges')}
           </button>
 
           <button
             onClick={handleApprove}
             disabled={isSubmitting}
-            aria-label="Aprovar nota e salvar no Obsidian"
+            aria-label={t('decisionBar.approveNoteAria')}
             className={`
               px-4 py-2 rounded-lg text-sm font-medium transition-all
               focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none
@@ -126,7 +133,7 @@ export const DecisionBar: React.FC<DecisionBarProps> = ({
               }
             `}
           >
-            {isSubmitting ? 'Aprovando...' : 'Aprovar Nota'}
+            {isSubmitting ? t('decisionBar.approving') : t('decisionBar.approveNote')}
           </button>
         </div>
       </div>

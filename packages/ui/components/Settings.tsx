@@ -16,6 +16,7 @@ import {
   type TipoNota
 } from '../utils/notePaths';
 import { ConfigEditor } from './ConfigEditor';
+import * as LucideIcons from 'lucide-react';
 
 interface SettingsProps {
   onIdentityChange?: (oldIdentity: string, newIdentity: string) => void;
@@ -25,6 +26,17 @@ interface SettingsProps {
 }
 
 type CategoryTab = 'atomica' | 'terceiros' | 'organizacional' | 'alex' | 'regras';
+
+// Helper to get Lucide icon component from icon name
+function getLucideIcon(iconName: string): React.ComponentType<{ className?: string }> {
+  const componentName = iconName
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join('');
+  
+  const Icon = (LucideIcons as any)[componentName];
+  return Icon || LucideIcons.Circle;
+}
 
 export const Settings: React.FC<SettingsProps> = ({
   onIdentityChange,
@@ -121,12 +133,12 @@ export const Settings: React.FC<SettingsProps> = ({
 
   const noteTypes = getNoteTypesByCategory();
 
-  const tabs: Array<{ id: CategoryTab; emoji: string; label: string }> = [
-    { id: 'regras', emoji: '📋', label: 'Regras e Workflows' },
-    { id: 'terceiros', emoji: '📚', label: 'Conteúdo de Terceiros' },
-    { id: 'atomica', emoji: '⚛️', label: 'Notas Atômicas' },
-    { id: 'organizacional', emoji: '🗺️', label: 'Notas Organizacionais' },
-    { id: 'alex', emoji: '✍️', label: 'Conteúdo Próprio' }
+  const tabs: Array<{ id: CategoryTab; icon: string; label: string }> = [
+    { id: 'regras', icon: 'ClipboardList', label: 'Regras e Workflows' },
+    { id: 'terceiros', icon: 'BookOpen', label: 'Conteúdo de Terceiros' },
+    { id: 'atomica', icon: 'Atom', label: 'Notas Atômicas' },
+    { id: 'organizacional', icon: 'Map', label: 'Notas Organizacionais' },
+    { id: 'alex', icon: 'PenTool', label: 'Conteúdo Próprio' }
   ];
 
   const CategoryContent = ({ category }: { category: CategoryTab }) => {
@@ -134,36 +146,39 @@ export const Settings: React.FC<SettingsProps> = ({
 
     return (
       <div className="space-y-4">
-        {items.map(({ tipo, emoji, label }) => (
-          <div key={tipo} className="space-y-2 p-4 bg-muted/30 rounded-lg border border-border/50">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">{emoji}</span>
-              <span className="text-sm font-semibold text-foreground">{label}</span>
-            </div>
-            <div className="pl-8 space-y-3">
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Template:</label>
-                <input
-                  type="text"
-                  value={noteTemplates[tipo] || ''}
-                  onChange={(e) => handleTemplateChange(tipo, e.target.value)}
-                  placeholder="C:/caminho/para/template.md"
-                  className="w-full px-3 py-2 bg-background rounded-md text-xs border border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 font-mono transition-all"
-                />
+        {items.map(({ tipo, icon, label }) => {
+          const IconComponent = getLucideIcon(icon);
+          return (
+            <div key={tipo} className="space-y-2 p-4 bg-muted/30 rounded-lg border border-border/50">
+              <div className="flex items-center gap-2">
+                <IconComponent className="w-5 h-5 text-primary" />
+                <span className="text-sm font-semibold text-foreground">{label}</span>
               </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Destino:</label>
-                <input
-                  type="text"
-                  value={notePaths[tipo] || ''}
-                  onChange={(e) => handlePathChange(tipo, e.target.value)}
-                  placeholder="C:/caminho/para/pasta/destino"
-                  className="w-full px-3 py-2 bg-background rounded-md text-xs border border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 font-mono transition-all"
-                />
+              <div className="pl-8 space-y-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Template:</label>
+                  <input
+                    type="text"
+                    value={noteTemplates[tipo] || ''}
+                    onChange={(e) => handleTemplateChange(tipo, e.target.value)}
+                    placeholder="C:/caminho/para/template.md"
+                    className="w-full px-3 py-2 bg-background rounded-md text-xs border border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 font-mono transition-all"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Destino:</label>
+                  <input
+                    type="text"
+                    value={notePaths[tipo] || ''}
+                    onChange={(e) => handlePathChange(tipo, e.target.value)}
+                    placeholder="C:/caminho/para/pasta/destino"
+                    className="w-full px-3 py-2 bg-background rounded-md text-xs border border-border focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 font-mono transition-all"
+                  />
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     );
   };
@@ -224,26 +239,29 @@ export const Settings: React.FC<SettingsProps> = ({
             {/* Tabs Navigation */}
             <div className="border-b border-border bg-muted/20">
               <div role="tablist" aria-label="Categorias de tipos de nota" className="flex px-6">
-                {tabs.map(({ id, emoji, label }) => (
-                  <button
-                    key={id}
-                    id={`settings-tab-${id}`}
-                    role="tab"
-                    aria-selected={activeTab === id}
-                    aria-controls={`settings-panel-${id}`}
-                    onClick={() => setActiveTab(id)}
-                    className={`
-                      flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all relative focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rounded-md
-                      ${activeTab === id
-                        ? 'text-primary border-b-2 border-primary'
-                        : 'text-muted-foreground hover:text-foreground'
-                      }
-                    `}
-                  >
-                    <span className="text-base">{emoji}</span>
-                    <span className="hidden sm:inline">{label}</span>
-                  </button>
-                ))}
+                {tabs.map(({ id, icon, label }) => {
+                  const IconComponent = getLucideIcon(icon);
+                  return (
+                    <button
+                      key={id}
+                      id={`settings-tab-${id}`}
+                      role="tab"
+                      aria-selected={activeTab === id}
+                      aria-controls={`settings-panel-${id}`}
+                      onClick={() => setActiveTab(id)}
+                      className={`
+                        flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all relative focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rounded-md
+                        ${activeTab === id
+                          ? 'text-primary border-b-2 border-primary'
+                          : 'text-muted-foreground hover:text-foreground'
+                        }
+                      `}
+                    >
+                      <IconComponent className="w-5 h-5" />
+                      <span className="hidden sm:inline">{label}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -267,7 +285,10 @@ export const Settings: React.FC<SettingsProps> = ({
 
               {/* Seção: Identidade */}
               <section>
-                <h4 className="text-sm font-semibold mb-3 text-primary">👤 Identidade do Revisor</h4>
+                <h4 className="text-sm font-semibold mb-3 text-primary flex items-center gap-2">
+                  <LucideIcons.User className="w-4 h-4" />
+                  Identidade do Revisor
+                </h4>
                 <div className="space-y-3">
                   <div>
                     <label className="text-xs text-muted-foreground block mb-1">
@@ -291,7 +312,10 @@ export const Settings: React.FC<SettingsProps> = ({
 
               <div className="mt-4 p-4 bg-muted/50 rounded-lg">
                 <p className="text-xs text-muted-foreground">
-                  <strong>💡 Dica:</strong> Você pode usar URLs do Obsidian (obsidian://...) ou caminhos completos de arquivo (C:/caminho/completo.md)
+                  <strong className="flex items-center gap-1 inline-flex">
+                    <LucideIcons.Lightbulb className="w-3 h-3" />
+                    Dica:
+                  </strong> Você pode usar URLs do Obsidian (obsidian://...) ou caminhos completos de arquivo (C:/caminho/completo.md)
                 </p>
               </div>
               </>

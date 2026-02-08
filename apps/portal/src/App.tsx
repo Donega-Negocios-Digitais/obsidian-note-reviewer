@@ -8,6 +8,7 @@ import { ForgotPasswordPage } from './pages/forgot-password'
 import { ResetPasswordPage } from './pages/reset-password'
 import { WelcomePage } from './pages/welcome'
 import { SharedDocument } from './pages/SharedDocument'
+import { CollaborationPreview } from './pages/preview/CollaborationPreview'
 
 /**
  * Protected Route Component
@@ -90,6 +91,9 @@ export function App() {
 
           {/* Public shared document route - no auth required */}
           <Route path="/shared/:slug" element={<SharedDocument />} />
+
+          {/* Preview routes for UI/UX testing */}
+          <Route path="/preview/collaboration" element={<CollaborationPreview />} />
 
           {/* Catch all - redirect to editor */}
           <Route path="*" element={<Navigate to="/editor" replace />} />

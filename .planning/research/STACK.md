@@ -1,350 +1,317 @@
-# Technology Stack
+# Technology Stack (Implementado)
 
-**Domain:** Visual Markdown Review/Edit Tools with Claude Code Integration
-**Researched:** 2026-02-04
-**Overall Confidence:** MEDIUM
+**Analysis Date:** 2026-02-08
+**Status:** Stack já implementada no código
 
-## Executive Summary
+## Stack Atual (Implementado)
 
-This stack builds upon the existing TypeScript + React + Vite + Bun + Supabase foundation, adding capabilities for real-time collaboration, Claude Code integration, and Stripe monetization. The existing stack is solid and modern for 2025/2026 - we're extending it, not replacing it.
+### Core Framework
 
-**Key architectural decisions:**
-- **Keep existing stack** - No migration needed, build on what works
-- **Add specialized collaboration layer** - Liveblocks for real-time features (not Supabase Realtime, which isn't designed for multiplayer text editing)
-- **Use MCP for Claude Code integration** - Standard protocol for AI-tool integration
-- **Monetization via Stripe** - Industry standard with excellent React/TypeScript support
-- **Vercel for deployment** - Seamless integration with existing stack
+| Technology | Version | Purpose | Status |
+|------------|---------|---------|--------|
+| TypeScript | 5.8-5.9 | Type safety | ✅ Implementado |
+| React | 19.2.3 | UI framework | ✅ Implementado |
+| Vite | 6.2.0 | Build tool | ✅ Implementado |
+| Bun | 1.x | Runtime/package manager | ✅ Implementado |
+| Tailwind CSS | 4.1.18 | Styling | ✅ Implementado |
 
-## Recommended Stack
+**Confidence:** HIGH - Stack está em produção e funcionando
 
-### Core Framework (Preserve Existing)
+### Backend & Database
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| TypeScript | 5.x | Type safety | Industry standard; prevents runtime errors in collaborative apps |
-| React | 18.x | UI framework | Wait for 19.x - editor ecosystem still catching up (see React 19 Compatibility section) |
-| Vite | Latest | Build tool | Fast dev experience; excellent HMR for editor development |
-| Bun | Latest | Runtime/package manager | 10-20x faster than npm; modern alternative to Node.js |
-| Supabase | Latest | Backend/auth | Excellent auth + RLS; keep as persistent storage layer |
+| Technology | Version | Purpose | Status |
+|------------|---------|---------|--------|
+| **Supabase** | Latest | Backend completo (PostgreSQL + Auth + Storage + Edge Functions) | ✅ Implementado |
+| Supabase Auth | Latest | Authentication (email/password + OAuth) | ✅ Implementado |
+| PostgreSQL | Latest | Database com Row Level Security (RLS) | ✅ Implementado |
+| Supabase Storage | Latest | File storage (avatars) | ✅ Implementado |
+| Deno | Latest | Runtime para Edge Functions | ✅ Implementado |
 
-**Confidence:** HIGH - Existing stack is proven and current
+**Implementation:**
+- `packages/security/src/supabase/client.ts` - Supabase client
+- `packages/security/src/supabase/oauth.ts` - GitHub/Google OAuth
+- `packages/security/src/supabase/storage.ts` - Avatar upload
+- `supabase/migrations/` - Database schema
+- `supabase/functions/` - Edge Functions
 
-### Real-Time Collaboration (NEW)
+### Real-time Collaboration (Configurado, Não Integrado)
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| **Liveblocks** | 3.13.2+ | Real-time collaboration platform | Complete solution: presence, cursors, storage, Yjs integration; enterprise-ready |
-| **Yjs** | 13.6.29+ | CRDT engine for conflict resolution | Industry standard for collaborative editing; Liveblocks uses it under the hood |
-| @liveblocks/react | 3.13.2+ | React hooks for Liveblocks | Official React bindings; actively maintained |
-| @liveblocks/react-lexical | 3.10.1+ | Lexical editor integration | Pre-built collaborative Lexical components |
+| Technology | Version | Purpose | Status |
+|------------|---------|---------|--------|
+| **Liveblocks** | 3.13.4 | Real-time collaboration platform | ⚠️ Configurado, não integrado |
+| @liveblocks/react | 3.13.4 | React hooks | ⚠️ Configurado, não integrado |
+| @liveblocks/node | 3.13.4 | Server SDK | ⚠️ Configurado, não integrado |
 
-**Why NOT Supabase Realtime:** Supabase Realtime is primarily for database synchronization, not complex collaborative text editing. For multiplayer text editors, you need specialized CRDT-based solutions like Yjs or Liveblocks that handle operational transformation and conflict resolution.
+**Implementation:**
+- `apps/portal/src/lib/liveblocks.ts` - Client configured
+- `apps/portal/src/lib/liveblocks-auth.ts` - Auth utilities
+- `apps/portal/dev-server.ts` - Dev auth endpoint
+- `packages/collaboration/src/` - Integration utilities
 
-**Confidence:** HIGH - Liveblocks + Yjs is the established pattern for 2025 collaborative editors
+**Missing:** Room provider integration, presence tracking, cursor sync
 
-### Visual Markdown Editor (NEW)
+### AI Integration (Básico)
 
-| Technology | Version | Purpose | When to Use |
-|------------|---------|---------|-------------|
-| **Lexical** | 0.39.0 | Rich text editor framework | Most extensible; Meta/Facebook-backed; excellent markdown support |
-| @lexical/react | 0.39.0 | React components for Lexical | Required for React integration |
-| @lexical/yjs | 0.38.2 | Yjs CRDT integration | Enables collaborative editing via Liveblocks |
-| @lexical/markdown | Latest | Markdown import/export | Seamless markdown conversion |
+| Technology | Version | Purpose | Status |
+|------------|---------|---------|--------|
+| @anthropic-ai/sdk | 0.32.0 | Claude API | ✅ Implementado (básico) |
 
-**Alternative (Simpler):** @uiw/react-md-editor - If you don't need rich collaborative features and want a simpler markdown-only editor.
+**Implementation:**
+- `packages/ai/src/suggester.ts` - Annotation suggestions
+- `packages/ai/src/summarizer.ts` - Content summarization
+- `packages/ai/src/vaultParser.ts` - Obsidian vault parsing
 
-**Confidence:** MEDIUM - Lexical is powerful but complex; verify team has capacity for custom editor work
+**Note:** AI features não são prioridade para v1, mas implementação básica existe
 
-### Claude Code Integration (NEW)
+### Payments (Parcial)
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| **MCP (Model Context Protocol)** | Latest | Claude Code integration standard | Official Anthropic open standard; enables tool/data source connections |
-| MCP Server SDK | Latest | Build custom MCP servers | Exposes your app's features to Claude Code |
-| @anthropic-ai/sdk | Latest | Direct Anthropic API calls | For features beyond MCP capabilities |
+| Technology | Version | Purpose | Status |
+|------------|---------|---------|--------|
+| **Stripe** | Latest | Payment processing | ⚠️ 40% Complete |
+| stripe (Node SDK) | Latest | Server-side API | ✅ Implementado |
+| @stripe/stripe-js | 8.7.0+ | Browser SDK | ✅ Implementado |
+| @stripe/react-stripe-js | 5.6.0+ | React components | ✅ Implementado |
 
-**Integration Pattern:**
-1. Build an MCP server that exposes note review capabilities
-2. Package as a Claude Code plugin/skill
-3. Users install plugin to connect Claude Code to your app
+**Implementation:**
+- `packages/api/lib/stripe.ts` (547 lines) - Core Stripe service
+- `packages/api/routes/webhooks/stripe.ts` (491 lines) - Webhook handlers
+- `apps/portal/src/pages/Pricing.tsx` - Pricing page
+- `apps/portal/src/hooks/useStripeCheckout.ts` - Checkout flow
+- `apps/portal/src/hooks/useSubscription.ts` - Subscription management
 
-**Confidence:** HIGH - MCP is the official standard; documented by Anthropic
+**Missing:** Webhook signature verification, freemium enforcement
 
-### Authentication & Security (Preserve + Extend)
+### Security
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| **Supabase Auth** | Latest | Authentication | Already in stack; excellent RLS support |
-| **Row Level Security (RLS)** | Latest | Data authorization | Defense in depth; proven pattern for multi-tenant apps |
-| Clerk Auth | Latest | Alternative to Supabase Auth | Consider if you need more complex auth flows; Supabase Auth is sufficient for most cases |
+| Technology | Version | Purpose | Status |
+|------------|---------|---------|--------|
+| **DOMPurify** | 3.3.1 | XSS sanitization | ✅ Implementado |
+| isomorphic-dompurify | 2.22.0 | Universal DOMPurify | ✅ Implementado |
+| Custom CSP plugin | - | Content Security Policy | ✅ Implementado |
 
-**Confidence:** HIGH - Supabase Auth + RLS is battle-tested for 2025
+**Implementation:**
+- `packages/ui/utils/sanitize.ts` - HTML sanitization
+- `packages/security/csp.ts` - CSP policy generation
+- `packages/security/vite-plugin-csp.ts` - Vite CSP plugin
 
-### Stripe Monetization (NEW)
+### Logging
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| @stripe/stripe-js | 8.7.0+ | Stripe.js loading utility | Official Stripe SDK for browser |
-| @stripe/react-stripe-js | 5.6.0+ | React components | Official React wrapper around Stripe Elements |
-| stripe (Node SDK) | Latest | Server-side Stripe API | For webhook handling and subscription management |
-| @types/stripe | Latest | TypeScript types | Type safety for Stripe API |
+| Technology | Version | Purpose | Status |
+|------------|---------|---------|--------|
+| **Pino** | 10.1.0 | Structured logging | ⚠️ Configurado, não usado consistentemente |
+| pino-pretty | 13.1.3 | Pretty log output | ✅ Implementado |
 
-**Implementation Pattern:**
-- Vercel Edge Functions for webhook endpoints
-- Supabase for subscription state persistence
-- Stripe Customer Portal for self-service plan management
+**Implementation:**
+- `packages/core/src/logger/` - Logger implementation
+- Console.log ainda usado em produção (needs cleanup)
 
-**Confidence:** HIGH - Stripe's React SDK is mature and well-documented
+### Rate Limiting
 
-### Security (Preserve Existing)
+| Technology | Version | Purpose | Status |
+|------------|---------|---------|--------|
+| **Upstash Redis** | 1.36.0 | Rate limiting cache | ✅ Implementado |
+| @upstash/ratelimit | 2.0.7 | Rate limiting algorithm | ✅ Implementado |
 
-| Technology | Version | Purpose | When to Use |
-|------------|---------|---------|-------------|
-| **DOMPurify** | 3.3.1+ | XSS sanitization | Already in stack; essential for user-generated content |
-| @types/dompurify | 3.2.0 | TypeScript types | Required for type safety |
+**Implementation:**
+- `supabase/functions/_shared/rate-limiter.ts` (222 lines)
+- Used by Edge Functions (batch-operations, process-note)
 
-**Confidence:** HIGH - DOMPurify is the industry standard for XSS prevention
+### Error Tracking
 
-### Logging (Preserve Existing)
+| Technology | Version | Purpose | Status |
+|------------|---------|---------|--------|
+| **Sentry** | 10.32.1 | Error tracking | ⚠️ Configurado (Vite plugin) |
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| **Pino** | 10.3.0+ | JSON logging | Already in stack; fastest logger for Node.js |
-| pino-http | Latest | HTTP request logging | Automatic request/response logging |
+**Implementation:**
+- `packages/ui/lib/sentry.ts` - Sentry integration
+- Vite plugin configured
 
-**Confidence:** HIGH - Pino remains the fastest Node.js logger in 2025
+### Development Tools
 
-### Development Tools (Preserve Existing)
+| Tool | Purpose | Status |
+|------|---------|--------|
+| Bun | Package manager/runtime | ✅ Implementado |
+| ESLint | Linting (TypeScript + React) | ✅ Implementado |
+| Vitest | Testing | ✅ Implementado |
+| Happy DOM | Test environment | ✅ Implementado |
+| Testing Library | React testing | ✅ Implementado |
 
-| Tool | Purpose | Notes |
-|------|---------|-------|
-| Bun | Package manager/runtime | Use `bun install` instead of `npm install` |
-| ESLint | Linting | Configure for React + TypeScript |
-| Prettier | Code formatting | Standard formatter |
-| Vitest | Testing | Built for Vite; faster than Jest |
+### Deployment (Configurado, Não Deployado)
 
-### Deployment (NEW)
+| Technology | Purpose | Status |
+|------------|---------|--------|
+| **Vercel** | Frontend deployment | ⚠️ Configurado, não deployado |
+| Vercel.json | Deployment config | ✅ Implementado |
 
-| Technology | Purpose | Why Recommended |
-|------------|---------|-----------------|
-| **Vercel** | Frontend deployment | Best-in-class DX; automatic previews; Edge Functions for Stripe webhooks |
-| Vercel Marketplace - Supabase | Supabase integration | Auto-configure environment variables for preview deployments |
-| Vercel Marketplace - Stripe | Stripe sandbox | Test payments in Vercel preview deployments |
+**Implementation:**
+- `vercel.json` - Deployment configuration
+- `apps/portal/vite.config.ts` - Build config
+- `apps/marketing/vite.config.ts` - Marketing build
+- `apps/hook/vite.config.ts` - Single-file build
 
-**Custom Domains:**
-- Configure via Vercel project settings
-- DNS A records point to Vercel
-- Automatic SSL/TLS certificates
+**Missing:** Deploy realizado, domínio configurado
 
-**Confidence:** HIGH - Vercel + Supabase integration is official and mature
+## UI Components
+
+### Markdown & Rendering
+
+| Technology | Version | Purpose | Status |
+|------------|---------|---------|--------|
+| react-markdown | 10.1.0 | Markdown rendering | ✅ Implementado |
+| react-syntax-highlighter | 16.1.0 | Code highlighting | ✅ Implementado |
+| remark-gfm | 4.0.1 | GitHub Flavored Markdown | ✅ Implementado |
+| mermaid | 11.12.2 | Diagram rendering | ✅ Implementado |
+
+### Annotation & Editing
+
+| Technology | Version | Purpose | Status |
+|------------|---------|---------|--------|
+| web-highlighter | 0.7.4 | Text annotations | ✅ Implementado |
+| perfect-freehand | 1.2.2 | Freehand drawing | ✅ Implementado |
+| react-mentions | 4.4.10 | @mentions | ✅ Implementado |
+| diff | 8.0.3 | Text diffing | ✅ Implementado |
+| react-diff-viewer-continued | 4.1.0 | Diff visualization | ✅ Implementado |
+
+### Utilities
+
+| Technology | Version | Purpose | Status |
+|------------|---------|---------|--------|
+| date-fns | 4.1.0 | Date formatting | ✅ Implementado |
+| idb | 8.0.3 | IndexedDB wrapper | ✅ Implementado |
+| js-yaml | 4.1.1 | YAML parsing | ✅ Implementado |
+| nanoid | 5.0.9 | Unique ID generation | ✅ Implementado |
+| color-hash | 2.0.2 | Color from string | ✅ Implementado |
+| unique-username-generator | 1.5.1 | Username generation | ✅ Implementado |
+| zustand | 5.0.9 | State management | ✅ Implementado |
+| react-router-dom | 7.11.0-7.13.0 | Routing | ✅ Implementado |
+| i18next | 25.8.4 | Internationalization | ⚠️ Configurado, não usado |
+| react-i18next | 16.5.4 | React i18n bindings | ⚠️ Configurado, não usado |
+| web-vitals | 5.1.0 | Performance metrics | ✅ Implementado |
+
+### Icons
+
+| Technology | Version | Purpose | Status |
+|------------|---------|---------|--------|
+| lucide-react | 0.460.0 | Icon library | ✅ Implementado |
+
+## Monorepo Structure
+
+```
+obsidian-note-reviewer/
+├── apps/
+│   ├── hook/          # Claude Code integration (port 3000)
+│   ├── portal/        # Web dashboard (port 3001)
+│   └── marketing/     # Landing page (port 3002)
+├── packages/
+│   ├── ui/            # Component library (40+ componentes)
+│   ├── editor/        # Main editor App component
+│   ├── security/      # Auth + CSP + Supabase client
+│   ├── ai/            # Claude integration (suggestions)
+│   ├── collaboration/ # Liveblocks + sharing
+│   ├── api/           # Stripe + webhooks
+│   ├── core/          # Logger + utilities
+│   └── shared/        # Pricing + types
+└── supabase/          # Migrations + Edge Functions
+```
+
+## Environment Variables
+
+**Required:**
+```bash
+# Supabase (Primary Backend)
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
+
+# Liveblocks (Real-time Collaboration)
+VITE_LIVEBLOCKS_PUBLIC_KEY=
+LIVEBLOCKS_SECRET_KEY=
+
+# Stripe (Payments)
+VITE_STRIPE_PUBLISHABLE_KEY=
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+VITE_STRIPE_PRICE_PRO_MONTHLY=
+VITE_STRIPE_PRICE_PRO_YEARLY=
+VITE_STRIPE_PRICE_LIFETIME=
+
+# Upstash (Rate Limiting - Production)
+UPSTASH_REDIS_URL=
+UPSTASH_REDIS_TOKEN=
+
+# Supabase Edge Functions
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+SUPABASE_PROJECT_REF=
+SUPABASE_ACCESS_TOKEN=
+
+# Optional
+OBSIDIAN_PLAN_DIRS=
+ALLOWED_ORIGINS=
+```
 
 ## Installation
 
 ```bash
-# Core (already installed)
-# TypeScript, React, Vite, Bun, Supabase, DOMPurify, Pino
+# Clone repository
+git clone <repo-url>
+cd obsidian-note-reviewer
 
-# Real-time collaboration
-bun add @liveblocks/react @liveblocks/react-lexical yjs
+# Install dependencies
+bun install
 
-# Visual markdown editor
-bun add @lexical/react @lexical/yjs @lexical/markdown @lexical/list @lexical/link @lexical/rich-text lexical
+# Configure environment
+cp .env.example .env
+# Edit .env with your values
 
-# Stripe integration
-bun add @stripe/stripe-js @stripe/react-stripe-js
-bun add -D @types/stripe stripe
-
-# Claude Code MCP integration
-bun add @anthropic-ai/sdk
-# MCP server implementation typically uses Node.js standard library
-
-# Deployment (no install needed - Vercel handles)
+# Run development servers
+bun run dev          # All apps
+bun run dev:hook     # Hook app only (port 3000)
+bun run dev:portal   # Portal app only (port 3001)
+bun run dev:marketing # Marketing app only (port 3002)
 ```
 
-## Alternatives Considered
+## Build & Deploy
 
-### Real-Time Collaboration
+```bash
+# Build for production
+bun run build
 
-| Recommended | Alternative | Why Not Recommended |
-|-------------|-------------|---------------------|
-| Liveblocks | Supabase Realtime only | Not designed for multiplayer text editing; lacks conflict resolution |
-| Liveblocks | Yjs only | More infrastructure to build; Liveblocks provides managed Yjs + features |
-| Liveblocks | Hocuspocus + Yjs | More self-hosted complexity; Liveblocks is fully managed |
+# Run tests
+bun test
+bun test --coverage
 
-**Use Yjs only if:** You need complete self-hosting and have DevOps capacity for managing infrastructure.
-
-### Visual Markdown Editor
-
-| Recommended | Alternative | Why Not Recommended |
-|-------------|-------------|---------------------|
-| Lexical | Slate.js | Slate is more flexible but requires more custom code; Lexical has better React integration |
-| Lexical | @uiw/react-md-editor | Simpler but less extensible; harder to add collaborative features |
-| Lexical | TipTap | Excellent option if you prefer ProseMirror over Lexical; both are valid choices |
-| Lexical | Draft.js | Deprecated by Meta; use Lexical instead |
-
-**Use @uiw/react-md-editor if:** You want simple markdown editing without rich text features or collaboration.
-
-### Authentication
-
-| Recommended | Alternative | Why Not Recommended |
-|-------------|-------------|---------------------|
-| Supabase Auth | Clerk Auth | Supabase is already in stack; Clerk is better only for complex auth flows (SSO, MFA) |
-| Supabase Auth | Auth0 | Overkill for current scope; expensive; Supabase is sufficient |
-
-**Use Clerk if:** You need enterprise auth features like SAML, advanced MFA, or complex user management.
-
-### Deployment
-
-| Recommended | Alternative | Why Not Recommended |
-|-------------|-------------|---------------------|
-| Vercel | Netlify | Vercel has better Next.js/React integration and Supabase marketplace |
-| Vercel | Cloudflare Pages | Less mature Edge Functions; fewer integration options |
-| Vercel | Self-hosted | More DevOps overhead; Vercel's free tier is sufficient for MVP |
-
-## What NOT to Use
-
-| Avoid | Why | Use Instead |
-|-------|-----|-------------|
-| react-stripe-elements | Deprecated; replaced by @stripe/react-stripe-js | @stripe/react-stripe-js |
-| Draft.js | Deprecated by Meta in favor of Lexical | Lexical |
-| Supabase Realtime for text editing | Not designed for CRDT-based conflict resolution | Liveblocks or Yjs |
-| Socket.io for collaboration | Reinventing the wheel; more infrastructure to manage | Liveblocks (managed Yjs infrastructure) |
-| Zustand/Jotai for global state | For collaborative docs, state must sync with CRDT; avoid separate state layer | Liveblocks room storage + Yjs document |
-| React 19 immediately | Editor ecosystem still catching up; some packages report issues | React 18.x until editor ecosystem matures |
-
-## React 19 Compatibility (Important)
-
-As of February 2026, React 19 is relatively new and the markdown editor ecosystem is still catching up:
-
-**Confirmed React 19 Compatible:**
-- @abnahid/ab-markdown-editor
-- Syncfusion React Rich Text Editor
-
-**Known Issues:**
-- uiwjs/react-markdown-editor - Custom HTML tags throw console errors with React 19
-- Some Lexical integrations may need verification
-
-**Recommendation:** Stick with React 18.x until the editor ecosystem fully validates React 19 compatibility. The migration path will be straightforward when ready.
-
-## Stack Patterns by Variant
-
-### If prioritizing simplicity over custom editor:
-- Use @uiw/react-md-editor instead of Lexical
-- Use Liveblocks presence + comments, skip full document collaboration
-- Result: Faster MVP, less custom code
-
-### If prioritizing complete customizability:
-- Use Yjs directly without Liveblocks
-- Build own collaboration infrastructure (self-hosted WebSocket server)
-- Result: Maximum control, more DevOps overhead
-
-### If building for enterprise from day one:
-- Use Clerk Auth instead of Supabase Auth
-- Add Stripe Tax for automatic tax calculation
-- Use Vercel Enterprise for compliance features
-- Result: Enterprise-ready, higher monthly costs
+# Deploy to Vercel (requires setup)
+vercel deploy
+```
 
 ## Version Compatibility
 
-| Package A | Compatible With | Notes |
-|-----------|-----------------|-------|
-| @liveblocks/react 3.13.x | React 17+ | Official requirement |
-| Lexical 0.39.x | React 17+ | Verify with React 19 before upgrading |
-| @stripe/react-stripe-js 5.6.x | React 16.8+ | Hooks requirement |
-| Supabase Client 2.x | React 18+ | Modern client SDK |
+| Package | Version | Notes |
+|---------|---------|-------|
+| React | 19.2.3 | Latest, stable for production |
+| Vite | 6.2.0 | Latest stable |
+| Bun | 1.x | Latest 1.x |
+| Supabase Client | 2.89.0 | Modern v2 client |
+| Liveblocks | 3.13.4 | Latest stable |
+| Stripe SDK | Latest (API 2024-11-20.acacia) | Current API version |
+| TypeScript | 5.8-5.9 | Latest stable |
 
-## Integration Architecture
+## Known Issues
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        Vercel Edge                          │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │                 Frontend (React)                      │  │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌──────────────┐  │  │
-│  │  │   Lexical   │  │  Liveblocks │  │   Stripe     │  │  │
-│  │  │   Editor    │  │ Collaboration│  │   Elements   │  │  │
-│  │  └─────────────┘  └─────────────┘  └──────────────┘  │  │
-│  └──────────────────────────────────────────────────────┘  │
-│                           ↓                                 │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │          Vercel Edge Functions                        │  │
-│  │  ┌─────────────┐  ┌─────────────┐                    │  │
-│  │  │ Stripe      │  │ Custom API  │                    │  │
-│  │  │ Webhooks    │  │ Endpoints   │                    │  │
-│  │  └─────────────┘  └─────────────┘                    │  │
-│  └──────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-                          ↓
-┌─────────────────────────────────────────────────────────────┐
-│                      Supabase                               │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
-│  │ Auth + RLS  │  │ PostgreSQL  │  │     Storage         │ │
-│  │             │  │             │  │                     │ │
-│  └─────────────┘  └─────────────┘  └─────────────────────┘ │
-└─────────────────────────────────────────────────────────────┘
-                          ↓
-┌─────────────────────────────────────────────────────────────┐
-│                    MCP Server (Separate)                    │
-│  Exposes note review capabilities to Claude Code            │
-└─────────────────────────────────────────────────────────────┘
-```
+1. **React 19 Compatibility:** Some editor packages may have issues, but current stack is stable
+2. **Liveblocks Integration:** Configured but not fully integrated in the UI
+3. **i18n:** Configured but not used (hardcoded Portuguese strings)
+4. **Logging:** Pino configured but console.log still used in production
+5. **Testing:** Test coverage exists (26 files) but gaps remain
 
-## Sources
+## Migration Notes
 
-### Visual Markdown Editing
-- [Build Full-Featured Rich Text Editors in React (Lexical) - Dev.to (Sep 2025)](https://dev.to/codeideal/build-full-featured-rich-text-editors-in-react-lexical-lexkit--4p18) - MEDIUM confidence
-- [Lexical + React Documentation - Official](https://lexical.dev/docs/react/) - HIGH confidence
-- [Lexical Markdown Documentation - Official](https://lexical.dev/docs/packages/lexical-markdown) - HIGH confidence
-- [5 Best Markdown Editors for React Compared - Strapi](https://strapi.io/blog/top-5-markdown-editors-for-react) - MEDIUM confidence
-- [React 19 Compatibility Discussion - Reddit](https://www.reddit.com/r/reactjs/comments/1l1auqm/which_rich_text_editor_is_compatible_with_react_19/) - MEDIUM confidence
-
-### Real-Time Collaboration
-- [Which rich text editor framework should you choose in 2025? - Liveblocks Blog (Feb 2025)](https://liveblocks.io/blog/which-rich-text-editor-framework-should-you-choose-in-2025) - HIGH confidence
-- [Building Real-Time Collab Editors with Next.js 15 & Yjs - ReactLibraries.com (Nov 2025)](https://www.reactlibraries.com/tutorials/building-real-time-collab-editors-with-next-js-15-yjs) - MEDIUM confidence
-- [Liveblocks vs Yjs Comparison - LibHunt](https://www.libhunt.com/compare/yjs-vs-liveblocks) - MEDIUM confidence
-- [Supabase Realtime vs Yjs/Liveblocks Discussion - Reddit](https://www.reddit.com/r/Supabase/) - MEDIUM confidence (community consensus)
-
-### Claude Code Integration
-- [Connect Claude Code to tools via MCP - Official Claude Code Docs](https://code.claude.com/docs/en/mcp) - HIGH confidence
-- [Introducing the Model Context Protocol - Anthropic (Nov 2024)](https://www.anthropic.com/news/model-context-protocol) - HIGH confidence
-- [Code execution with MCP - Anthropic Engineering (Nov 2025)](https://www.anthropic.com/engineering/code-execution-with-mcp) - HIGH confidence
-- [What is the Model Context Protocol? - Official MCP Site](https://modelcontextprotocol.io/) - HIGH confidence
-- [Creating an API generator plugin for Claude Code - Dev.to (Oct 2025)](https://dev.to/claudye/creating-an-api-generator-plugin-for-claude-code-256e) - MEDIUM confidence
-
-### Stripe Integration
-- [Integrate a SaaS business on Stripe - Official Stripe Docs](https://docs.stripe.com/saas) - HIGH confidence
-- [React Stripe.js reference - Official Stripe Docs](https://docs.stripe.com/sdks/stripejs-react) - HIGH confidence
-- [Stripe.js versioning and support policy - Official Stripe Docs](https://docs.stripe.com/sdks/stripejs-versioning) - HIGH confidence
-- [@stripe/stripe-js NPM - Version 8.7.0](https://www.npmjs.com/package/@stripe/stripe-js) - HIGH confidence
-- [@stripe/react-stripe-js NPM - Version 5.6.0](https://www.npmjs.com/package/@stripe/react-stripe-js) - HIGH confidence
-
-### Vercel Deployment
-- [Adding & Configuring a Custom Domain - Vercel Docs (Updated Sep 2025)](https://vercel.com/docs/domains/working-with-domains/add-a-domain) - HIGH confidence
-- [Working with Domains - Vercel Docs (Updated Nov 2025)](https://vercel.com/docs/domains/working-with-domains) - HIGH confidence
-- [Vercel vs Supabase: What's the Difference in 2025? - UI Bakery (Jun 2025)](https://uibakery.io/blog/vercel-vs-supabase) - MEDIUM confidence
-- [Deploy a Scalable Backend for Free (Supabase + Vercel Edge) - Medium (2025)](https://medium.com/@atnoforwebdev/deploy-a-scalable-backend-for-free-in-2025-supabase-vercel-edge-9ea05e9559f4) - MEDIUM confidence
-- [Stripe for Vercel - Vercel Marketplace](https://vercel.com/marketplace/stripe) - HIGH confidence
-- [Supabase for Vercel - Vercel Marketplace](https://vercel.com/marketplace/supabase) - HIGH confidence
-- [How to Configure Stripe Webhooks for Your Serverless SaaS - ScaleToZero (Jun 2025)](https://scaletozeroaws.com/blog/stripe-webhooks-serverless-saas) - MEDIUM confidence
-
-### Existing Stack Components
-- [The Ultimate React Stack for 2025 - JavaScript Plain English (Aug 2025)](https://javascript.plainenglish.io/the-ultimate-react-stack-for-2025-a-developer-guide-f8082bb508af) - MEDIUM confidence
-- [Complete Guide to Setting Up React with TypeScript and Vite 2025 - Medium](https://medium.com/@robinviktorsson/complete-guide-to-setting-up-react-with-typescript-and-vite-2025-468f6556aaf2) - MEDIUM confidence
-- [Building React Apps with Bun: Modern Development Experience - Telerik (Aug 2025)](https://www.telerik.com/blogs/building-react-apps-bun-modern-development-experience) - MEDIUM confidence
-- [Supabase Security Retro: 2025 - Official Supabase Blog (Jan 2026)](https://supabase.com/blog/supabase-security-2025-retro) - HIGH confidence
-- [RLS Performance and Best Practices - Supabase Docs (Apr 2025)](https://supabase.com/docs/guides/troubleshooting/rls-performance-and-best-practices-Z5Jjwv) - HIGH confidence
-- [Row Level Security - Supabase Docs](https://supabase.com/docs/guides/database/postgres/row-level-security) - HIGH confidence
-- [DOMPurify NPM - Version 3.3.1](https://www.npmjs.com/package/dompurify) - HIGH confidence
-- [Pino NPM - Version 10.3.0](https://www.npmjs.com/package/pino) - HIGH confidence
-
-### Package Versions Verified
-- [@liveblocks/react NPM - Version 3.13.2](https://www.npmjs.com/package/@liveblocks/react) - HIGH confidence
-- [yjs NPM - Version 13.6.29](https://www.npmjs.com/package/yjs) - HIGH confidence
-- [@lexical/react NPM - Version 0.39.0](https://www.npmjs.com/package/@lexical/react) - HIGH confidence
-- [GitHub Releases: facebook/lexical](https://github.com/facebook/lexical/releases) - HIGH confidence
+**No migrations needed** - Current stack is modern and stable. Future considerations:
+- Monitor React 19 ecosystem maturity for editor packages
+- Evaluate Liveblocks alternatives if integration issues arise
+- Consider upgrading to Supabase v3 when available (breaking changes)
 
 ---
 
-*Stack research for: Obsidian Note Reviewer with Claude Code Integration*
-*Researched: 2026-02-04*
-*Confidence: MEDIUM (Stack components verified via official docs, integration patterns based on 2025 ecosystem research)*
+*Stack analysis: 2026-02-08*
+*Based on full codebase audit*

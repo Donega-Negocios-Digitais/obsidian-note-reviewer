@@ -142,6 +142,7 @@ function getAnnotationTypeLabel(type: AnnotationType): string {
     [AnnotationType.REPLACEMENT]: 'Substituir',
     [AnnotationType.COMMENT]: 'Comentário',
     [AnnotationType.GLOBAL_COMMENT]: 'Comentário Global',
+    [AnnotationType.IMAGE_COMMENT]: 'Comentário de Imagem',
   };
   return labels[type] ?? 'Anotação';
 }

@@ -1,9 +1,12 @@
-﻿export enum AnnotationType {
+﻿import type { Stroke } from './types/drawing';
+
+export enum AnnotationType {
   DELETION = 'DELETION',
   INSERTION = 'INSERTION',
   REPLACEMENT = 'REPLACEMENT',
   COMMENT = 'COMMENT',
   GLOBAL_COMMENT = 'GLOBAL_COMMENT',
+  IMAGE_COMMENT = 'IMAGE_COMMENT',
 }
 
 export enum AnnotationStatus {
@@ -42,6 +45,9 @@ export interface Annotation {
     parentIndex: number;
     textOffset: number;
   };
+  // Image annotation metadata
+  imageId?: string; // ID da imagem anotada (para IMAGE_COMMENT)
+  imageStrokes?: Stroke[]; // Traços desenhados sobre a imagem
   // Visual marker metadata
   markerColor?: string; // Computed from annotation type for visual display
   markerPosition?: { top: number; left: number }; // For marker placement on the page

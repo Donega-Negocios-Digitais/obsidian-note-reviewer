@@ -29,7 +29,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Authentication** - Multi-user foundation for all collaborative features ✓
 - [x] **Phase 2: Annotation System** - Core visual review and markdown rendering capabilities ✓
 - [x] **Phase 3: Claude Code Integration** - Key differentiator: seamless AI-assisted review workflow ✓
-- [x] **Phase 4: Real-Time Collaboration** - Multi-user presence, cursors, and sharing capabilities ✓
+- [x] **Phase 4: Real-Time Collaboration** - Multi-user presence, cursors, sharing + preview page for UI testing ✓
 - [x] **Phase 5: Configuration System** - Apple-style settings panel WITHIN the editor ✓
 - [x] **Phase 6: Sharing Infrastructure** - SEO-friendly slug-based URLs and guest access ✓
 - [x] **Phase 7: Stripe Monetization** - Freemium model with lifetime subscriptions ✓
@@ -100,10 +100,11 @@ Plans:
   5. Native workflow with Obsidian vault allows local file access and preserves Obsidian links/graph
 
 Plans:
-- [ ] 04-01-PLAN.md — Integrate Liveblocks v3.13.4 for real-time presence with color-hash library
-- [ ] 04-02-PLAN.md — Implement real-time cursors with tooltips and inactivity timeout
-- [ ] 04-03-PLAN.md — Implement guest access for viewing shared reviews without authentication
-- [ ] 04-04-PLAN.md — Create Obsidian vault integration for local file access
+- [x] 04-01 — Integrate Liveblocks v3.13.4 for real-time presence with color-hash library ✓
+- [x] 04-02 — Implement real-time cursors with tooltips and inactivity timeout ✓
+- [x] 04-03 — Implement guest access for viewing shared reviews without authentication ✓
+- [x] 04-04 — Create Obsidian vault integration for local file access ✓
+- [x] 04-05 — **Collaboration Preview Page** (`/preview/collaboration`) - UI/UX testing with mock data ✓
 
 **Wave Structure:**
 - Wave 1: Plan 04-01 (Liveblocks presence integration)
@@ -248,7 +249,7 @@ Note: Some phases can be developed in parallel due to minimal dependencies:
 | 1. Authentication | 3/3 | Complete ✓ | 2026-02-07 |
 | 2. Annotation System | 5/5 | Complete ✓ | 2025-02-05 |
 | 3. Claude Code Integration | 9/9 | Complete ✓ | 2026-02-05 |
-| 4. Real-Time Collaboration | 9/9 | Complete ✓ | 2026-02-08 |
+| 4. Real-Time Collaboration | 10/10 | Complete ✓ | 2026-02-08 |
 | 5. Configuration System | 7/7 | Complete ✓ | 2026-02-07 |
 | 6. Sharing Infrastructure | 3/3 | Complete ✓ | 2026-02-08 |
 | 7. Stripe Monetization | 5/5 | Complete ✓ | 2026-02-08 |
@@ -256,7 +257,7 @@ Note: Some phases can be developed in parallel due to minimal dependencies:
 | 9. Design System | 4/4 | Complete ✓ | 2026-02-08 |
 | 10. Quality & Stability | 6/6 | Complete ✓ | 2026-02-08 |
 
-**Overall Progress: 55/55 plans complete (100%)** 🎉
+**Overall Progress: 56/56 plans complete (100%)** 🎉
 
 ## Coverage Summary
 

@@ -163,7 +163,7 @@ export const CATEGORY_LABELS: Record<ShortcutCategory, string> = {
 export const CATEGORY_ORDER: ShortcutCategory[] = ['modes', 'actions', 'editing', 'general', 'navigation'];
 
 /**
- * Get shortcuts grouped by category
+ * Get shortcuts grouped by category (from localStorage if customized)
  */
 export function getShortcutsByCategory(): Record<ShortcutCategory, Shortcut[]> {
   const grouped: Record<ShortcutCategory, Shortcut[]> = {
@@ -174,6 +174,24 @@ export function getShortcutsByCategory(): Record<ShortcutCategory, Shortcut[]> {
     general: [],
   };
 
+  // Check localStorage for custom shortcuts
+  const stored = localStorage.getItem('obsreview-shortcuts');
+  if (stored) {
+    try {
+      const customShortcuts = JSON.parse(stored);
+      // Merge custom shortcuts with defaults
+      for (const category of Object.keys(grouped)) {
+        if (customShortcuts[category]) {
+          grouped[category as ShortcutCategory] = customShortcuts[category];
+        }
+      }
+      return grouped;
+    } catch {
+      // Fall through to defaults
+    }
+  }
+
+  // Use defaults
   for (const shortcut of SHORTCUTS) {
     grouped[shortcut.category].push(shortcut);
   }
@@ -220,9 +238,22 @@ export function formatTooltipWithShortcut(label: string, shortcutId: string): st
 }
 
 /**
- * Get a shortcut by its ID
+ * Get a shortcut by its ID (from localStorage if customized, otherwise from defaults)
  */
 export function getShortcutById(id: string): Shortcut | undefined {
+  // First check localStorage for custom shortcuts
+  const stored = localStorage.getItem('obsreview-shortcuts');
+  if (stored) {
+    try {
+      const customShortcuts = JSON.parse(stored);
+      for (const category of Object.values(customShortcuts)) {
+        const found = (category as Shortcut[]).find((s: Shortcut) => s.id === id);
+        if (found) return found;
+      }
+    } catch {
+      // Fall through to defaults
+    }
+  }
   return SHORTCUTS.find(s => s.id === id);
 }
 
@@ -283,12 +314,19 @@ export function resetShortcuts(): void {
 /**
  * Update a specific shortcut's key combination
  */
-export function updateShortcut(category: string, shortcutId: string, newKey: string): void {
+export function updateShortcut(
+  category: string,
+  shortcutId: string,
+  updates: { key: string; modCtrl?: boolean; modShift?: boolean; modAlt?: boolean }
+): void {
   const shortcuts = getAllShortcuts();
   const categoryShortcuts = shortcuts[category];
   const shortcut = categoryShortcuts?.find((s: Shortcut) => s.id === shortcutId);
   if (shortcut) {
-    shortcut.key = newKey;
+    shortcut.key = updates.key;
+    if (updates.modCtrl !== undefined) shortcut.modCtrl = updates.modCtrl;
+    if (updates.modShift !== undefined) shortcut.modShift = updates.modShift;
+    if (updates.modAlt !== undefined) shortcut.modAlt = updates.modAlt;
     localStorage.setItem('obsreview-shortcuts', JSON.stringify(shortcuts));
   }
 }

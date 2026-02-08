@@ -1,173 +1,299 @@
 # Codebase Concerns
 
-**Analysis Date:** 2026-02-04
+**Analysis Date:** 2026-02-08
 
 ## Tech Debt
 
 **Large Component Files:**
-- Issue: `packages/ui/components/Viewer.tsx` (1,449 lines) violates single responsibility principle
-- Files: `packages/ui/components/Viewer.tsx`, `packages/ui/components/AnnotationPanel.tsx`
-- Impact: Difficult to maintain, test, and understand
-- Fix approach: Split into smaller focused components (Viewer, Toolbar, AnnotationRenderer, etc.)
+- Issue: `packages/ui/components/Viewer.tsx` (1,493 lines) violates single responsibility principle
+- Files: `packages/ui/components/Viewer.tsx`, `packages/ui/components/SettingsPanel.tsx` (1,120 lines)
+- Impact: Difficult to maintain, test, and understand; contains multiple concerns (markdown rendering, annotations, toolbar, code highlighting, mermaid diagrams)
+- Fix approach: Split into smaller focused components (MarkdownRenderer, AnnotationRenderer, CodeBlockRenderer, ViewerToolbar, MermaidDiagram)
+
+**TypeScript Any Type Usage:**
+- Issue: Extensive use of `any` type throughout codebase bypasses type safety
+- Files: `packages/ui/components/Viewer.tsx`, `packages/ai/src/types.ts`, `packages/collaboration/src/index.ts`
+- Impact: Loss of TypeScript benefits, runtime errors, reduced IDE support
+- Fix approach: Define proper interfaces for `Record<string, any>`, `event: any`, `source: any` patterns
+
+**Non-optimized React Components:**
+- Issue: Major components lack React.memo, useMemo, useCallback optimizations
+- Files: `packages/ui/components/Viewer.tsx` (no memoization found), `packages/editor/App.tsx`
+- Impact: Unnecessary re-renders, performance degradation on larger notes
+- Fix approach: Add React.memo to component exports, memoize expensive computations, use useCallback for event handlers
 
 **Mixed Language UI Text:**
-- Issue: Portuguese and English mixed throughout UI components
-- Files: `packages/ui/components/DecisionBar.tsx`, `packages/ui/components/ConfigEditor.tsx`
-- Impact: Inconsistent user experience, maintenance difficulty
-- Fix approach: Create i18n system with proper language separation
+- Issue: Portuguese and English mixed throughout UI components without proper i18n
+- Files: `packages/ui/components/DecisionBar.tsx`, `packages/ui/components/ConfigEditor.tsx`, `packages/editor/App.tsx`
+- Impact: Inconsistent user experience, maintenance difficulty, incomplete internationalization
+- Fix approach: Consolidate all strings into i18n system, remove hardcoded Portuguese text
 
-**Console Logging in Production:**
-- Issue: Development console logs remain in server code
-- Files: `apps/hook/server/index.ts`, `packages/ui/components/ConfigEditor.tsx`, `packages/ui/components/Viewer.tsx`
-- Impact: Performance impact, information leakage
-- Fix approach: Replace with proper logging framework with environment-based levels
+**Empty Return Pattern:**
+- Issue: Extensive use of defensive `return null` and `return []` statements
+- Files: `packages/api/lib/stripe.ts` (10+ instances), `packages/collaboration/src/vaultIntegration.ts`, `packages/ui/components/` (20+ instances)
+- Impact: Silent failures, difficult debugging, unclear error states
+- Fix approach: Use Result types, proper error handling, or explicit Option types
 
 ## Known Bugs
 
 **Character Encoding Issues:**
 - Issue: Portuguese UI text shows encoding errors in some components
 - Files: `packages/ui/components/DecisionBar.tsx`, `packages/ui/components/ConfigEditor.tsx`
-- Symptoms: Accented characters display as � or boxes
-- Trigger: Certain character combinations in markdown content
+- Symptoms: Accented characters display incorrectly
+- Trigger: Certain character combinations in markdown content, UTF-8 BOM issues
 - Workaround: Force UTF-8 encoding in all text rendering
 
-**Path Traversal Vulnerability (FIXED):**
-- Issue: Previously vulnerable to CWE-22 attacks via `/api/save` endpoint
-- Files: `apps/hook/server/index.ts`, `apps/hook/server/pathValidation.ts`
-- Trigger: Malicious file paths with `../` sequences
-- Mitigation: Comprehensive path validation implemented
+**CSP unsafe-inline in Production:**
+- Issue: Content Security Policy includes `'unsafe-inline'` for scripts even in production
+- Files: `packages/security/csp.ts` (line 113), `packages/security/csp.ts` (line 68 for styles)
+- Symptoms: Reduced XSS protection, CSP violations in browser console
+- Trigger: Any script injection attempt
+- Workaround: None currently deployed
+- Fix: Implement nonce-based CSP for production builds
+
+**TypeScript Suppression in Production:**
+- Issue: `@ts-ignore` used for Liveblocks integration
+- Files: `apps/portal/src/hooks/useSharedAnnotations.ts:65`
+- Symptoms: Type errors suppressed, potential runtime issues
+- Trigger: Liveblocks API usage
+- Workaround: None
 
 ## Security Considerations
 
-**XSS Prevention:**
-- Risk: SVG rendering via `dangerouslySetInnerHTML` in Viewer component
-- Files: `packages/ui/components/Viewer.tsx`, `packages/ui/utils/sanitize.ts`
-- Current mitigation: DOMPurify sanitization with strict SVG configuration
-- Recommendations: Regular security audits, CSP headers implementation
+**XSS via dangerouslySetInnerHTML:**
+- Risk: SVG and markdown rendering uses `dangerouslySetInnerHTML` in multiple locations
+- Files: `packages/ui/components/Viewer.tsx:954` (mermaid), `packages/ui/components/DecisionBar.tsx:79`
+- Current mitigation: DOMPurify sanitization with strict SVG config in `packages/ui/utils/sanitize.ts`
+- Current gaps: DecisionBar uses unsanitized i18n HTML, ReactMarkdown in callouts may not be sanitized
+- Recommendations: Audit all dangerouslySetInnerHTML usage, add DOMPurify to DecisionBar, implement CSP nonces
 
-**Cookie Security:**
-- Risk: Missing security flags on cookies
-- Files: `packages/ui/utils/storage.ts`
-- Current mitigation: Uses SameSite=Lax
-- Recommendations: Add Secure flag for HTTPS, consider HttpOnly for sensitive data
+**Environment Variable Exposure:**
+- Risk: Sensitive values hardcoded with fallback defaults
+- Files: `packages/shared/pricing.ts:65-74` (Stripe product/price IDs with fallbacks)
+- Current mitigation: Environment variable override
+- Recommendations: Remove hardcoded fallbacks for production, fail fast on missing credentials
 
-**CORS Configuration:**
-- Risk: Overly permissive CORS settings noted in security specs
-- Files: `apps/portal/utils/cors.ts`
-- Current mitigation: Basic CORS configuration
-- Recommendations: Implement origin whitelisting, restrict allowed methods
+**Browser Storage of Sensitive Data:**
+- Risk: Authentication tokens and user data stored in localStorage
+- Files: `packages/security/src/supabase/client.ts:27`, `packages/collaboration/src/index.ts:90`, `packages/ai/src/config.ts:28`
+- Current mitigation: Same-origin policy, HTTPS requirement
+- Recommendations: Evaluate session-only storage, implement token refresh rotation, consider HttpOnly cookies
+
+**CSP unsafe-eval in Development:**
+- Risk: Development mode allows `'unsafe-eval'` for Vite HMR
+- Files: `packages/security/csp.ts:107`
+- Current mitigation: Only enabled in development (`isDev` flag)
+- Recommendations: Document security implications, ensure production builds never include unsafe-eval
+
+**Webhook Signature Verification:**
+- Risk: Stripe webhook endpoint uses `!` assertion on env var
+- Files: `packages/api/routes/webhooks/stripe.ts:12`
+- Current mitigation: Stripe signature verification
+- Recommendations: Add graceful failure if webhook secret missing, log configuration errors
+
+**Row Level Security Gaps:**
+- Risk: RLS policies may have edge cases in multi-tenant scenarios
+- Files: `supabase/migrations/001_initial_schema.sql:75-139`
+- Current mitigation: Comprehensive RLS policies on all tables
+- Recommendations: Regular security audits, test policy bypass attempts
 
 ## Performance Bottlenecks
 
-**Large Component Re-renders:**
-- Problem: `Viewer.tsx` re-renders entire note on small changes
+**Unoptimized Viewer Component:**
+- Problem: 1,493-line component re-renders on every annotation change
 - Files: `packages/ui/components/Viewer.tsx`
-- Cause: React.memo not consistently applied
-- Improvement path: Implement granular memoization, virtual scrolling for large notes
+- Cause: No React.memo, useState at component level, frequent useEffect hooks (13+ useEffect calls)
+- Impact: Lag on large notes (>5000 words), poor scrolling performance
+- Improvement path: Split into sub-components, add virtual scrolling for long documents, memoize block rendering
 
-**Resource Loading:**
-- Problem: Multiple redundant HTTP requests for same resources
-- Files: `packages/ui/lib/offline-sync.ts`
-- Cause: No effective caching strategy
-- Improvement path: Implement service workers, cache invalidation
+**Multiple useEffect Hooks:**
+- Problem: Viewer component has 13+ useEffect hooks running on various dependencies
+- Files: `packages/ui/components/Viewer.tsx:82, 86, 91, 151, 432, 478, 784, 896, 1045, 1049, 1296, 1358, 1363`
+- Cause: Concerns not separated, side effects scattered
+- Impact: Unnecessary re-renders, memory allocation
+- Improvement path: Consolidate related effects, use custom hooks, reduce dependency arrays
 
-**Memory Usage:**
-- Problem: Large notes consume excessive memory
-- Files: `packages/ui/components/Viewer.tsx`, `packages/ui/lib/offline-sync.ts`
-- Cause: Loading entire content into memory
-- Improvement path: Stream processing, pagination for large documents
+**LocalStorage Operations:**
+- Problem: Synchronous localStorage operations on main thread
+- Files: `packages/ai/src/config.ts:28,46,80`, `packages/collaboration/src/vaultIntegration.ts:55,178`
+- Cause: No caching or debouncing
+- Impact: UI blocking on large datasets
+- Improvement path: Implement IndexedDB wrapper, add read caching, batch writes
+
+**Mermaid Diagram Rendering:**
+- Problem: Mermaid render operations block UI
+- Files: `packages/ui/components/Viewer.tsx:944-956`
+- Cause: Synchronous mermaid.render() call
+- Impact: UI freeze on complex diagrams
+- Improvement path: Web Worker for rendering, progressive loading, diagram caching
+
+**Memory Leaks from Timers:**
+- Problem: setTimeout/setInterval not always cleaned up on unmount
+- Files: `packages/ui/components/Viewer.tsx:629,632,672,674`, `packages/editor/App.tsx:472,493`
+- Cause: Incomplete cleanup in useEffect returns
+- Impact: Memory growth over time
+- Improvement path: Audit all timers, ensure cleanup functions, use useRef for timer IDs
 
 ## Fragile Areas
 
-**Annotation System:**
-- Files: `packages/ui/components/AnnotationPanel.tsx`, `packages/ui/types/annotation.ts`
-- Why fragile: Tightly coupled to markdown parsing logic
-- Safe modification: Extract annotation processing to service layer
-- Test coverage: Limited unit tests for edge cases
+**Annotation Positioning:**
+- Files: `packages/ui/components/AnnotationOverlay.tsx`, `packages/ui/components/Viewer.tsx`
+- Why fragile: DOM-based position calculations break on layout changes, scroll events, window resize
+- Safe modification: Use ResizeObserver, MutationObserver, debounced position updates
+- Test coverage: Limited tests for edge cases (overlapping annotations, wrapped text)
+
+**Markdown Parsing:**
+- Files: `packages/ui/utils/parser.ts`, `packages/editor/App.tsx`
+- Why fragile: Custom parser, edge cases in Obsidian-specific syntax, callout parsing
+- Safe modification: Add comprehensive test fixtures, use established markdown library
+- Test coverage: Basic tests present, missing edge case coverage
 
 **File Path Handling:**
-- Files: `apps/hook/server/pathValidation.ts`, `apps/hook/server/index.ts`
-- Why fragile: Multiple OS path formats (Windows/Unix)
-- Safe modification: Use path library consistently, test all scenarios
-- Test coverage: Comprehensive test suite exists
+- Files: `apps/hook/server/pathValidation.ts`, `packages/collaboration/src/vaultIntegration.ts`
+- Why fragile: Multiple OS path formats (Windows backslash, Unix forward slash), URL encoding issues
+- Safe modification: Use path library consistently, test all scenarios, normalize paths early
+- Test coverage: Comprehensive security tests exist in `apps/hook/server/__tests__/manual-security-test.ts`
 
-**Localization:**
-- Files: All UI components with hardcoded strings
-- Why fragile: Manual string management prone to errors
-- Safe modification: Implement i18n framework before adding new languages
-- Test coverage: No automated testing for translations
+**State Management:**
+- Files: `packages/editor/App.tsx` (local state), `packages/ui/lib/cache.ts` (Upstash), `packages/security/src/auth/context.tsx` (Supabase)
+- Why fragile: Multiple state sources not synchronized, race conditions possible
+- Safe modification: Consolidate to single state management solution, implement optimistic updates
+- Test coverage: Limited integration tests
 
 ## Scaling Limits
 
-**Concurrent User Support:**
-- Current capacity: Single-user design
-- Limit: No session management, conflicts possible
-- Scaling path: Implement user sessions, optimistic locking
+**Supabase RLS Performance:**
+- Current capacity: Tested with <1000 rows per table
+- Limit: RLS policies add query overhead, subquery-based policies
+- Scaling path: Add database indexes, consider policy simplification, cache user permissions
 
-**File Size Limits:**
-- Current capacity: Tested up to 100KB notes
-- Limit: Memory issues with larger files
-- Scaling path: Streaming processing, background processing
+**Client-Side Cache:**
+- Current capacity: In-memory state, limited localStorage
+- Limit: Data loss on refresh, no offline support
+- Scaling path: Implement IndexedDB, service worker cache, background sync
 
-**Annotation Storage:**
-- Current capacity: In-memory only
-- Limit: Data loss on refresh
-- Scaling path: Backend database, offline synchronization
+**Webhook Processing:**
+- Current capacity: Single-threaded processing in `packages/api/routes/webhooks/stripe.ts`
+- Limit: Synchronous processing blocks event loop
+- Scaling path: Queue-based processing, idempotency keys, retry mechanism
+
+**Concurrent Annotation Editing:**
+- Current capacity: Single-user design, localStorage persistence
+- Limit: No conflict resolution, last-write-wins
+- Scaling path: Implement CRDT-based collaboration, operational transformation
+
+**Large File Handling:**
+- Current capacity: Viewer loads entire document into memory
+- Limit: Browser tab crashes on very large files (>10MB markdown)
+- Scaling path: Virtual scrolling, progressive rendering, chunked loading
 
 ## Dependencies at Risk
 
-**Highlight.js:**
-- Risk: Outdated version, known vulnerabilities
-- Impact: Syntax highlighting security issues
-- Migration plan: Upgrade to newer version or switch to Prism.js
+**Bun.js Runtime:**
+- Risk: Less mature than Node.js, potential compatibility issues
+- Impact: Production deployment may encounter edge cases
+- Migration plan: Test thoroughly in production-like environment, have Node.js fallback ready
 
-**Mermaid:**
-- Risk: Version conflicts, security updates needed
-- Impact: Diagram rendering failures
-- Migration plan: Regular updates, CDN fallback
+**Mermaid.js:**
+- Risk: Heavy library for diagrams, security-sensitive (SVG rendering)
+- Impact: Bundle size, XSS surface area
+- Migration plan: Consider server-side rendering, implement stricter CSP, evaluate lighter alternatives
 
-**Bun.js:**
-- Risk: Less tested than Node.js
-- Impact: Potential runtime issues
-- Migration plan: Consider Node.js fallback for production
+**@supabase/supabase-js:**
+- Risk: Version 2.x breaking changes possible
+- Impact: Authentication, database queries
+- Migration plan: Pin major version, monitor changelog, implement feature detection
+
+**Liveblocks Collaboration:**
+- Risk: Third-party service dependency, requires TypeScript suppression
+- Files: `apps/portal/src/hooks/useSharedAnnotations.ts:65` (@ts-ignore)
+- Impact: Real-time collaboration features
+- Migration plan: Create proper type definitions, evaluate alternatives (Yjs, Automerge)
+
+**DOMPurify:**
+- Risk: Must stay updated for new XSS vectors
+- Files: `packages/ui/utils/sanitize.ts`
+- Impact: SVG sanitization security
+- Migration plan: Automated dependency updates, security scanning in CI
 
 ## Missing Critical Features
 
 **Undo/Redo System:**
-- Problem: No history management for annotations
-- Blocks: Complex annotation editing workflows
+- Problem: No history management for annotations or content edits
+- Files: `packages/ui/components/Viewer.tsx`, `packages/editor/App.tsx`
+- Blocks: Complex annotation editing workflows, user errors difficult to recover
 - Priority: High
 
-**Collaborative Editing:**
-- Problem: No real-time collaboration
-- Blocks: Team-based workflows
-- Priority: Medium
+**Conflict Resolution:**
+- Problem: No handling for concurrent edits
+- Files: `packages/collaboration/src/`, `packages/ui/lib/collaborative-editing.ts`
+- Blocks: Multi-user scenarios, offline sync
+- Priority: High
 
 **Export Formats:**
-- Problem: Limited export options (JSON only)
-- Blocks: Integration with other tools
+- Problem: Limited export options (JSON primarily, some markdown export)
+- Files: `packages/ui/utils/parser.ts` (exportDiff function)
+- Blocks: Integration with other tools, user workflows
+- Priority: Medium
+
+**Search Functionality:**
+- Problem: No full-text search across notes
+- Files: Not implemented
+- Blocks: Large vault navigation, content discovery
+- Priority: Medium
+
+**Offline Mode:**
+- Problem: No service worker, offline not supported
+- Files: `packages/ui/lib/offline-sync.ts` (partial implementation)
+- Blocks: Mobile usage, poor connectivity scenarios
 - Priority: Low
 
 ## Test Coverage Gaps
 
-**Edge Case Testing:**
-- What's not tested: Malformed markdown, special characters
-- Files: `packages/ui/components/Viewer.tsx`
-- Risk: Rendering errors, crashes
+**Integration Testing:**
+- What's not tested: Full user flows (note creation to export), auth flows, payment flows
+- Files: `apps/portal/`, `packages/editor/`
+- Risk: Broken user journeys, regressions in critical paths
 - Priority: High
+- Existing: 26 test files (good coverage), but mostly unit tests
+
+**E2E Testing:**
+- What's not tested: Browser automation tests, cross-browser compatibility
+- Files: None found
+- Risk: Browser-specific bugs, production issues
+- Priority: Medium
+
+**Visual Regression:**
+- What's not tested: UI appearance, responsive design, dark/light mode
+- Files: `packages/ui/components/`
+- Risk: CSS breaks, layout shifts
+- Priority: Low
+
+**Load Testing:**
+- What's not tested: Concurrent user scenarios, large dataset performance
+- Files: None found
+- Risk: Performance degradation in production
+- Priority: Medium
 
 **Security Testing:**
-- What's not tested: XSS attempts, path traversal
-- Files: `apps/hook/server/index.ts`
+- What's not tested: Automated XSS attempts, injection attacks, auth bypass
+- Files: `apps/hook/server/__tests__/manual-security-test.ts` (manual tests only)
 - Risk: Vulnerability exploitation
 - Priority: Critical
+- Existing: Manual security test script for path traversal (needs automation)
 
-**Performance Testing:**
-- What's not tested: Large file handling, concurrent operations
-- Files: `packages/ui/components/Viewer.tsx`
-- Risk: Performance degradation
+**Edge Case Testing:**
+- What's not tested: Malformed markdown, special characters, Unicode edge cases
+- Files: `packages/ui/components/Viewer.tsx`, `packages/ui/utils/parser.ts`
+- Risk: Rendering errors, crashes, data corruption
+- Priority: High
+
+**Accessibility Testing:**
+- What's not tested: Screen reader compatibility, keyboard navigation, ARIA labels
+- Files: `packages/ui/components/`
+- Risk: Non-compliance with WCAG, exclusion of users
 - Priority: Medium
 
 ---
 
-*Concerns audit: 2026-02-04*
+*Concerns audit: 2026-02-08*

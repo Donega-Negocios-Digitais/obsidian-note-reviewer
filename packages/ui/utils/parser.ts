@@ -223,9 +223,10 @@ export const exportDiff = (blocks: Block[], annotations: any[]): string => {
     return 'Nota aprovada sem alterações';
   }
 
-  // Separate global comments from text annotations
+  // Separate by annotation category
   const globalComments = annotations.filter(ann => ann.isGlobal);
-  const textAnnotations = annotations.filter(ann => !ann.isGlobal);
+  const imageComments = annotations.filter(ann => ann.type === 'IMAGE_COMMENT');
+  const textAnnotations = annotations.filter(ann => !ann.isGlobal && ann.type !== 'IMAGE_COMMENT');
 
   const sortedAnns = [...textAnnotations].sort((a, b) => {
     const blockA = blocks.findIndex(blk => blk.id === a.blockId);
@@ -245,9 +246,32 @@ export const exportDiff = (blocks: Block[], annotations: any[]): string => {
     });
 
     // Add separator if there are also text annotations
-    if (sortedAnns.length > 0) {
-      output += `---\n\n📝 ANOTAÇÕES NO TEXTO:\n\n`;
+    if (sortedAnns.length > 0 || imageComments.length > 0) {
+      output += `---\n\n`;
     }
+  }
+
+  // Image Comments Section
+  if (imageComments.length > 0) {
+    output += `🖼️ COMENTÁRIOS DE IMAGEM:\n\n`;
+    imageComments.forEach((ann) => {
+      output += `Imagem: "${ann.originalText}"\n`;
+      if (ann.imageStrokes && ann.imageStrokes.length > 0) {
+        output += `Marcações: ${ann.imageStrokes.length} traço(s) desenhado(s)\n`;
+      }
+      if (ann.text) {
+        output += `Comentário: ${ann.text}\n`;
+      }
+      output += '\n';
+    });
+
+    if (sortedAnns.length > 0) {
+      output += `---\n\n`;
+    }
+  }
+
+  if (sortedAnns.length > 0) {
+    output += `📝 ANOTAÇÕES NO TEXTO:\n\n`;
   }
 
   // Text Annotations Section
@@ -280,6 +304,7 @@ export const exportDiff = (blocks: Block[], annotations: any[]): string => {
         // This shouldn't happen as we filtered them out, but just in case
         output += `🌐 COMENTÁRIO GLOBAL: ${ann.text}\n`;
         break;
+
     }
 
     output += '\n';

@@ -36,10 +36,33 @@ export function SettingsPage(): React.ReactElement {
     },
   ])
 
+  // Modal state for adding new hook
+  const [showAddHookModal, setShowAddHookModal] = useState(false)
+  const [newHook, setNewHook] = useState({
+    name: '',
+    description: '',
+    trigger: '',
+  })
+
   const toggleHook = (id: string) => {
     setHooks(hooks.map(hook =>
       hook.id === id ? { ...hook, enabled: !hook.enabled } : hook
     ))
+  }
+
+  const addHook = () => {
+    if (newHook.name && newHook.description && newHook.trigger) {
+      const hook: Hook = {
+        id: `custom-${Date.now()}`,
+        name: newHook.name,
+        description: newHook.description,
+        trigger: newHook.trigger,
+        enabled: true,
+      }
+      setHooks([...hooks, hook])
+      setNewHook({ name: '', description: '', trigger: '' })
+      setShowAddHookModal(false)
+    }
   }
 
   return (
@@ -77,16 +100,11 @@ export function SettingsPage(): React.ReactElement {
 
           {/* Hooks Configuration */}
           <div className="bg-card p-6 rounded-lg border">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-lg font-semibold">Hooks</h2>
-                <p className="text-sm text-muted-foreground">
-                  Configure quais ações disparam o Note Reviewer automaticamente
-                </p>
-              </div>
-              <button className="px-3 py-1.5 bg-primary/10 text-primary text-sm rounded-lg hover:bg-primary/20 transition-colors">
-                + Adicionar Hook
-              </button>
+            <div className="mb-4">
+              <h2 className="text-lg font-semibold">Hooks</h2>
+              <p className="text-sm text-muted-foreground">
+                Configure quais ações disparam o Note Reviewer automaticamente
+              </p>
             </div>
 
             <div className="space-y-3">
@@ -136,14 +154,97 @@ export function SettingsPage(): React.ReactElement {
                 </div>
               ))}
 
-              {/* Empty state / Add new hook hint */}
-              <div className="p-4 rounded-lg border border-dashed border-border/50 text-center">
-                <p className="text-sm text-muted-foreground">
-                  Mais hooks serão adicionados em breve
-                </p>
-              </div>
+              {/* + Hook Button - positioned after the last card */}
+              <button
+                onClick={() => setShowAddHookModal(true)}
+                className="w-full p-4 rounded-lg border-2 border-dashed border-border/50
+                           bg-muted/20 hover:bg-primary/10 hover:border-primary/50
+                           text-muted-foreground hover:text-primary
+                           transition-all duration-200
+                           flex items-center justify-center gap-2 group
+                           cursor-pointer hover:shadow-md"
+              >
+                <span className="text-2xl font-light transition-transform group-hover:scale-110">+</span>
+                <span className="text-sm font-medium">Adicionar Hook</span>
+              </button>
             </div>
           </div>
+
+          {/* Add Hook Modal */}
+          {showAddHookModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
+              <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-6 animate-in fade-in slide-in-from-bottom-4 duration-200">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold">Cadastrar Novo Hook</h3>
+                  <button
+                    onClick={() => setShowAddHookModal(false)}
+                    className="p-1 text-destructive hover:text-destructive/80 rounded-md transition-colors"
+                  >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Form */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1.5">Nome do Hook</label>
+                    <input
+                      type="text"
+                      value={newHook.name}
+                      onChange={(e) => setNewHook({ ...newHook, name: e.target.value })}
+                      placeholder="Ex: Meu Hook Personalizado"
+                      className="w-full p-2.5 rounded-lg border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1.5">Descrição</label>
+                    <textarea
+                      value={newHook.description}
+                      onChange={(e) => setNewHook({ ...newHook, description: e.target.value })}
+                      placeholder="Descreva quando este hook deve ser ativado..."
+                      rows={3}
+                      className="w-full p-2.5 rounded-lg border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1.5">Trigger (comando)</label>
+                    <input
+                      type="text"
+                      value={newHook.trigger}
+                      onChange={(e) => setNewHook({ ...newHook, trigger: e.target.value })}
+                      placeholder="Ex: /meu-comando"
+                      className="w-full p-2.5 rounded-lg border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 font-mono text-sm"
+                    />
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3 mt-6">
+                  <button
+                    onClick={() => {
+                      setShowAddHookModal(false)
+                      setNewHook({ name: '', description: '', trigger: '' })
+                    }}
+                    className="flex-1 px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors text-sm font-medium"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={addHook}
+                    disabled={!newHook.name || !newHook.description || !newHook.trigger}
+                    className="flex-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Adicionar Hook
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Obsidian Settings */}
           <div className="bg-card p-6 rounded-lg border">

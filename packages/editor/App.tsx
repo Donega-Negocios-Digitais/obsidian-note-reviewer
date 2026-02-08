@@ -1,4 +1,6 @@
 ﻿import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
+import '@obsidian-note-reviewer/ui/i18n/config'; // Initialize i18n
 import { parseMarkdownToBlocks, exportDiff } from '@obsidian-note-reviewer/ui/utils/parser';
 import { Viewer, ViewerHandle } from '@obsidian-note-reviewer/ui/components/Viewer';
 import { ViewerSkeleton } from '@obsidian-note-reviewer/ui/components/ViewerSkeleton';
@@ -10,6 +12,7 @@ import { ThemeProvider, useTheme } from '@obsidian-note-reviewer/ui/components/T
 import { ModeToggle } from '@obsidian-note-reviewer/ui/components/ModeToggle';
 import { ModeSwitcher } from '@obsidian-note-reviewer/ui/components/ModeSwitcher';
 import { SettingsPanel } from '@obsidian-note-reviewer/ui/components/SettingsPanel';
+import { KeyboardShortcutsModal } from '@obsidian-note-reviewer/ui/components/KeyboardShortcutsModal';
 import { useSharing } from '@obsidian-note-reviewer/ui/hooks/useSharing';
 import {
   storage,
@@ -408,6 +411,7 @@ FROM annotations;
 `;
 
 const App: React.FC = () => {
+  const { t } = useTranslation();
   const [markdown, setMarkdown] = useState(PLAN_CONTENT);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [savePath, setSavePath] = useState<string>(() => {
@@ -699,10 +703,10 @@ const App: React.FC = () => {
         }
       }
 
-      // ? to open settings (shortcuts tab)
+      // ? to open keyboard shortcuts modal
       if (e.key === '?') {
         e.preventDefault();
-        setIsSettingsPanelOpen(true);
+        setShowShortcutsModal(true);
         setShowStickyBar(false);
       }
     };
@@ -763,6 +767,10 @@ const App: React.FC = () => {
     setIsPanelOpen(true);
     // Add to history for undo (Ctrl+Z)
     setAnnotationHistory(prev => [...prev, ann.id]);
+  };
+
+  const handleUpdateAnnotation = (id: string, updates: Partial<Annotation>) => {
+    setAnnotations(prev => prev.map(a => a.id === id ? { ...a, ...updates } : a));
   };
 
   const handleDeleteAnnotation = (id: string) => {
@@ -877,6 +885,7 @@ const App: React.FC = () => {
   // State for showing copy feedback toast
   // State for share dialog
   const [showShareDialog, setShowShareDialog] = useState(false);
+  const [showShortcutsModal, setShowShortcutsModal] = useState(false);
 
   // State for showing copy feedback toast
   const [showCopyToast, setShowCopyToast] = useState(false);
@@ -1071,10 +1080,10 @@ const App: React.FC = () => {
               `}
               title={
                 !savePath
-                  ? 'Configure o caminho nas configurações'
+                  ? t('app.configurePath')
                   : annotations.length > 0
-                    ? 'Fazer alterações no Claude Code'
-                    : 'Salvar nota no Obsidian'
+                    ? t('app.makeChangesInClaude')
+                    : t('app.saveNoteToObsidian')
               }
             >
               {annotations.length > 0 ? (
@@ -1082,14 +1091,14 @@ const App: React.FC = () => {
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                   </svg>
-                  <span className="hidden md:inline">{isSaving ? 'Processando...' : 'Fazer Alterações'}</span>
+                  <span className="hidden md:inline">{isSaving ? t('app.processing') : t('app.makeChanges')}</span>
                 </>
               ) : (
                 <>
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
                   </svg>
-                  <span className="hidden md:inline">{isSaving ? 'Salvando...' : 'Salvar no Obsidian'}</span>
+                  <span className="hidden md:inline">{isSaving ? t('app.saving') : t('app.saveToObsidian')}</span>
                 </>
               )}
             </button>
@@ -1098,7 +1107,16 @@ const App: React.FC = () => {
             <button
               onClick={() => setShowHelpVideo(true)}
               className="p-1.5 rounded-md text-xs font-medium transition-all text-muted-foreground hover:text-foreground hover:bg-muted"
-              title="Como funciona?"
+              title={t('app.howItWorks')}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </button>
+            <button
+              onClick={() => setShowShortcutsModal(true)}
+              className="p-1.5 rounded-md text-xs font-medium transition-all text-muted-foreground hover:text-foreground hover:bg-muted"
+              title={t('app.keyboardShortcuts')}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -1114,7 +1132,7 @@ const App: React.FC = () => {
                   ? 'bg-primary/15 text-primary'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted'
               }`}
-              title="Configurações"
+              title={t('app.settings')}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -1129,7 +1147,7 @@ const App: React.FC = () => {
                   ? 'bg-primary/15 text-primary'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted'
               }`}
-              title={isPanelOpen ? 'Ocultar Painel de Anotações' : 'Mostrar Painel de Anotações'}
+              title={isPanelOpen ? t('app.hideAnnotationPanel') : t('app.showAnnotationPanel')}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
@@ -1139,23 +1157,23 @@ const App: React.FC = () => {
             <button
               onClick={() => setShowExport(true)}
               className="p-1.5 md:px-2.5 md:py-1 rounded-md text-xs font-medium bg-muted hover:bg-muted/80 transition-colors flex items-center gap-1.5"
-              title="Exportar"
+              title={t('app.export')}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
               </svg>
-              <span className="hidden md:inline">Exportar</span>
+              <span className="hidden md:inline">{t('app.export')}</span>
             </button>
 
             <button
               onClick={() => setShowShareDialog(true)}
               className="p-1.5 md:px-2.5 md:py-1 rounded-md text-xs font-medium bg-blue-600/20 text-blue-600 hover:bg-blue-600/30 transition-colors flex items-center gap-1.5"
-              title="Compartilhar"
+              title={t('app.share')}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
               </svg>
-              <span className="hidden md:inline">Compartilhar</span>
+              <span className="hidden md:inline">{t('app.share')}</span>
             </button>
           </div>
         </header>
@@ -1166,7 +1184,7 @@ const App: React.FC = () => {
             <div className="flex items-center justify-between px-4 py-2">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-medium text-muted-foreground">
-                  {annotations.length} anotação{annotations.length !== 1 ? 'ões' : ''}
+                  {annotations.length} {t('app.annotations' + (annotations.length !== 1 ? '' : '_one'), { count: annotations.length })}
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -1189,14 +1207,14 @@ const App: React.FC = () => {
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                       </svg>
-                      {isSaving ? 'Processando...' : 'Fazer Alterações'}
+                      {isSaving ? t('app.processing') : t('app.makeChanges')}
                     </>
                   ) : (
                     <>
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
                       </svg>
-                      {isSaving ? 'Salvando...' : 'Salvar'}
+                      {isSaving ? t('app.saving') : t('app.save')}
                     </>
                   )}
                 </button>
@@ -1205,12 +1223,23 @@ const App: React.FC = () => {
                 <button
                   onClick={() => setShowExport(true)}
                   className="p-1.5 md:px-2.5 md:py-1 rounded-md text-xs font-medium bg-muted hover:bg-muted/80 transition-colors flex items-center gap-1.5"
-                  title="Exportar"
+                  title={t('app.export')}
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                   </svg>
-                  <span className="hidden md:inline">Exportar</span>
+                  <span className="hidden md:inline">{t('app.export')}</span>
+                </button>
+
+                {/* Atalhos */}
+                <button
+                  onClick={() => setShowShortcutsModal(true)}
+                  className="p-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+                  title={t('app.keyboardShortcuts')}
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
                 </button>
 
                 {/* Configurações */}
@@ -1220,7 +1249,7 @@ const App: React.FC = () => {
                     setShowStickyBar(false);
                   }}
                   className="p-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
-                  title="Configurações"
+                  title={t('app.settings')}
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -1267,6 +1296,7 @@ const App: React.FC = () => {
                   markdown={markdown}
                   annotations={annotations}
                   onAddAnnotation={handleAddAnnotation}
+                  onUpdateAnnotation={handleUpdateAnnotation}
                   onSelectAnnotation={setSelectedAnnotationId}
                   selectedAnnotationId={selectedAnnotationId}
                   mode={editorMode}
@@ -1426,9 +1456,9 @@ const App: React.FC = () => {
                 <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                 </svg>
-                <span className="text-sm font-semibold">Modo de Edição</span>
+                <span className="text-sm font-semibold">{t('app.editMode')}</span>
                 <span className="text-xs text-muted-foreground font-mono">
-                  {fullEditContent.length} caracteres
+                  {fullEditContent.length} {t('app.characters')}
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -1436,7 +1466,7 @@ const App: React.FC = () => {
                   onClick={handleCancelFullEdit}
                   className="px-3 py-1.5 rounded-md text-xs font-medium bg-muted hover:bg-muted/80 transition-colors"
                 >
-                  Cancelar
+                  {t('common.cancel')}
                 </button>
                 <button
                   onClick={handleSaveFullEdit}
@@ -1445,7 +1475,7 @@ const App: React.FC = () => {
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
-                  Salvar Alterações
+                  {t('app.saveChanges')}
                 </button>
               </div>
             </div>
@@ -1465,7 +1495,7 @@ const App: React.FC = () => {
             {/* Full Edit Footer with tips */}
             <div className="h-10 flex items-center justify-between px-4 border-t border-border/50 bg-muted/30 text-xs text-muted-foreground">
               <div className="flex items-center gap-4">
-                <span>Esc para cancelar</span>
+                <span>{t('app.escToCancel')}</span>
                 <span>Ctrl+Enter para salvar</span>
               </div>
               <div>
@@ -1492,6 +1522,12 @@ const App: React.FC = () => {
           </div>
         )}
 
+        {/* Keyboard Shortcuts Modal */}
+        <KeyboardShortcutsModal
+          isOpen={showShortcutsModal}
+          onClose={() => setShowShortcutsModal(false)}
+        />
+
         {/* Share Dialog - Simple inline implementation */}
         {showShareDialog && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50" onClick={() => setShowShareDialog(false)}>
@@ -1506,7 +1542,7 @@ const App: React.FC = () => {
                 </h2>
                 <button
                   onClick={() => setShowShareDialog(false)}
-                  className="p-1 text-muted-foreground hover:text-foreground"
+                  className="p-1 text-destructive hover:text-destructive/80"
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1535,13 +1571,13 @@ const App: React.FC = () => {
                   }}
                   className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 rounded-lg transition-colors"
                 >
-                  Abrir Exportar
+                  {t('app.openExport')}
                 </button>
                 <button
                   onClick={() => setShowShareDialog(false)}
                   className="px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted rounded-lg transition-colors"
                 >
-                  Fechar
+                  {t('common.close')}
                 </button>
               </div>
             </div>

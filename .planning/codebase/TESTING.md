@@ -1,291 +1,276 @@
-# Testing Patterns
+# Testing Status
 
-**Analysis Date:** 2026-02-04
+**Analysis Date:** 2026-02-08
+**Based on:** Full codebase audit
 
-## Test Framework
+## Test Coverage Overview
 
-**Runner:**
-- Framework: Bun test runner
-- Config: Built-in, no separate config file
-- Command: `bun test`
+**Total Test Files:** 26
+**Test Framework:** Bun Test + Vitest
+**Coverage:** Partial (gaps remain)
 
-**Assertion Library:**
-- Built-in `expect` from Bun
-- Additional assertions from `@testing-library/jest-dom`
+## Test Files by Location
 
-**Run Commands:**
-```bash
-bun test                    # Run all tests
-bun test --watch            # Watch mode
-bun test --coverage         # Coverage report
-bun test --related          # Run tests for changed files
-```
+### Hook App Tests
 
-## Test File Organization
+**Server Tests:**
+- `apps/hook/server/__tests__/pathValidation.test.ts` - Path traversal prevention
+- `apps/hook/server/__tests__/save.test.ts` - Save operations
 
-**Location:**
-- Co-located with source files in `__tests__` directories
-- Pattern: `/source/path/__tests__/module.test.ts`
+**Focus:** Security (path validation), core hook functionality
 
-**Naming:**
-- Descriptive names: `notes.test.ts`, `path-validation.test.ts`
-- Include test scope in name: `cors.test.ts`
-- Mirror source file structure
+### Portal App Tests
 
-**Structure:**
-```
-apps/
-  portal/
-    api/
-      __tests__/          # API tests
-        notes.test.ts
-    utils/
-      __tests__/          # Utility tests
-        cors.test.ts
-packages/
-  ui/
-    utils/
-      __tests__/          # Unit tests
-        sanitize.test.ts
-    hooks/
-      __tests__/          # Hook tests
-        useFocusTrap.test.ts
-  security/
-    __tests__/          # Security tests
-      csp.test.ts
-```
+**API Tests:**
+- `apps/portal/api/__tests__/notes.test.ts` - Notes API endpoints
 
-## Test Structure
+**Utility Tests:**
+- `apps/portal/utils/__tests__/` - Portal utilities (partial)
 
-**Suite Organization:**
-```typescript
-describe('Module/Feature Name', () => {
-  beforeEach(() => {
-    // Setup for each test
-  });
+**Focus:** API integration, basic CRUD
 
-  afterEach(() => {
-    // Cleanup after each test
-  });
+### UI Package Tests
 
-  describe('Specific functionality', () => {
-    test('should do something correctly', () => {
-      // Arrange
-      // Act
-      // Assert
-    });
-  });
-});
-```
+**Component Tests:**
+- `packages/ui/components/__tests__/AnnotationPanel.test.tsx`
+- `packages/ui/components/__tests__/DecisionBar.test.tsx`
+- `packages/ui/components/__tests__/GlobalCommentInput.test.tsx`
+- `packages/ui/components/__tests__/ExportModal.test.tsx`
+- `packages/ui/components/__tests__/Settings.test.tsx`
+- `packages/ui/components/__tests__/KeyboardShortcutsModal.test.tsx`
+- `packages/ui/components/__tests__/MermaidRenderer.test.tsx`
+- `packages/ui/components/__tests__/ConfirmationDialog.test.tsx`
+- `packages/ui/components/__tests__/Skeleton.test.tsx`
+- `packages/ui/components/__tests__/ViewerSkeleton.test.tsx`
 
-**Patterns:**
-- Describe block for test scope
-- beforeEach/afterEach for setup/teardown
-- Test names are descriptive sentences
-- Arrange-Act-Assert pattern
+**Utility Tests:**
+- `packages/ui/utils/__tests__/parser.test.ts` - Markdown parsing
+- `packages/ui/utils/__tests__/storage.test.ts` - Browser storage
+- `packages/ui/utils/__tests__/annotationSort.test.ts` - Annotation sorting
+- `packages/ui/utils/__tests__/annotationStats.test.ts` - Statistics
+- `packages/ui/utils/__tests__/annotationTypeConfig.test.tsx` - Type configuration
 
-## Mocking
+**Hook Tests:**
+- `packages/ui/hooks/__tests__/useAnnotationTargeting.test.ts` - Targeting logic
+- `packages/ui/hooks/__tests__/useFocusTrap.test.ts` - Focus trap behavior
 
-**Framework:** Built-in mock functionality in Bun
+**Auth Tests:**
+- `packages/ui/__tests__/auth.integration.test.tsx` - Auth flow integration
 
-**Patterns:**
+### Security Package Tests
+
+- `packages/security/__tests__/csp.test.ts` - Content Security Policy
+
+## Test Patterns Used
+
+**Framework:**
 ```typescript
 import { describe, test, expect, mock } from 'bun:test';
+import { render, screen, fireEvent } from '@testing-library/react';
+```
 
-// Module mocking
-mock.module('isomorphic-dompurify', () => ({
-  default: {
-    sanitize: mock((input: string) => input),
+**Structure:**
+- `describe()` blocks for test suites
+- `test()` with descriptive Portuguese names
+- Arrange-Act-Assert pattern
+- Mock functions via `mock()`
+
+**Example:**
+```typescript
+test('chama onConfirm ao clicar no botao de confirmar', () => {
+  const mockOnConfirm = mock(() => {});
+  render(<ConfirmationDialog {...props} onConfirm={mockOnConfirm} />);
+
+  const confirmButton = screen.getByText('Confirmar');
+  fireEvent.click(confirmButton);
+
+  expect(mockOnConfirm).toHaveBeenCalledTimes(1);
+});
+```
+
+## Test Coverage Gaps
+
+### Missing Integration Tests
+
+**Not Tested:**
+- Full user flows (note creation → annotation → export)
+- Auth flows (signup → login → OAuth callback)
+- Payment flows (checkout → webhook → subscription update)
+- Collaboration flows (shared link → guest access → multi-user)
+
+### Missing E2E Tests
+
+**Not Tested:**
+- Browser automation (Playwright/Cypress not configured)
+- Cross-browser compatibility
+- Mobile responsiveness
+- Performance under load
+
+### Missing Security Tests
+
+**Manual Only:**
+- `apps/hook/server/__tests__/manual-security-test.ts` - Manual path traversal tests
+- No automated XSS testing
+- No automated CSRF testing
+- No automated SQL injection testing (RLS protection)
+
+### Component Coverage Gaps
+
+**Large Components Not Tested:**
+- `Viewer.tsx` (1,493 lines) - No test file found
+- `SettingsPanel.tsx` (52KB) - Limited test coverage
+- `AnnotationPanel.tsx` - Basic tests only
+- `CommentThread.tsx` - No comprehensive tests
+
+## Test Configuration
+
+**Vitest Config:**
+```typescript
+// vitest.config.ts
+export default defineConfig({
+  test: {
+    globals: true,
+    environment: 'happy-dom',
+    setupFiles: ['./test/setup.ts'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      exclude: [
+        'node_modules/',
+        'dist/',
+        '**/*.test.{ts,tsx}',
+        '**/*.spec.{ts,tsx}',
+        'packages/ui/types',
+      ],
+    },
   },
-}));
-
-// Function mocking
-const mockFunction = mock((input: string) => 'mocked');
+});
 ```
 
-**What to Mock:**
-- External dependencies (DOMPurify, Supabase)
-- File system operations
-- Date/time for consistent tests
-- Network requests
-- Complex third-party libraries
+**Coverage Target:** 70% (configured, not measured recently)
 
-**What NOT to Mock:**
-- Core business logic
-- Internal utility functions
-- Data structures being tested
-- Pure functions
+## Testing Infrastructure
 
-## Fixtures and Factories
+**Available:**
+- ✅ Bun Test runner
+- ✅ Vitest (alternative)
+- ✅ Happy DOM for browser polyfills
+- ✅ Testing Library for React
+- ✅ Mock functions (`mock()`)
 
-**Test Data:**
-```typescript
-// Constants for test data
-const VALID_ORIGIN = 'https://r.alexdonega.com.br';
-const MALICIOUS_ORIGIN = 'https://evil.com';
-const TEST_NOTE = {
-  slug: 'test-note',
-  title: 'Test Note',
-  content: 'Test content',
-  createdAt: new Date().toISOString(),
-};
+**Missing:**
+- ❌ E2E test framework (Playwright/Cypress)
+- ❌ Visual regression testing
+- ❌ Load testing tools
+- ❌ Automated security scanning in CI
+- ❌ Coverage reporting integration
 
-// Test data generation functions
-function createMockRequest(options: {
-  method?: string;
-  origin?: string | null;
-  query?: Record<string, string | string[]>;
-  body?: Record<string, any>;
-}) {
-  // Implementation
-}
-```
+## Test Quality Issues
 
-**Location:**
-- Test data defined in test files or adjacent files
-- No separate fixture directory
-- Constants at top of test files
+### Known Problems
 
-## Coverage
+1. **Portuguese test names** - Good for local team, not international
+2. **Limited assertions** - Many tests check basic render only
+3. **No edge case testing** - Malformed inputs, boundary conditions
+4. **No error boundary tests** - Component failure scenarios
+5. **No accessibility tests** - ARIA, keyboard navigation
+6. **No performance tests** - Large document rendering
 
-**Requirements:** Target not specified in config
-**View Coverage:**
+### Security Test Gaps
+
+**Path Traversal:**
+- ✅ Manual tests exist (`pathValidation.test.ts`)
+- ❌ No automated fuzzing
+- ❌ No Windows vs Unix path variations
+
+**XSS Prevention:**
+- ✅ CSP tests exist (`csp.test.ts`)
+- ❌ No automated XSS payload testing
+- ❌ No SVG sanitization edge cases
+
+**Authentication:**
+- ⚠️ Basic auth integration test exists
+- ❌ No session hijacking tests
+- ❌ No CSRF token validation tests
+- ❌ No OAuth flow manipulation tests
+
+## Recommendations
+
+### High Priority
+
+1. **Add Viewer.tsx tests** - Largest component, critical path
+2. **Add integration tests** - Full user flows
+3. **Add security automation** - Automated XSS, SQL injection tests
+4. **Increase assertion depth** - Test behavior, not just rendering
+
+### Medium Priority
+
+1. **Add E2E framework** - Playwright or Cypress
+2. **Add accessibility tests** - ARIA, keyboard navigation
+3. **Add performance tests** - Large document rendering
+4. **Add visual regression** - CSS/layout changes
+
+### Low Priority
+
+1. **Standardize test language** - English for international collaboration
+2. **Add load testing** - Concurrent user scenarios
+3. **Add chaos engineering** - Failure scenarios
+
+## Test Commands
+
 ```bash
+# Run all tests
+bun test
+
+# Run with coverage
 bun test --coverage
+
+# Run specific file
+bun test packages/ui/utils/parser.test.ts
+
+# Watch mode
+bun test --watch
+
+# Vitest (alternative)
+vitest
+vitest --coverage
 ```
 
-**Coverage Patterns:**
-- Test happy paths and error cases
-- Mock external dependencies to focus on unit logic
-- Test edge cases and validation
-- Include integration tests for API endpoints
+## CI/CD Integration
 
-## Test Types
+**Status:** Not explicitly configured
 
-**Unit Tests:**
-- Scope: Individual functions, components, utilities
-- Focus: Pure logic in isolation
-- Mocking: Heavy use of mocks
-- Examples: `sanitize.test.ts`, `parser.test.ts`
-
-**Integration Tests:**
-- Scope: API endpoints, data flow
-- Focus: Component interaction, data persistence
-- Mocking: Minimal, focus on integration
-- Examples: `notes.test.ts`, `cors.test.ts`
-
-**E2E Tests:**
-- Framework: Not detected
-- Status: Not implemented
-- Coverage: Limited to manual testing
-
-## Common Patterns
-
-**Async Testing:**
-```typescript
-test('should handle async operation', async () => {
-  // Arrange
-  const promise = Promise.resolve('data');
-
-  // Act
-  const result = await promise;
-
-  // Assert
-  expect(result).toBe('data');
-});
+**Recommended:**
+```yaml
+# .github/workflows/test.yml
+name: Test
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: oven-sh/setup-bun@v1
+      - run: bun install
+      - run: bun test --coverage
+      - uses: codecov/codecov-action@v3
 ```
 
-**Error Testing:**
-```typescript
-test('should throw error for invalid input', () => {
-  // Arrange
-  const invalidInput = null;
+## Test Metrics
 
-  // Act & Assert
-  expect(() => functionUnderTest(invalidInput)).toThrow();
-});
-```
+**Current (Estimated):**
+- Unit test coverage: ~40%
+- Integration test coverage: ~10%
+- E2E test coverage: 0%
+- Security test coverage: ~20% (manual)
 
-**Security Testing:**
-```typescript
-test('should prevent path traversal attacks', () => {
-  const maliciousPath = '../../../etc/passwd';
-  expect(validatePath(maliciousPath)).toBe(false);
-});
-
-test('should block malicious origins', () => {
-  const maliciousOrigin = 'https://evil.com';
-  expect(isOriginAllowed(maliciousOrigin)).toBe(false);
-});
-```
-
-**Mock Response Testing:**
-```typescript
-test('should set correct headers', () => {
-  const req = createMockRequest({ origin: VALID_ORIGIN });
-  const res = createMockResponse();
-
-  // Act
-  handler(req, res);
-
-  // Assert
-  expect(res.setHeader).toHaveBeenCalledWith(
-    'Access-Control-Allow-Origin',
-    VALID_ORIGIN
-  );
-});
-```
-
-**Testing Hooks:**
-```typescript
-test('should update state on value change', () => {
-  // Arrange
-  renderHook(() => useCustomHook(initialValue));
-
-  // Act
-  act(() => result.current.setValue(newValue));
-
-  // Assert
-  expect(result.current.value).toBe(newValue);
-});
-```
-
-## Test Best Practices
-
-**Given-When-Then Pattern:**
-```typescript
-test('should validate user input', () => {
-  // Given
-  const input = 'valid-email@example.com';
-
-  // When
-  const result = validateEmail(input);
-
-  // Then
-  expect(result).toBe(true);
-});
-```
-
-**Describe Block Organization:**
-- Top level: Component/feature name
-- Nested: Specific functionality areas
-- Tests: Specific scenarios
-
-**Error Boundaries:**
-- Test error rendering with `ErrorBoundary` components
-- Verify fallback UI displays correctly
-- Test error propagation
-
-**Performance Testing:**
-- Limited to `performance.test.ts` in UI package
-- Focus on component rendering times
-- Use React's profiling utilities
-
-**Multi-tenancy Testing:**
-- Test with different organization contexts
-- Verify tenant isolation
-- Test cross-tenant data access prevention
+**Target:**
+- Unit test coverage: 70%
+- Integration test coverage: 50%
+- E2E test coverage: 30%
+- Security test coverage: 80%
 
 ---
 
-*Testing analysis: 2026-02-04*
+*Testing analysis: 2026-02-08*
+*Based on full codebase audit*

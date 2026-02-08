@@ -1,7 +1,7 @@
 # Requirements: Obsidian Note Reviewer
 
 **Defined:** 2025-02-04
-**Updated:** 2026-02-07 (removed AI, Multi-Document, Mobile)
+**Updated:** 2026-02-08 (full codebase analysis)
 **Core Value:** Usuários podem revisar visualmente notas e planos, com integração perfeita com Claude Code e colaboração em tempo real.
 
 ## v1 Requirements
@@ -15,6 +15,12 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **AUTH-03**: User session persiste across browser refresh ✓
 - [x] **AUTH-04**: User pode fazer logout de qualquer página ✓
 - [x] **AUTH-05**: User profile com display name e avatar ✓
+
+**Implementation:**
+- Supabase Auth via `packages/security/src/supabase/client.ts`
+- OAuth em `packages/security/src/supabase/oauth.ts`
+- Session persistence em localStorage
+- Avatar upload via Supabase Storage (`packages/security/src/supabase/storage.ts`)
 
 **Status:** ✅ 100% Complete (2026-02-07)
 
@@ -30,7 +36,19 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **ANNO-06**: User pode restaurar versões anteriores do documento ✓
 - [x] **ANNO-07**: Markdown rendering suporta sintaxe padrão com code blocks e imagens ✓
 
-**Status:** ✅ 90% Complete (gaps conhecidos)
+**Implementation:**
+- `packages/ui/components/AnnotationPanel.tsx` (14KB)
+- `packages/ui/components/CommentThread.tsx` (14KB)
+- `packages/ui/components/CommentInput.tsx` (9KB)
+- `packages/ui/components/AnnotationStatusControls.tsx` (4KB)
+- `packages/ui/components/VersionHistory.tsx` (14KB)
+- `packages/ui/components/DiffViewer.tsx` (6KB)
+- `packages/ui/components/MarkdownRenderer.tsx` (5KB)
+- `packages/ui/components/CodeBlock.tsx` (6KB) - syntax highlighting
+- `packages/ui/components/MentionsInput.tsx` - @mentions
+- Annotation types: DELETION, INSERTION, REPLACEMENT, COMMENT, GLOBAL_COMMENT, IMAGE_COMMENT
+
+**Status:** ✅ 90% Complete (gaps conhecidos: undo/redo, performance em documentos grandes)
 
 ---
 
@@ -42,6 +60,27 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **CLAU-04**: Prompt fixo automático formata as revisões para o Claude Code ✓
 - [x] **CLAU-05**: Campo editável permite customizar o prompt antes de enviar ✓
 - [x] **CLAU-06**: Todas as anotações são incluídas: edições, comentários globais, comentários individuais, exclusões, marcações ✓
+
+**Implementation:**
+- `apps/hook/server/obsidianHook.ts` (324 lines) - PostToolUse hook
+- `apps/hook/server/planModeHook.ts` - ExitPlanMode hook
+- `apps/hook/bin/obsreview-obsidian.ts` - CLI for Obsidian
+- `apps/hook/bin/obsreview-plan.ts` - CLI for plan mode
+- `apps/portal/src/components/PromptEditor.tsx` (14KB) - prompt editing
+- `apps/portal/src/components/AnnotationExport.tsx` (9KB) - export format
+- `packages/ui/utils/claudeExport.ts` (9KB) - structured export format
+
+**Hook Output Format:**
+```json
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PostToolUse",
+    "result": "OBSIDIAN_PLAN_APPROVED" | "OBSIDIAN_PLAN_CHANGES_REQUESTED",
+    "filePath": "...",
+    "feedback": "..."
+  }
+}
+```
 
 **Status:** ✅ 100% Complete (2026-02-05)
 
@@ -55,6 +94,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 **Removida:** Recursos de IA avançada não são prioridade no momento.
 
+**Note:** Implementação básica existe em `packages/ai/src/` (suggester.ts, summarizer.ts, vaultParser.ts) mas não é prioridade para v1.
+
 ---
 
 ### Colaboração
@@ -65,7 +106,15 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **COLL-04**: Guest access permite visualizar reviews sem login
 - [ ] **COLL-05**: Workflow nativo com Obsidian vault (acesso local)
 
-**Status:** ❌ 0% Complete
+**Existing Implementation (Partial):**
+- Liveblocks client configured: `apps/portal/src/lib/liveblocks.ts`
+- Liveblocks auth endpoint: `apps/portal/dev-server.ts`
+- Shared document with slug: `apps/portal/src/pages/SharedDocument.tsx`
+- Shareable links utilities: `packages/collaboration/src/shareableLinks.ts`
+- Vault integration: `apps/portal/src/lib/vaultIntegration.ts` (File System Access API)
+- Presence components exist: `packages/ui/components/LiveCursors.tsx`, `packages/ui/components/ActivityFeed.tsx`
+
+**Status:** ❌ 0% Complete (infrastructure exists but not integrated)
 
 ---
 
@@ -95,6 +144,14 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **CONF-03**: User pode customizar prompt de integração Claude Code ✓
 - [x] **CONF-04**: Painel de configurações fica DENTRO do editor (não página separada) ✓
 
+**Implementation:**
+- `packages/ui/components/SettingsPanel.tsx` (52KB) - all settings inside editor
+- `packages/ui/components/ConfigEditor.tsx` (16KB) - config file editing
+- `packages/ui/components/ModeToggle.tsx` (3KB) - theme toggle
+- `packages/ui/components/FrontmatterEditor.tsx` (4KB) - note frontmatter
+- ThemeProvider with dark/light/system modes
+- Prompt customization via PromptEditor
+
 **Status:** ✅ 100% Complete (2026-02-07)
 
 ---
@@ -104,6 +161,12 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **SHAR-01**: URLs amigáveis com slug (r.alexdonega.com.br/plan/nome-do-plano) ✓ (SharedDocument.tsx)
 - [ ] **SHAR-02**: Slug é único e validado
 - [ ] **SHAR-03**: Multi-usuário podem ver e revisar planos compartilhados
+
+**Implementation:**
+- `apps/portal/src/pages/SharedDocument.tsx` - public shared document page
+- `apps/portal/src/components/ShareDialog.tsx` (6KB) - share UI
+- `packages/ui/utils/sharing.ts` (12KB) - sharing utilities
+- Route: `/shared/:slug` - guest access without auth
 
 **Status:** ⚠️ 33% Complete
 
@@ -118,6 +181,22 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **MONY-05**: Assinatura lifetime disponível como opção ✓ (Pricing.tsx)
 - [ ] **MONY-06**: Webhooks do Stripe são verificados com signature
 
+**Implementation:**
+- `apps/portal/src/pages/Pricing.tsx` - pricing page with tiers
+- `apps/portal/src/pages/BillingSettings.tsx` - billing management
+- `packages/api/lib/stripe.ts` (547 lines) - core Stripe service
+- `packages/api/routes/webhooks/stripe.ts` (491 lines) - webhook handlers
+- `packages/shared/pricing.ts` - plan definitions
+- `apps/portal/src/hooks/useStripeCheckout.ts` - checkout flow
+- `apps/portal/src/hooks/useSubscription.ts` - subscription management
+
+**Database Tables:**
+- `subscriptions` - active subscriptions
+- `invoices` - payment invoices
+- `payment_methods` - stored methods
+- `stripe_webhook_events` - event log
+- `subscription_history` - audit trail
+
 **Status:** ⚠️ 40% Complete
 
 ---
@@ -129,6 +208,12 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **DEPL-03**: Subdomínio r. aponta para Vercel
 - [ ] **DEPL-04**: Environment variables configuradas corretamente
 
+**Existing:**
+- `vercel.json` - Vercel configuration
+- `apps/portal/vite.config.ts` - build config
+- `apps/marketing/vite.config.ts` - marketing build config
+- `apps/hook/vite.config.ts` - hook single-file build
+
 **Status:** ❌ 0% Complete
 
 ---
@@ -139,6 +224,12 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **DSGN-02**: Theme system com dark/light mode automático ✓
 - [ ] **DSGN-03**: Cores personalizáveis
 - [ ] **DSGN-04**: UX focada em usabilidade
+
+**Implementation:**
+- Tailwind CSS v4 with oklch color space
+- CSS variables for theming
+- Automatic theme switching (dark by default, light with .light class)
+- Minimalist UI with clean borders and spacing
 
 **Status:** ⚠️ 50% Complete
 
@@ -152,6 +243,15 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **QUAL-04**: Sistema de undo/redo para anotações
 - [ ] **QUAL-05**: Testes automatizados para features críticas
 - [ ] **QUAL-06**: Performance otimizada (sem memory leaks)
+
+**Existing Issues:**
+- Console logs em produção (hook server, auth context)
+- Pino logger configured but not consistently used
+- No undo/redo system
+- Limited test coverage (26 test files, mostly unit)
+- Large components without React.memo (Viewer.tsx 1,493 lines)
+- Memory leaks from timers not cleaned up
+- TypeScript any type usage throughout
 
 **Status:** ❌ 0% Complete
 
@@ -198,68 +298,63 @@ Explicitly excluded. Documented to prevent scope creep.
 
 ## Traceability
 
-Which phases cover which requirements. Updated after roadmap renumbering (13 → 10 phases).
+Which phases cover which requirements. Updated after full codebase analysis.
 
-| Requirement | Phase | Status |
-|-------------|-------|--------|
-| **AUTH-01** | Phase 1 | ✅ Complete |
-| **AUTH-02** | Phase 1 | ✅ Complete |
-| **AUTH-03** | Phase 1 | ✅ Complete |
-| **AUTH-04** | Phase 1 | ✅ Complete |
-| **AUTH-05** | Phase 1 | ✅ Complete |
-| **ANNO-01** | Phase 2 | ✅ Complete |
-| **ANNO-02** | Phase 2 | ✅ Complete |
-| **ANNO-03** | Phase 2 | ✅ Complete |
-| **ANNO-04** | Phase 2 | ✅ Complete |
-| **ANNO-05** | Phase 2 | ✅ Complete |
-| **ANNO-06** | Phase 2 | ✅ Complete |
-| **ANNO-07** | Phase 2 | ✅ Complete |
-| **CLAU-01** | Phase 3 | ✅ Complete |
-| **CLAU-02** | Phase 3 | ✅ Complete |
-| **CLAU-03** | Phase 3 | ✅ Complete |
-| **CLAU-04** | Phase 3 | ✅ Complete |
-| **CLAU-05** | Phase 3 | ✅ Complete |
-| **CLAU-06** | Phase 3 | ✅ Complete |
-| ~~**AI-01**~~ | ~~Phase 4~~ | ❌ **REMOVIDA** |
-| ~~**AI-02**~~ | ~~Phase 4~~ | ❌ **REMOVIDA** |
-| ~~**AI-03**~~ | ~~Phase 4~~ | ❌ **REMOVIDA** |
-| **COLL-01** | Phase 4 | Pending |
-| **COLL-02** | Phase 4 | Pending |
-| **COLL-03** | Phase 4 | Pending |
-| **COLL-04** | Phase 4 | Pending |
-| **COLL-05** | Phase 4 | Pending |
-| ~~**MULT-01**~~ | ~~Phase 6~~ | ❌ **REMOVIDA** |
-| ~~**MULT-02**~~ | ~~Phase 6~~ | ❌ **REMOVIDA** |
-| ~~**MULT-03**~~ | ~~Phase 6~~ | ❌ **REMOVIDA** |
-| ~~**MOBL-01**~~ | ~~Phase 7~~ | ❌ **REMOVIDA** |
-| ~~**MOBL-02**~~ | ~~Phase 7~~ | ❌ **REMOVIDA** |
-| **CONF-01** | Phase 5 | ✅ Complete |
-| **CONF-02** | Phase 5 | ✅ Complete |
-| **CONF-03** | Phase 5 | ✅ Complete |
-| **CONF-04** | Phase 5 | ✅ Complete |
-| **SHAR-01** | Phase 6 | ✅ Complete |
-| **SHAR-02** | Phase 6 | Pending |
-| **SHAR-03** | Phase 6 | Pending |
-| **MONY-01** | Phase 7 | Pending |
-| **MONY-02** | Phase 7 | Pending |
-| **MONY-03** | Phase 7 | Pending |
-| **MONY-04** | Phase 7 | ✅ Complete |
-| **MONY-05** | Phase 7 | ✅ Complete |
-| **MONY-06** | Phase 7 | Pending |
-| **DEPL-01** | Phase 8 | Pending |
-| **DEPL-02** | Phase 8 | Pending |
-| **DEPL-03** | Phase 8 | Pending |
-| **DEPL-04** | Phase 8 | Pending |
-| **DSGN-01** | Phase 9 | ✅ Complete |
-| **DSGN-02** | Phase 9 | ✅ Complete |
-| **DSGN-03** | Phase 9 | Pending |
-| **DSGN-04** | Phase 9 | Pending |
-| **QUAL-01** | Phase 10 | Pending |
-| **QUAL-02** | Phase 10 | Pending |
-| **QUAL-03** | Phase 10 | Pending |
-| **QUAL-04** | Phase 10 | Pending |
-| **QUAL-05** | Phase 10 | Pending |
-| **QUAL-06** | Phase 10 | Pending |
+| Requirement | Phase | Status | Implementation Files |
+|-------------|-------|--------|---------------------|
+| **AUTH-01** | Phase 1 | ✅ Complete | packages/security/src/supabase/ |
+| **AUTH-02** | Phase 1 | ✅ Complete | packages/security/src/supabase/oauth.ts |
+| **AUTH-03** | Phase 1 | ✅ Complete | packages/security/src/supabase/session.ts |
+| **AUTH-04** | Phase 1 | ✅ Complete | packages/security/src/auth/context.tsx |
+| **AUTH-05** | Phase 1 | ✅ Complete | packages/security/src/supabase/storage.ts |
+| **ANNO-01** | Phase 2 | ✅ Complete | packages/ui/components/AnnotationPanel.tsx |
+| **ANNO-02** | Phase 2 | ✅ Complete | packages/ui/components/CommentThread.tsx |
+| **ANNO-03** | Phase 2 | ✅ Complete | packages/ui/components/CommentInput.tsx |
+| **ANNO-04** | Phase 2 | ✅ Complete | packages/ui/components/AnnotationStatusControls.tsx |
+| **ANNO-05** | Phase 2 | ✅ Complete | packages/ui/components/VersionHistory.tsx |
+| **ANNO-06** | Phase 2 | ✅ Complete | packages/ui/components/DiffViewer.tsx |
+| **ANNO-07** | Phase 2 | ✅ Complete | packages/ui/components/MarkdownRenderer.tsx |
+| **CLAU-01** | Phase 3 | ✅ Complete | apps/hook/server/obsidianHook.ts |
+| **CLAU-02** | Phase 3 | ✅ Complete | apps/hook/server/planModeHook.ts |
+| **CLAU-03** | Phase 3 | ✅ Complete | packages/ui/utils/claudeExport.ts |
+| **CLAU-04** | Phase 3 | ✅ Complete | apps/portal/src/components/PromptEditor.tsx |
+| **CLAU-05** | Phase 3 | ✅ Complete | apps/portal/src/components/PromptEditor.tsx |
+| **CLAU-06** | Phase 3 | ✅ Complete | apps/portal/src/components/AnnotationExport.tsx |
+| ~~**AI-01**~~ | ~~Phase 4~~ | ❌ **REMOVIDA** | packages/ai/src/suggester.ts (não prioritário) |
+| ~~**AI-02**~~ | ~~Phase 4~~ | ❌ **REMOVIDA** | packages/ai/src/vaultParser.ts (não prioritário) |
+| ~~**AI-03**~~ | ~~Phase 4~~ | ❌ **REMOVIDA** | packages/ai/src/summarizer.ts (não prioritário) |
+| **COLL-01** | Phase 4 | Pending | packages/ui/components/LiveCursors.tsx (existe, não integrado) |
+| **COLL-02** | Phase 4 | Pending | packages/ui/components/LiveCursors.tsx (existe, não integrado) |
+| **COLL-03** | Phase 4 | Pending | packages/collaboration/src/shareableLinks.ts |
+| **COLL-04** | Phase 4 | Pending | apps/portal/src/components/GuestBanner.tsx (existe, não usado) |
+| **COLL-05** | Phase 4 | Pending | apps/portal/src/lib/vaultIntegration.ts |
+| **CONF-01** | Phase 5 | ✅ Complete | packages/ui/components/ModeToggle.tsx |
+| **CONF-02** | Phase 5 | ✅ Complete | packages/ui/components/ConfigEditor.tsx |
+| **CONF-03** | Phase 5 | ✅ Complete | apps/portal/src/components/PromptEditor.tsx |
+| **CONF-04** | Phase 5 | ✅ Complete | packages/ui/components/SettingsPanel.tsx |
+| **SHAR-01** | Phase 6 | ✅ Complete | apps/portal/src/pages/SharedDocument.tsx |
+| **SHAR-02** | Phase 6 | Pending | - |
+| **SHAR-03** | Phase 6 | Pending | - |
+| **MONY-01** | Phase 7 | Pending | packages/shared/pricing.ts |
+| **MONY-02** | Phase 7 | Pending | packages/api/lib/stripe.ts |
+| **MONY-03** | Phase 7 | Pending | packages/api/lib/stripe.ts |
+| **MONY-04** | Phase 7 | ✅ Complete | apps/portal/src/pages/Pricing.tsx |
+| **MONY-05** | Phase 7 | ✅ Complete | apps/portal/src/pages/Pricing.tsx |
+| **MONY-06** | Phase 7 | Pending | packages/api/routes/webhooks/stripe.ts |
+| **DEPL-01** | Phase 8 | Pending | vercel.json |
+| **DEPL-02** | Phase 8 | Pending | - |
+| **DEPL-03** | Phase 8 | Pending | - |
+| **DEPL-04** | Phase 8 | Pending | - |
+| **DSGN-01** | Phase 9 | ✅ Complete | packages/editor/index.css |
+| **DSGN-02** | Phase 9 | ✅ Complete | packages/ui/components/ThemeProvider.tsx |
+| **DSGN-03** | Phase 9 | Pending | - |
+| **DSGN-04** | Phase 9 | Pending | - |
+| **QUAL-01** | Phase 10 | Pending | - |
+| **QUAL-02** | Phase 10 | Pending | packages/core/src/logger/ |
+| **QUAL-03** | Phase 10 | Pending | - |
+| **QUAL-04** | Phase 10 | Pending | - |
+| **QUAL-05** | Phase 10 | Pending | - |
+| **QUAL-06** | Phase 10 | Pending | - |
 
 **Coverage:**
 - v1 requirements: **45 total** (após remoção de AI, Multi-Document, Mobile)
@@ -278,5 +373,6 @@ Which phases cover which requirements. Updated after roadmap renumbering (13 →
 **Total: 30/45 requirements (66.7%)**
 
 ---
+
 *Requirements defined: 2025-02-04*
-*Last updated: 2026-02-07 after removing Advanced AI, Multi-Document Review, and Mobile Support*
+*Last updated: 2026-02-08 after full codebase analysis*

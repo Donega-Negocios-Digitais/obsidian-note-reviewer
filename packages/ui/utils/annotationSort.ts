@@ -20,6 +20,7 @@ const TYPE_ORDER: Record<AnnotationType, number> = {
   [AnnotationType.REPLACEMENT]: 2,
   [AnnotationType.COMMENT]: 3,
   [AnnotationType.GLOBAL_COMMENT]: 4,
+  [AnnotationType.IMAGE_COMMENT]: 5,
 };
 
 /**

@@ -1,4 +1,5 @@
 ﻿import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Annotation, AnnotationType, Block } from '../types';
 import { isCurrentUser } from '../utils/identity';
 import { useCopyFeedback } from '../hooks/useCopyFeedback';
@@ -22,6 +23,7 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
   selectedId,
   shareUrl
 }) => {
+  const { t } = useTranslation();
   const { copied, handleCopy, animationClass, buttonClass, iconClass } = useCopyFeedback();
   const sortedAnnotations = [...annotations].sort((a, b) => a.createdA - b.createdA);
 
@@ -43,7 +45,7 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
       <div className="p-3 border-b border-border/50">
         <div className="flex items-center justify-between">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Anotações
+            {t('annotationPanel.title')}
           </h2>
           <span className="text-[10px] font-mono bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
             {annotations.length}
@@ -61,7 +63,7 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
               </svg>
             </div>
             <p className="text-xs text-muted-foreground">
-              Selecione texto para adicionar anotações
+              {t('annotationPanel.selectText')}
             </p>
           </div>
         ) : (
@@ -74,7 +76,7 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   <h3 className="text-[10px] font-semibold uppercase tracking-wider text-blue-500">
-                    Comentários Globais
+                    {t('annotationPanel.globalComments')}
                   </h3>
                   <span className="text-[10px] font-mono bg-blue-500/20 px-1.5 py-0.5 rounded text-blue-600">
                     {globalComments.length}
@@ -101,7 +103,7 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
                       <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
                     </svg>
                     <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Anotações no Texto
+                      {t('annotationPanel.textAnnotations')}
                     </h3>
                     <span className="text-[10px] font-mono bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
                       {textAnnotations.length}
@@ -135,14 +137,14 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
                 <svg className={`w-3.5 h-3.5 copy-check-animated ${iconClass}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
-                Copiado
+                {t('annotationPanel.copied')}
               </>
             ) : (
               <>
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                 </svg>
-                Compartilhar
+                {t('annotationPanel.share')}
               </>
             )}
           </button>
@@ -174,9 +176,10 @@ const AnnotationCard: React.FC<{
   onSelect: () => void;
   onDelete: () => void;
 }> = ({ annotation, isSelected, onSelect, onDelete }) => {
+  const { t } = useTranslation();
   const typeConfig = {
     [AnnotationType.DELETION]: {
-      label: 'Excluir',
+      label: t('annotationPanel.types.deletion'),
       color: 'text-destructive',
       bg: 'bg-destructive/10',
       icon: (
@@ -186,7 +189,7 @@ const AnnotationCard: React.FC<{
       )
     },
     [AnnotationType.INSERTION]: {
-      label: 'Inserir',
+      label: t('annotationPanel.types.insertion'),
       color: 'text-secondary',
       bg: 'bg-secondary/10',
       icon: (
@@ -196,7 +199,7 @@ const AnnotationCard: React.FC<{
       )
     },
     [AnnotationType.REPLACEMENT]: {
-      label: 'Substituir',
+      label: t('annotationPanel.types.replacement'),
       color: 'text-primary',
       bg: 'bg-primary/10',
       icon: (
@@ -206,7 +209,7 @@ const AnnotationCard: React.FC<{
       )
     },
     [AnnotationType.COMMENT]: {
-      label: 'Comentario',
+      label: t('annotationPanel.types.comment'),
       color: 'text-accent',
       bg: 'bg-accent/10',
       icon: (
@@ -216,12 +219,22 @@ const AnnotationCard: React.FC<{
       )
     },
     [AnnotationType.GLOBAL_COMMENT]: {
-      label: 'Global',
+      label: t('annotationPanel.types.global'),
       color: 'text-blue-500',
       bg: 'bg-blue-500/10',
       icon: (
         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      )
+    },
+    [AnnotationType.IMAGE_COMMENT]: {
+      label: t('annotationPanel.types.image'),
+      color: 'text-purple-500',
+      bg: 'bg-purple-500/10',
+      icon: (
+        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
       )
     }
@@ -251,7 +264,7 @@ const AnnotationCard: React.FC<{
           <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
           </svg>
-          <span className="truncate">{annotation.author}{isCurrentUser(annotation.author) && ' (eu)'}</span>
+          <span className="truncate">{annotation.author}{isCurrentUser(annotation.author) && ` ${t('annotationPanel.me')}`}</span>
         </div>
       )}
 

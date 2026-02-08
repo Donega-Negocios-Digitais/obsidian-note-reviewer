@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AnnotationType } from '../types';
 import { createPortal } from 'react-dom';
 
@@ -9,6 +10,7 @@ interface ToolbarProps {
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({ highlightElement, onAnnotate, onClose }) => {
+  const { t } = useTranslation();
   const [step, setStep] = useState<'menu' | 'input'>('menu');
   const [activeType, setActiveType] = useState<AnnotationType | null>(null);
   const [inputValue, setInputValue] = useState('');
@@ -93,7 +95,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ highlightElement, onAnnotate, 
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
             }
-            label="Excluir"
+            label={t('toolbar.delete')}
             className="text-destructive hover:bg-destructive/10"
           />
           <ToolbarButton
@@ -103,7 +105,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ highlightElement, onAnnotate, 
                 <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
               </svg>
             }
-            label="Comentar"
+            label={t('toolbar.comment')}
             className="text-accent hover:bg-accent/10"
           />
           <div className="w-px h-5 bg-border mx-0.5" />
@@ -114,7 +116,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ highlightElement, onAnnotate, 
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             }
-            label="Cancelar"
+            label={t('toolbar.cancel')}
             className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
           />
         </div>
@@ -123,8 +125,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({ highlightElement, onAnnotate, 
           <textarea
             ref={inputRef as React.RefObject<HTMLTextAreaElement>}
             className="bg-transparent border-none outline-none text-sm w-80 placeholder:text-muted-foreground resize-none"
-            placeholder="Adicione um comentário..."
-            aria-label="Adicione um comentário"
+            placeholder={t('toolbar.addComment')}
+            aria-label={t('toolbar.addCommentAria')}
             rows={2}
             value={inputValue}
             onChange={e => setInputValue(e.target.value)}
@@ -140,11 +142,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({ highlightElement, onAnnotate, 
             type="submit"
             disabled={!inputValue.trim()}
             className="px-2 py-1 text-xs font-medium rounded bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-          >Salvar</button>
+          >{t('toolbar.save')}</button>
           <button
             type="button"
             onClick={() => setStep('menu')}
-            aria-label="Voltar ao menu"
+            aria-label={t('toolbar.backToMenu')}
             className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/15 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

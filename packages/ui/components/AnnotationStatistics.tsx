@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Annotation, AnnotationType } from '../types';
 import { CollapsibleSection } from './CollapsibleSection';
 import {
@@ -38,6 +39,7 @@ export const AnnotationStatistics: React.FC<AnnotationStatisticsProps> = ({
   onToggle,
   defaultCollapsed = true,
 }) => {
+  const { t } = useTranslation();
   const statsByType = useMemo(
     () => calculateStatsByType(annotations),
     [annotations]
@@ -60,7 +62,7 @@ export const AnnotationStatistics: React.FC<AnnotationStatisticsProps> = ({
 
   return (
     <CollapsibleSection
-      title="Estatísticas"
+      title={t('annotationStatistics.title')}
       defaultCollapsed={defaultCollapsed}
       onToggle={onToggle}
       className="annotation-statistics"
@@ -83,6 +85,7 @@ interface StatsByTypeProps {
 }
 
 const StatsByType: React.FC<StatsByTypeProps> = ({ stats }) => {
+  const { t } = useTranslation();
   const entries = Object.entries(stats).filter(([_, count]) => count > 0);
 
   if (entries.length === 0) {
@@ -91,7 +94,7 @@ const StatsByType: React.FC<StatsByTypeProps> = ({ stats }) => {
 
   return (
     <div className="stats-section stats-by-type">
-      <h4 className="stats-section-title">Por Tipo</h4>
+      <h4 className="stats-section-title">{t('annotationStatistics.byType')}</h4>
       <div className="stats-badges">
         {entries.map(([type, count]) => {
           const config = annotationTypeConfig[type as AnnotationType];
@@ -121,6 +124,7 @@ interface StatsByAuthorProps {
 }
 
 const StatsByAuthor: React.FC<StatsByAuthorProps> = ({ stats }) => {
+  const { t } = useTranslation();
   const sortedAuthors = useMemo(() => sortAuthorsByCount(stats), [stats]);
 
   if (sortedAuthors.length === 0) {
@@ -129,7 +133,7 @@ const StatsByAuthor: React.FC<StatsByAuthorProps> = ({ stats }) => {
 
   return (
     <div className="stats-section stats-by-author">
-      <h4 className="stats-section-title">Por Autor</h4>
+      <h4 className="stats-section-title">{t('annotationStatistics.byAuthor')}</h4>
       <div className="stats-author-list">
         {sortedAuthors.map(([author, count]) => {
           const isMe = isCurrentUser(author);
@@ -139,7 +143,7 @@ const StatsByAuthor: React.FC<StatsByAuthorProps> = ({ stats }) => {
               className={`stats-author-item ${isMe ? 'stats-author-current' : ''}`}
             >
               <span className={`stats-author-name ${isMe ? 'stats-author-name-current' : ''}`}>
-                {author}{isMe && ' (eu)'}
+                {author}{isMe && ` ${t('annotationStatistics.me')}`}
               </span>
               <span className={`stats-author-count ${isMe ? 'stats-author-count-current' : ''}`}>
                 {count}
@@ -161,6 +165,7 @@ interface TimingDistributionSectionProps {
 }
 
 const TimingDistributionSection: React.FC<TimingDistributionSectionProps> = ({ distribution }) => {
+  const { t } = useTranslation();
   const total = distribution.today + distribution.thisWeek + distribution.older;
 
   if (total === 0) {
@@ -168,14 +173,14 @@ const TimingDistributionSection: React.FC<TimingDistributionSectionProps> = ({ d
   }
 
   const buckets = [
-    { key: 'today', label: 'Hoje', count: distribution.today, colorClass: 'stats-timing-bar-today' },
-    { key: 'thisWeek', label: 'Esta semana', count: distribution.thisWeek, colorClass: 'stats-timing-bar-week' },
-    { key: 'older', label: 'Anterior', count: distribution.older, colorClass: 'stats-timing-bar-older' },
+    { key: 'today', label: t('annotationStatistics.today'), count: distribution.today, colorClass: 'stats-timing-bar-today' },
+    { key: 'thisWeek', label: t('annotationStatistics.thisWeek'), count: distribution.thisWeek, colorClass: 'stats-timing-bar-week' },
+    { key: 'older', label: t('annotationStatistics.older'), count: distribution.older, colorClass: 'stats-timing-bar-older' },
   ].filter(bucket => bucket.count > 0);
 
   return (
     <div className="stats-section stats-timing">
-      <h4 className="stats-section-title">Quando</h4>
+      <h4 className="stats-section-title">{t('annotationStatistics.when')}</h4>
       <div className="stats-timing-list">
         {buckets.map(bucket => {
           const percentage = Math.round((bucket.count / total) * 100);

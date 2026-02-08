@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { createPortal } from 'react-dom';
 import Highlighter from 'web-highlighter';
 import hljs from 'highlight.js';
@@ -16,11 +17,23 @@ import { useCopyFeedback } from '../hooks/useCopyFeedback';
 import { ImageAnnotator } from './ImageAnnotator';
 import type { Stroke } from '../types/drawing';
 
+interface ImageAnnotationContextValue {
+  annotations: Annotation[];
+  onAddAnnotation: (ann: Annotation) => void;
+  onUpdateAnnotation?: (id: string, updates: Partial<Annotation>) => void;
+}
+
+const ImageAnnotationContext = React.createContext<ImageAnnotationContextValue>({
+  annotations: [],
+  onAddAnnotation: () => {},
+});
+
 interface ViewerProps {
   blocks: Block[];
   markdown: string;
   annotations: Annotation[];
   onAddAnnotation: (ann: Annotation) => void;
+  onUpdateAnnotation?: (id: string, updates: Partial<Annotation>) => void;
   onSelectAnnotation: (id: string | null) => void;
   selectedAnnotationId: string | null;
   mode: EditorMode;
@@ -38,11 +51,14 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(({
   markdown,
   annotations,
   onAddAnnotation,
+  onUpdateAnnotation,
   onSelectAnnotation,
   selectedAnnotationId,
   mode,
   onBlockChange
 }, ref) => {
+  const { t } = useTranslation();
+
   // Copy note button feedback
   const {
     copied: noteCopied,
@@ -61,7 +77,6 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(({
   const [hoveredCodeBlock, setHoveredCodeBlock] = useState<{ block: Block; element: HTMLElement } | null>(null);
   const [isCodeBlockToolbarExiting, setIsCodeBlockToolbarExiting] = useState(false);
   const [focusedBlockIndex, setFocusedBlockIndex] = useState<number | null>(null);
-  const [imageAnnotations, setImageAnnotations] = useState<Map<string, Stroke[]>>(new Map());
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const focusedBlockRef = useRef<HTMLDivElement>(null);
 
@@ -561,8 +576,9 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(({
   };
 
   return (
+    <ImageAnnotationContext.Provider value={{ annotations, onAddAnnotation, onUpdateAnnotation }}>
     <div className="relative z-50 w-full max-w-3xl">
-      
+
       <article
         ref={containerRef}
         className="w-full max-w-3xl bg-card border border-border/50 rounded-xl shadow-xl p-5 md:p-10 lg:p-14 relative"
@@ -571,21 +587,21 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(({
         <button
           onClick={() => handleCopyNote(markdown)}
           className={`absolute top-3 right-3 md:top-5 md:right-5 flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted rounded-md transition-colors ${noteAnimationClass} ${noteButtonClass}`}
-          title={noteCopied ? 'Copiado!' : 'Copiar nota'}
+          title={noteCopied ? t('viewer.copiedNote') : t('viewer.copyNote')}
         >
           {noteCopied ? (
             <>
               <svg className={`w-3.5 h-3.5 text-green-500 ${noteIconClass}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
-              Copiado!
+              {t('viewer.copiedNote')}
             </>
           ) : (
             <>
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
               </svg>
-              Copiar nota
+              {t('viewer.copyNote')}
             </>
           )}
         </button>
@@ -667,6 +683,7 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(({
         )}
       </article>
     </div>
+    </ImageAnnotationContext.Provider>
   );
 });
 
@@ -763,16 +780,45 @@ const AnnotatedImage: React.FC<{
   alt: string;
   imageId: string;
 }> = ({ src, alt, imageId }) => {
-  // Estado local para as anotações desta imagem específica
-  const [strokes, setStrokes] = useState<Stroke[]>([]);
+  const { annotations, onAddAnnotation, onUpdateAnnotation } = React.useContext(ImageAnnotationContext);
+  const annotationIdRef = useRef<string | null>(null);
+
+  const handleAnnotationsChange = useCallback((strokes: Stroke[]) => {
+    if (strokes.length === 0) return;
+
+    const existingId = annotationIdRef.current;
+    if (existingId && onUpdateAnnotation) {
+      onUpdateAnnotation(existingId, { imageStrokes: strokes });
+    } else if (!existingId) {
+      const newAnn: Annotation = {
+        id: crypto.randomUUID(),
+        blockId: '',
+        startOffset: 0,
+        endOffset: 0,
+        type: AnnotationType.IMAGE_COMMENT,
+        originalText: alt || src,
+        imageId,
+        imageStrokes: strokes,
+        createdA: Date.now(),
+      };
+      annotationIdRef.current = newAnn.id;
+      onAddAnnotation(newAnn);
+    }
+  }, [alt, src, imageId, onAddAnnotation, onUpdateAnnotation]);
+
+  // Sync annotationIdRef with existing annotation from parent
+  const existingAnnotation = annotations.find(a => a.imageId === imageId);
+  if (existingAnnotation && !annotationIdRef.current) {
+    annotationIdRef.current = existingAnnotation.id;
+  }
 
   return (
     <span className="inline-block my-2">
       <ImageAnnotator
         src={src}
         alt={alt}
-        onAnnotationsChange={setStrokes}
-        initialStrokes={strokes}
+        onAnnotationsChange={handleAnnotationsChange}
+        initialStrokes={existingAnnotation?.imageStrokes ?? []}
       />
     </span>
   );
@@ -837,6 +883,7 @@ function sanitizeMermaidSVG(svg: string): string {
  * Custom code renderer for Mermaid diagrams
  */
 const MermaidRenderer: React.FC<any> = (props) => {
+  const { t } = useTranslation();
   const { children, className, node, inline, ...rest } = props;
   const mermaidRef = useRef<HTMLDivElement>(null);
   const [svg, setSvg] = useState<string>('');
@@ -901,7 +948,7 @@ const MermaidRenderer: React.FC<any> = (props) => {
     if (error) {
       return (
         <div className="p-4 my-4 bg-destructive/10 border border-destructive rounded text-destructive text-sm">
-          <strong>Mermaid Error:</strong> {error}
+          <strong>{t('viewer.mermaidError')}</strong> {error}
           <pre className="mt-2 text-xs opacity-75 overflow-auto">{code}</pre>
         </div>
       );
@@ -909,7 +956,7 @@ const MermaidRenderer: React.FC<any> = (props) => {
     if (svg) {
       return <div className="mermaid-diagram my-4" dangerouslySetInnerHTML={{ __html: svg }} />;
     }
-    return <div className="my-4 text-muted-foreground">Rendering diagram...</div>;
+    return <div className="my-4 text-muted-foreground">{t('viewer.renderingDiagram')}</div>;
   }
 
   // Regular code blocks and inline code
@@ -994,6 +1041,7 @@ const BlockRenderer: React.FC<{
   onBlockChange?: (blocks: Block[]) => void;
   isEditMode?: boolean;
 }> = ({ block, blocks, onBlockChange, isEditMode = false }) => {
+  const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(block.content);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -1041,7 +1089,7 @@ const BlockRenderer: React.FC<{
           data-block-id={block.id}
         >
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2 font-semibold">
-            Frontmatter YAML
+            {t('viewer.frontmatterYaml')}
           </div>
           <pre className="text-xs font-mono text-foreground/80 whitespace-pre-wrap">
             {block.content}
@@ -1081,13 +1129,13 @@ const BlockRenderer: React.FC<{
                 onClick={handleSave}
                 className="px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-opacity"
               >
-                Salvar (Enter)
+                {t('viewer.saveEnter')}
               </button>
               <button
                 onClick={handleCancel}
                 className="px-3 py-1.5 text-xs font-medium bg-muted text-muted-foreground rounded-md hover:bg-muted/80 transition-colors"
               >
-                Cancelar (Esc)
+                {t('viewer.cancelEsc')}
               </button>
             </div>
           </div>
@@ -1103,7 +1151,7 @@ const BlockRenderer: React.FC<{
             <button
               onClick={() => setIsEditing(true)}
               className="absolute -right-8 top-0 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity"
-              title="Editar este título"
+              title={t('viewer.editHeading')}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -1194,13 +1242,13 @@ const BlockRenderer: React.FC<{
                 onClick={handleSave}
                 className="px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-opacity"
               >
-                Salvar (Ctrl+Enter)
+                {t('viewer.saveCtrlEnter')}
               </button>
               <button
                 onClick={handleCancel}
                 className="px-3 py-1.5 text-xs font-medium bg-muted text-muted-foreground rounded-md hover:bg-muted/80 transition-colors"
               >
-                Cancelar (Esc)
+                {t('viewer.cancelEsc')}
               </button>
             </div>
           </div>
@@ -1216,7 +1264,7 @@ const BlockRenderer: React.FC<{
             <button
               onClick={() => setIsEditing(true)}
               className="absolute -right-8 top-0 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity"
-              title="Editar este parágrafo"
+              title={t('viewer.editParagraph')}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -1236,6 +1284,8 @@ interface CodeBlockProps {
 }
 
 const CodeBlock: React.FC<CodeBlockProps> = ({ block, onHover, onLeave, isHovered }) => {
+  const { t } = useTranslation();
+
   // Use copy feedback hook for animations
   const {
     copied,
@@ -1278,7 +1328,7 @@ const CodeBlock: React.FC<CodeBlockProps> = ({ block, onHover, onLeave, isHovere
       <button
         onClick={() => handleCopy(block.content)}
         className={`absolute top-2 right-2 p-1.5 rounded-md bg-muted/80 hover:bg-muted text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity z-10 ${animationClass} ${buttonClass}`}
-        title={copied ? 'Copiado!' : 'Copiar código'}
+        title={copied ? t('viewer.copiedCode') : t('viewer.copyCode')}
       >
         {copied ? (
           <svg className={`w-4 h-4 copy-check-animated ${iconClass}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1305,6 +1355,7 @@ const CodeBlockToolbar: React.FC<{
   onMouseEnter: () => void;
   onMouseLeave: () => void;
 }> = ({ element, onAnnotate, onClose, isExiting, onMouseEnter, onMouseLeave }) => {
+  const { t } = useTranslation();
   const [step, setStep] = useState<'menu' | 'input'>('menu');
   const [inputValue, setInputValue] = useState('');
   const [position, setPosition] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
@@ -1381,7 +1432,7 @@ const CodeBlockToolbar: React.FC<{
         <div className="flex items-center p-1 gap-0.5">
           <button
             onClick={() => onAnnotate(AnnotationType.DELETION)}
-            title="Delete"
+            title={t('toolbar.delete')}
             className="p-1.5 rounded-md transition-colors text-destructive hover:bg-destructive/10"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1390,7 +1441,7 @@ const CodeBlockToolbar: React.FC<{
           </button>
           <button
             onClick={() => setStep('input')}
-            title="Comment"
+            title={t('toolbar.comment')}
             className="p-1.5 rounded-md transition-colors text-accent hover:bg-accent/10"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1400,7 +1451,7 @@ const CodeBlockToolbar: React.FC<{
           <div className="w-px h-5 bg-border mx-0.5" />
           <button
             onClick={onClose}
-            title="Cancel"
+            title={t('toolbar.cancel')}
             className="p-1.5 rounded-md transition-colors text-muted-foreground hover:bg-muted"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1413,7 +1464,7 @@ const CodeBlockToolbar: React.FC<{
           <textarea
             ref={inputRef as React.RefObject<HTMLTextAreaElement>}
             className="bg-transparent border-none outline-none text-sm w-52 placeholder:text-muted-foreground resize-none"
-            placeholder="Adicione um comentário..."
+            placeholder={t('toolbar.addComment')}
             rows={2}
             value={inputValue}
             onChange={e => setInputValue(e.target.value)}
@@ -1430,7 +1481,7 @@ const CodeBlockToolbar: React.FC<{
             disabled={!inputValue.trim()}
             className="px-2 py-1 text-xs font-medium rounded bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity"
           >
-            Salvar
+            {t('toolbar.save')}
           </button>
           <button
             type="button"

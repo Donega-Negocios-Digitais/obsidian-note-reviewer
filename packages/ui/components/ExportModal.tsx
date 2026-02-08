@@ -6,6 +6,7 @@
  */
 
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useCopyFeedback } from '../hooks/useCopyFeedback';
 
 interface ExportModalProps {
@@ -29,6 +30,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   annotationCount,
   taterSprite,
 }) => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<Tab>('share');
 
   // Copy URL feedback (share tab)
@@ -60,6 +62,13 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     URL.revokeObjectURL(url);
   };
 
+  const getAnnotationsLabel = () => {
+    if (annotationCount === 1) {
+      return t('exportModal.annotationsCount_one', { count: annotationCount });
+    }
+    return t('exportModal.annotationsCount', { count: annotationCount });
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
       <div
@@ -71,10 +80,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         {/* Header */}
         <div className="p-4 border-b border-border">
           <div className="flex justify-between items-center">
-            <h3 className="font-semibold text-sm">Exportar</h3>
+            <h3 className="font-semibold text-sm">{t('exportModal.title')}</h3>
             <div className="flex items-center gap-3">
               <span className="text-xs text-muted-foreground">
-                {annotationCount} anotaç{annotationCount !== 1 ? 'ões' : 'ão'}
+                {getAnnotationsLabel()}
               </span>
               <button
                 onClick={onClose}
@@ -100,7 +109,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              Compartilhar
+              {t('exportModal.share')}
             </button>
             <button
               onClick={() => setActiveTab('diff')}
@@ -110,7 +119,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              Diff Bruto
+              {t('exportModal.rawDiff')}
             </button>
           </div>
 
@@ -119,7 +128,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-2">
-                  URL Compartilhável
+                  {t('exportModal.shareableUrl')}
                 </label>
                 <div className="relative group">
                   <textarea
@@ -137,14 +146,14 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                         <svg className={`w-3 h-3 copy-check-animated ${urlIconClass}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
-                        Copiado
+                        {t('exportModal.copied')}
                       </>
                     ) : (
                       <>
                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                         </svg>
-                        Copiar
+                        {t('exportModal.copy')}
                       </>
                     )}
                   </button>
@@ -155,7 +164,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               </div>
 
               <p className="text-xs text-muted-foreground">
-                Esta URL contém a nota completa e todas as anotações. Qualquer pessoa com este link pode visualizar e adicionar às suas anotações.
+                {t('exportModal.urlDescription')}
               </p>
             </div>
           ) : (
@@ -172,13 +181,13 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               onClick={() => handleCopyDiff(diffOutput)}
               className={`px-3 py-1.5 rounded-md text-xs font-medium bg-muted hover:bg-muted/80 transition-colors ${diffAnimationClass} ${diffButtonClass}`}
             >
-              {diffCopied ? 'Copiado!' : 'Copiar'}
+              {diffCopied ? t('exportModal.copied') : t('exportModal.copy')}
             </button>
             <button
               onClick={handleDownloadDiff}
               className="px-3 py-1.5 rounded-md text-xs font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
             >
-              Baixar .diff
+              {t('exportModal.downloadDiff')}
             </button>
           </div>
         )}
