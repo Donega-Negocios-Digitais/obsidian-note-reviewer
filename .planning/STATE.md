@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 | 1 | Authentication | ✅ Complete | 2026-02-07 |
 | 2 | Annotation System | ✅ Complete (90% gaps) | 2025-02-05 |
 | 3 | Claude Code Integration | ✅ Complete | 2026-02-05 |
-| 4 | Real-Time Collaboration | ⚠️ In Progress (72%) | 2026-02-07 |
+| 4 | Real-Time Collaboration | ⚠️ In Progress (78%) | 2026-02-08 |
 | 5 | Configuration System | ✅ Complete | 2026-02-07 |
 | 6 | Sharing Infrastructure | ⚠️ Partial (33%) | - |
 | 7 | Stripe Monetization | ⚠️ Partial (40%) | - |
@@ -51,6 +51,7 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 - **2026-02-07**: ROADMAP renumerado (13 → 10 fases) e progresso atualizado — 28/43 plans (65.1%), 30/45 requisitos (66.7%)
 - **2026-02-07**: 04-08 completado — ShareButton integrado no DocumentWorkspace toolbar
 - **2026-02-07**: 04-06 completado — Liveblocks auth endpoint criado com graceful degradation
+- **2026-02-08**: 04-09 completado — Vault configuration UI integrada no SettingsPanel com useVaultState hook para estado global
 
 ### Key Architecture Decisions
 
@@ -69,6 +70,7 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 | **ShareButton no editor** | Botão de compartilhar integrado na toolbar principal para fácil acesso | ✓ Complete |
 | **Liveblocks anonymous user access** | Dev模式下使用 'anonymous-user' ID 简化测试，生产环境应验证 session.user.id | ✓ Confirmed |
 | **Liveblocks graceful degradation** | 服务端即使没有 LIVEBLOCKS_SECRET_KEY 也能启动，返回有帮助的错误信息 | ✓ Confirmed |
+| **Vault configuration no SettingsPanel** | VaultPathSelector integrado com useVaultState hook para estado global | ✓ Complete |
 
 ## Completed Work
 
@@ -105,28 +107,28 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 - Hooks configuration com status badges e test buttons
 
 ### Phase 4: Real-Time Collaboration ⚠️
-**In Progress:** 72% (7/9 plans complete)
+**In Progress:** 78% (7/9 plans complete)
 
 **Completed:**
 - 04-01: Liveblocks room provider with presence
 - 04-02: Liveblocks hooks para colaboração em tempo real
 - 04-03: Guest access para documentos compartilhados
-- 04-04: SharedDocument page com visualização de markdown
+- 04-04: Vault integration utilities (File System Access API)
 - 04-05: Slug-based shareable link system
 - 04-06: Liveblocks authentication endpoint (/api/liveblocks-auth)
 - 04-08: ShareButton integrado no DocumentWorkspace toolbar
+- 04-09: Vault configuration UI no SettingsPanel com global state hook
 
 **Remaining:**
 - 04-07: ShareDialog component (PLAN exists, SUMMARY may exist - needs verification)
-- 04-09: Vault configuration para editor integration
 
 ## Next Steps
 
 ### Recommended Priority Order:
 
-1. **Phase 4: Real-Time Collaboration** (72% — complete remaining)
+1. **Phase 4: Real-Time Collaboration** (78% — nearly complete)
    - Complete 04-07: ShareDialog component verification
-   - Complete 04-09: Vault configuration integration
+   - Vault configuration integration (04-09) ✓ COMPLETE
    - Test end-to-end multi-user collaboration
 
 2. **Phase 6: Sharing Infrastructure** (33% — complete remaining)
@@ -155,9 +157,9 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 
 ## Session Continuity
 
-Last session: 2026-02-07T21:19:00Z
-Stopped at: Completed 04-06-PLAN.md (Liveblocks Auth Endpoint)
+Last session: 2026-02-08T00:45:00Z
+Stopped at: Completed 04-09-PLAN.md (Vault Path Configuration)
 Resume file: None
 
 ---
-*Last updated: 2026-02-07 after completing 04-06 Liveblocks Auth Endpoint*
+*Last updated: 2026-02-08 after completing 04-09 Vault Path Configuration*
