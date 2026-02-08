@@ -1,8 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BookOpen, FolderOpen, User, Keyboard, Globe, Download, Upload, RotateCcw, Lightbulb, UserCircle, Users, Edit, Trash2 } from 'lucide-react';
-// import { ProfileSettings } from './ProfileSettings';
-// import { CollaborationSettings } from './CollaborationSettings';
+import { BookOpen, FolderOpen, User, Keyboard, Globe, Download, Upload, RotateCcw, Lightbulb, UserCircle, Users, Edit, Trash2, Plug, ChevronDown, ChevronUp } from 'lucide-react';
+import { CategoryManager } from './CategoryManager';
+import { NewTemplateModal } from './NewTemplateModal';
+import { IntegrationsSettings } from './IntegrationsSettings';
+import { ConfirmationDialog } from './ConfirmationDialog';
+
+import { ProfileSettings } from './ProfileSettings';
+import { CollaborationSettings } from './CollaborationSettings';
 
 const BoxingGloveIcon = ({ className }: { className?: string }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor">
@@ -45,7 +50,7 @@ interface SettingsPanelProps {
   onNotePathChange?: (path: string) => void;
 }
 
-type CategoryTab = 'caminhos' | 'regras' | 'identidade' | 'idioma' | 'atalhos' | 'hooks'; // 'perfil' | 'colaboracao' - temporarily disabled
+type CategoryTab = 'caminhos' | 'perfil' | 'colaboracao' | 'integracoes' | 'hooks' | 'regras' | 'idioma' | 'atalhos';
 
 // Helper to get Lucide icon component from icon name
 function getLucideIcon(iconName: string): React.ComponentType<{ className?: string }> {
@@ -132,6 +137,16 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     description: '',
     trigger: '',
   });
+
+  // Delete hook confirmation dialog state
+  const [deleteHookId, setDeleteHookId] = useState<string | null>(null);
+
+  // Category manager & new template modals
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
+  const [showNewTemplateModal, setShowNewTemplateModal] = useState(false);
+
+  // Identity section collapse state (within Profile tab)
+  const [identityExpanded, setIdentityExpanded] = useState(true);
 
   // Language state
   const [currentLanguage, setCurrentLanguage] = useState(() => {
@@ -460,10 +475,15 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   };
 
   const deleteHook = (id: string) => {
-    if (confirm('Tem certeza que deseja excluir este hook?')) {
-      const updatedHooks = hooks.filter(h => h.id !== id);
+    setDeleteHookId(id);
+  };
+
+  const confirmDeleteHook = () => {
+    if (deleteHookId) {
+      const updatedHooks = hooks.filter(h => h.id !== deleteHookId);
       setHooks(updatedHooks);
       localStorage.setItem('obsreview-hooks', JSON.stringify(updatedHooks));
+      setDeleteHookId(null);
     }
   };
 
@@ -471,13 +491,13 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
   const tabs: Array<{ id: CategoryTab; Icon: React.ComponentType<{ className?: string }>; label: string }> = [
     { id: 'caminhos', Icon: FolderOpen, label: t('settings.tabs.caminhos') },
+    { id: 'perfil', Icon: UserCircle, label: t('settings.tabs.perfil') },
+    { id: 'colaboracao', Icon: Users, label: t('settings.tabs.colaboracao') },
+    { id: 'integracoes', Icon: Plug, label: t('settings.tabs.integracoes') },
+    { id: 'hooks', Icon: BoxingGloveIcon, label: t('settings.tabs.hooks') },
     { id: 'regras', Icon: BookOpen, label: t('settings.tabs.regras') },
-    { id: 'identidade', Icon: User, label: t('settings.tabs.identidade') },
     { id: 'idioma', Icon: Globe, label: t('settings.tabs.idioma') },
     { id: 'atalhos', Icon: Keyboard, label: t('settings.tabs.atalhos') },
-    { id: 'hooks', Icon: BoxingGloveIcon, label: t('settings.tabs.hooks') },
-    // { id: 'perfil', Icon: UserCircle, label: 'Perfil' }, // temporarily disabled
-    // { id: 'colaboracao', Icon: Users, label: 'Colaboração' }, // temporarily disabled
   ];
 
   const CategoryContent = ({ category }: { category: CategoryTab }) => {
@@ -616,10 +636,26 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
     return (
       <div className="p-5 space-y-6 overflow-y-auto">
-        {/* Header */}
-        <div className="mb-4">
-          <h4 className="text-base font-semibold text-foreground">{t('settings.paths.title')}</h4>
-          <p className="text-sm text-muted-foreground/90">{t('settings.paths.subtitle')}</p>
+        {/* Header with action buttons */}
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h4 className="text-base font-semibold text-foreground">{t('settings.paths.title')}</h4>
+            <p className="text-sm text-muted-foreground/90">{t('settings.paths.subtitle')}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowCategoryManager(true)}
+              className="px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted rounded-lg transition-colors"
+            >
+              {t('settings.categoryManager.manageCategories')}
+            </button>
+            <button
+              onClick={() => setShowNewTemplateModal(true)}
+              className="px-3 py-1.5 text-xs font-medium text-primary-foreground bg-primary hover:opacity-90 rounded-lg transition-opacity"
+            >
+              {t('settings.newTemplate.newTemplate')}
+            </button>
+          </div>
         </div>
 
         {categoryOrder.map(({ key, icon, label }) => {
@@ -862,7 +898,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           id={`settings-panel-content-${activeTab}`}
           role="tabpanel"
           aria-labelledby={`settings-panel-tab-${activeTab}`}
-          className={`${activeTab === 'regras' || activeTab === 'caminhos' || activeTab === 'identidade' || activeTab === 'atalhos' || activeTab === 'hooks' || activeTab === 'idioma' ? '' : 'p-5'} overflow-y-auto flex-1`}
+          className={`${activeTab === 'regras' || activeTab === 'caminhos' || activeTab === 'perfil' || activeTab === 'colaboracao' || activeTab === 'integracoes' || activeTab === 'atalhos' || activeTab === 'hooks' || activeTab === 'idioma' ? '' : 'p-5'} overflow-y-auto flex-1`}
         >
         {activeTab === 'caminhos' ? (
           <AllPathsAndTemplates />
@@ -870,132 +906,169 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           <div className="flex flex-col h-full">
             <ConfigEditor />
           </div>
-        ) : activeTab === 'identidade' ? (
-          <div className="p-5 space-y-4 overflow-y-auto">
+        ) : activeTab === 'perfil' ? (
+          <div className="p-5 space-y-6 overflow-y-auto">
             {/* Header */}
             <div className="mb-2">
-              <h4 className="text-base font-semibold text-foreground">{t('settings.identity.title')}</h4>
-              <p className="text-sm text-muted-foreground/90">{t('settings.identity.subtitle')}</p>
+              <h4 className="text-base font-semibold text-foreground">{t('settings.profile.title')}</h4>
+              <p className="text-sm text-muted-foreground/90">{t('settings.profile.subtitle')}</p>
             </div>
 
-            {/* 3-column grid for identity cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {/* Profile Section */}
-              <div className="bg-card/50 rounded-xl border border-border/50 p-4">
-                <div className="flex items-center gap-2 mb-3">
+            {/* Profile Settings Component */}
+            <ProfileSettings />
+
+            {/* Collapsible Identity Section */}
+            <div className="border border-border/50 rounded-xl overflow-hidden">
+              <button
+                onClick={() => setIdentityExpanded(!identityExpanded)}
+                className="w-full flex items-center justify-between p-4 bg-card/50 hover:bg-card/80 transition-colors"
+              >
+                <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
                     <User className="w-4 h-4" />
                   </div>
-                  <div>
-                    <h4 className="text-sm font-semibold text-foreground">{t('settings.identity.profile')}</h4>
-                    <p className="text-[10px] text-muted-foreground">{t('settings.identity.profileDescription')}</p>
+                  <div className="text-left">
+                    <h4 className="text-sm font-semibold text-foreground">{t('settings.profile.identitySection')}</h4>
+                    <p className="text-[10px] text-muted-foreground">{t('settings.profile.identitySectionDesc')}</p>
                   </div>
                 </div>
+                {identityExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+              </button>
 
-                {/* Display Name */}
-                <div className="space-y-2">
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={displayName}
-                      onChange={(e) => handleDisplayNameChange(e.target.value)}
-                      placeholder={t('settings.identity.displayNamePlaceholder')}
-                      className={`w-full px-2.5 py-2 pr-8 bg-background rounded-lg text-xs border focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all ${
-                        saveErrors['display-name']
-                          ? 'border-red-500'
-                          : saveSuccess['display-name']
-                          ? 'border-green-500'
-                          : 'border-border focus:border-primary'
-                      }`}
-                    />
-                    {saveSuccess['display-name'] && !saveErrors['display-name'] && (
-                      <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                        <svg className="w-3.5 h-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
+              {identityExpanded && (
+                <div className="p-4 border-t border-border/50 space-y-4">
+                  {/* 3-column grid for identity cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* Profile Section */}
+                    <div className="bg-card/50 rounded-xl border border-border/50 p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                          <User className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-semibold text-foreground">{t('settings.identity.profile')}</h4>
+                          <p className="text-[10px] text-muted-foreground">{t('settings.identity.profileDescription')}</p>
+                        </div>
                       </div>
-                    )}
-                    {saveErrors['display-name'] && (
-                      <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                        <svg className="w-3.5 h-3.5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </div>
-                    )}
-                  </div>
-                  {saveErrors['display-name'] && (
-                    <p className="text-[9px] text-red-500">
-                      {saveErrors['display-name']}
-                    </p>
-                  )}
-                  <p className="text-[10px] text-muted-foreground/70">
-                    {t('settings.identity.displayNameDescription')}
-                  </p>
-                </div>
-              </div>
 
-              {/* Current Identity Section */}
-              <div className="bg-card/50 rounded-xl border border-border/50 p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center text-muted-foreground">
-                    <LucideIcons.IdCard className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-semibold text-foreground">{t('settings.identity.currentIdentity')}</h4>
-                    <p className="text-[10px] text-muted-foreground">{t('settings.identity.currentIdentityDescription')}</p>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <div>
-                    <label className="text-[10px] font-medium text-muted-foreground block mb-1">
-                      {t('settings.identity.mainIdentity')}
-                    </label>
-                    <div className="px-2 py-1.5 bg-muted rounded-lg text-[10px] font-mono text-muted-foreground break-all">
-                      {identity?.slice(0, 16)}...
-                    </div>
-                  </div>
-
-                  {displayName.trim() && (
-                    <div>
-                      <label className="text-[10px] font-medium text-muted-foreground/60 block mb-1">
-                        {t('settings.identity.anonymousBackup')}
-                      </label>
-                      <div className="px-2 py-1.5 bg-muted/50 rounded-lg text-[9px] font-mono text-muted-foreground/50 break-all">
-                        {anonymousIdentity?.slice(0, 16)}...
+                      {/* Display Name */}
+                      <div className="space-y-2">
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={displayName}
+                            onChange={(e) => handleDisplayNameChange(e.target.value)}
+                            placeholder={t('settings.identity.displayNamePlaceholder')}
+                            className={`w-full px-2.5 py-2 pr-8 bg-background rounded-lg text-xs border focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all ${
+                              saveErrors['display-name']
+                                ? 'border-red-500'
+                                : saveSuccess['display-name']
+                                ? 'border-green-500'
+                                : 'border-border focus:border-primary'
+                            }`}
+                          />
+                          {saveSuccess['display-name'] && !saveErrors['display-name'] && (
+                            <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                              <svg className="w-3.5 h-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            </div>
+                          )}
+                          {saveErrors['display-name'] && (
+                            <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                              <svg className="w-3.5 h-3.5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+                        {saveErrors['display-name'] && (
+                          <p className="text-[9px] text-red-500">
+                            {saveErrors['display-name']}
+                          </p>
+                        )}
+                        <p className="text-[10px] text-muted-foreground/70">
+                          {t('settings.identity.displayNameDescription')}
+                        </p>
                       </div>
                     </div>
-                  )}
-                </div>
-              </div>
 
-              {/* Actions Section */}
-              <div className="bg-card/50 rounded-xl border border-border/50 p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center text-accent-foreground">
-                    <LucideIcons.Zap className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-semibold text-foreground">{t('settings.identity.actions')}</h4>
-                    <p className="text-[10px] text-muted-foreground">{t('settings.identity.actionsDescription')}</p>
+                    {/* Current Identity Section */}
+                    <div className="bg-card/50 rounded-xl border border-border/50 p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center text-muted-foreground">
+                          <LucideIcons.IdCard className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-semibold text-foreground">{t('settings.identity.currentIdentity')}</h4>
+                          <p className="text-[10px] text-muted-foreground">{t('settings.identity.currentIdentityDescription')}</p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div>
+                          <label className="text-[10px] font-medium text-muted-foreground block mb-1">
+                            {t('settings.identity.mainIdentity')}
+                          </label>
+                          <div className="px-2 py-1.5 bg-muted rounded-lg text-[10px] font-mono text-muted-foreground break-all">
+                            {identity?.slice(0, 16)}...
+                          </div>
+                        </div>
+
+                        {displayName.trim() && (
+                          <div>
+                            <label className="text-[10px] font-medium text-muted-foreground/60 block mb-1">
+                              {t('settings.identity.anonymousBackup')}
+                            </label>
+                            <div className="px-2 py-1.5 bg-muted/50 rounded-lg text-[9px] font-mono text-muted-foreground/50 break-all">
+                              {anonymousIdentity?.slice(0, 16)}...
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Actions Section */}
+                    <div className="bg-card/50 rounded-xl border border-border/50 p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center text-accent-foreground">
+                          <LucideIcons.Zap className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-semibold text-foreground">{t('settings.identity.actions')}</h4>
+                          <p className="text-[10px] text-muted-foreground">{t('settings.identity.actionsDescription')}</p>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={handleRegenerateIdentity}
+                        className="w-full px-3 py-2 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors flex items-center justify-center gap-2"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        {t('settings.identity.regenerateShort')}
+                      </button>
+                      <p className="text-[9px] text-muted-foreground/60 text-center mt-2">
+                        {t('settings.identity.regenerateDescription')}
+                      </p>
+                    </div>
                   </div>
                 </div>
-
-                <button
-                  onClick={handleRegenerateIdentity}
-                  className="w-full px-3 py-2 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors flex items-center justify-center gap-2"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  {t('settings.identity.regenerateShort')}
-                </button>
-                <p className="text-[9px] text-muted-foreground/60 text-center mt-2">
-                  {t('settings.identity.regenerateDescription')}
-                </p>
-              </div>
+              )}
             </div>
           </div>
+        ) : activeTab === 'colaboracao' ? (
+          <div className="p-5 space-y-4 overflow-y-auto">
+            {/* Header */}
+            <div className="mb-2">
+              <h4 className="text-base font-semibold text-foreground">{t('settings.collaboration.title')}</h4>
+              <p className="text-sm text-muted-foreground/90">{t('settings.collaboration.subtitle')}</p>
+            </div>
+            <CollaborationSettings />
+          </div>
+        ) : activeTab === 'integracoes' ? (
+          <IntegrationsSettings hooks={hooks} />
         ) : activeTab === 'idioma' ? (
           <div className="p-5 space-y-4 overflow-y-auto">
             {/* Header */}
@@ -1416,6 +1489,36 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         )}
         </div>
       </div>
+
+      {/* Category Manager Modal */}
+      <CategoryManager
+        isOpen={showCategoryManager}
+        onClose={() => setShowCategoryManager(false)}
+        onCategoriesChange={() => {
+          // Force re-render to pick up new categories
+        }}
+      />
+
+      {/* New Template Modal */}
+      <NewTemplateModal
+        isOpen={showNewTemplateModal}
+        onClose={() => setShowNewTemplateModal(false)}
+        onTemplateCreated={() => {
+          // Force re-render to show new template in grid
+        }}
+      />
+
+      {/* Hook Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={!!deleteHookId}
+        onClose={() => setDeleteHookId(null)}
+        onConfirm={confirmDeleteHook}
+        title={t('settings.hooks.deleteConfirmTitle')}
+        message={t('settings.hooks.deleteConfirmMessage')}
+        confirmLabel={t('settings.hooks.deleteConfirmButton')}
+        cancelLabel={t('settings.actions.cancel')}
+        destructive
+      />
     </div>
   );
 };

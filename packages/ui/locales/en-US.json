@@ -8,7 +8,10 @@
       "identidade": "Reviewer Identity",
       "atalhos": "Keyboard Shortcuts",
       "hooks": "Hooks",
-      "idioma": "Language"
+      "idioma": "Language",
+      "perfil": "Profile",
+      "colaboracao": "Collaboration",
+      "integracoes": "Integrations"
     },
     "actions": {
       "export": "Export",
@@ -86,7 +89,75 @@
       "obsidianNote": {
         "name": "Create Obsidian Note",
         "description": "Opens Note Reviewer when you use the skill to create notes in Obsidian"
-      }
+      },
+      "deleteConfirmTitle": "Delete Hook",
+      "deleteConfirmMessage": "Are you sure you want to delete this hook? This action cannot be undone.",
+      "deleteConfirmButton": "Delete"
+    },
+    "profile": {
+      "title": "Profile",
+      "subtitle": "Manage your account and identity",
+      "identitySection": "Reviewer Identity",
+      "identitySectionDesc": "Configure how you appear in reviews"
+    },
+    "collaboration": {
+      "title": "Collaboration",
+      "subtitle": "Manage collaborators and permissions"
+    },
+    "categoryManager": {
+      "title": "Manage Categories",
+      "subtitle": "Organize your note types by category",
+      "addCategory": "New Category",
+      "editCategory": "Edit Category",
+      "deleteCategory": "Delete Category",
+      "categoryName": "Category Name",
+      "categoryNamePlaceholder": "Ex: Studies, Work...",
+      "categoryIcon": "Icon",
+      "builtIn": "Built-in",
+      "custom": "Custom",
+      "deleteConfirm": "Are you sure you want to delete this category? Associated templates will remain without a category.",
+      "emptyCustom": "No custom categories yet. Create one to organize your templates.",
+      "manageCategories": "Manage Categories"
+    },
+    "newTemplate": {
+      "title": "New Template",
+      "subtitle": "Create a new note type",
+      "templateName": "Template Name",
+      "templateNamePlaceholder": "Ex: Meeting Note",
+      "category": "Category",
+      "selectCategory": "Select a category",
+      "icon": "Icon",
+      "templateFile": "Template File",
+      "templateFilePlaceholder": "Template file path...",
+      "destination": "Default Destination",
+      "destinationPlaceholder": "Default destination folder...",
+      "created": "Template created successfully!",
+      "newTemplate": "New Template"
+    },
+    "integrations": {
+      "title": "Integrations",
+      "subtitle": "Connect external tools to Note Reviewer",
+      "whatsapp": "WhatsApp",
+      "whatsappDesc": "Send review links automatically via WhatsApp",
+      "telegram": "Telegram",
+      "telegramDesc": "Send review links automatically via Telegram",
+      "configure": "Configure",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "phoneNumber": "WhatsApp Number",
+      "phoneNumberPlaceholder": "+1 555 123-4567",
+      "chatId": "Chat ID / Username",
+      "chatIdPlaceholder": "@username or numeric ID",
+      "associatedHook": "Associated Hook",
+      "selectHook": "Select a hook",
+      "noHook": "None",
+      "customMessage": "Custom Message",
+      "customMessagePlaceholder": "New note for review: {{link}}",
+      "autoSendLink": "Automatically send review link",
+      "testConnection": "Test Connection",
+      "testSuccess": "Connection tested successfully!",
+      "testError": "Error testing connection",
+      "noIntegrations": "No integrations configured yet."
     },
     "language": {
       "title": "Interface Language",

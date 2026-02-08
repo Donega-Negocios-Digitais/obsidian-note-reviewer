@@ -23,6 +23,9 @@ export default defineConfig({
       '@obsidian-note-reviewer/editor': path.resolve(__dirname, '../../packages/editor/App.tsx'),
       '@obsidian-note-reviewer/security/vite-plugin-csp': path.resolve(__dirname, '../../packages/security/vite-plugin-csp.ts'),
       '@obsidian-note-reviewer/security/csp': path.resolve(__dirname, '../../packages/security/csp.ts'),
+      '@obsidian-note-reviewer/security/auth': path.resolve(__dirname, './stubs/security-auth.ts'),
+      '@obsidian-note-reviewer/security/supabase/storage': path.resolve(__dirname, './stubs/security-supabase-storage.ts'),
+      '@obsidian-note-reviewer/collaboration': path.resolve(__dirname, './stubs/collaboration.ts'),
     }
   },
   build: {

@@ -8,7 +8,10 @@
       "identidade": "Identidade do Revisor",
       "atalhos": "Atalhos de Teclado",
       "hooks": "Hooks",
-      "idioma": "Idioma"
+      "idioma": "Idioma",
+      "perfil": "Perfil",
+      "colaboracao": "Colaboração",
+      "integracoes": "Integrações"
     },
     "actions": {
       "export": "Exportar",
@@ -87,7 +90,75 @@
       "obsidianNote": {
         "name": "Criar Nota Obsidian",
         "description": "Abre o Note Reviewer quando você usa a skill para criar notas no Obsidian"
-      }
+      },
+      "deleteConfirmTitle": "Excluir Hook",
+      "deleteConfirmMessage": "Tem certeza que deseja excluir este hook? Esta ação não pode ser desfeita.",
+      "deleteConfirmButton": "Excluir"
+    },
+    "profile": {
+      "title": "Perfil",
+      "subtitle": "Gerencie sua conta e identidade",
+      "identitySection": "Identidade do Revisor",
+      "identitySectionDesc": "Configure como você aparece nas revisões"
+    },
+    "collaboration": {
+      "title": "Colaboração",
+      "subtitle": "Gerencie colaboradores e permissões"
+    },
+    "categoryManager": {
+      "title": "Gerenciar Categorias",
+      "subtitle": "Organize seus tipos de nota por categoria",
+      "addCategory": "Nova Categoria",
+      "editCategory": "Editar Categoria",
+      "deleteCategory": "Excluir Categoria",
+      "categoryName": "Nome da Categoria",
+      "categoryNamePlaceholder": "Ex: Estudos, Trabalho...",
+      "categoryIcon": "Ícone",
+      "builtIn": "Padrão",
+      "custom": "Custom",
+      "deleteConfirm": "Tem certeza que deseja excluir esta categoria? Os templates associados permanecerão sem categoria.",
+      "emptyCustom": "Nenhuma categoria customizada ainda. Crie uma para organizar seus templates.",
+      "manageCategories": "Gerenciar Categorias"
+    },
+    "newTemplate": {
+      "title": "Novo Template",
+      "subtitle": "Crie um novo tipo de nota",
+      "templateName": "Nome do Template",
+      "templateNamePlaceholder": "Ex: Nota de Reunião",
+      "category": "Categoria",
+      "selectCategory": "Selecione uma categoria",
+      "icon": "Ícone",
+      "templateFile": "Arquivo Template",
+      "templateFilePlaceholder": "Caminho do arquivo de template...",
+      "destination": "Destino Padrão",
+      "destinationPlaceholder": "Pasta de destino padrão...",
+      "created": "Template criado com sucesso!",
+      "newTemplate": "Novo Template"
+    },
+    "integrations": {
+      "title": "Integrações",
+      "subtitle": "Conecte ferramentas externas ao Note Reviewer",
+      "whatsapp": "WhatsApp",
+      "whatsappDesc": "Envie links de revisão automaticamente via WhatsApp",
+      "telegram": "Telegram",
+      "telegramDesc": "Envie links de revisão automaticamente via Telegram",
+      "configure": "Configurar",
+      "enabled": "Ativado",
+      "disabled": "Desativado",
+      "phoneNumber": "Número WhatsApp",
+      "phoneNumberPlaceholder": "+55 11 99999-9999",
+      "chatId": "Chat ID / Username",
+      "chatIdPlaceholder": "@usuario ou ID numérico",
+      "associatedHook": "Hook Associado",
+      "selectHook": "Selecione um hook",
+      "noHook": "Nenhum",
+      "customMessage": "Mensagem Personalizada",
+      "customMessagePlaceholder": "Nova nota para revisão: {{link}}",
+      "autoSendLink": "Enviar link para revisão automaticamente",
+      "testConnection": "Testar Conexão",
+      "testSuccess": "Conexão testada com sucesso!",
+      "testError": "Erro ao testar conexão",
+      "noIntegrations": "Nenhuma integração configurada ainda."
     },
     "language": {
       "title": "Idioma da Interface",

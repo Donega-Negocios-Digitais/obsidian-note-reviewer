@@ -341,6 +341,49 @@ export function isValidNoteType(tipo: string): tipo is TipoNota {
 }
 
 /**
+ * Retorna todas as categorias built-in
+ */
+export function getBuiltInCategories() {
+  return [
+    { id: 'terceiros', name: 'Conteúdo de Terceiros', icon: 'BookOpen', isBuiltIn: true },
+    { id: 'atomica', name: 'Notas Atômicas', icon: 'Atom', isBuiltIn: true },
+    { id: 'organizacional', name: 'Notas Organizacionais', icon: 'Map', isBuiltIn: true },
+    { id: 'alex', name: 'Conteúdo Próprio', icon: 'PenTool', isBuiltIn: true },
+  ] as const;
+}
+
+/**
+ * Retorna todas as categorias incluindo custom
+ */
+export function getAllCategories(customCategories: Array<{ id: string; name: string; icon: string; isBuiltIn: boolean }> = []) {
+  return [...getBuiltInCategories(), ...customCategories];
+}
+
+/**
+ * Agrupa tipos de nota incluindo templates customizados
+ */
+export function getNoteTypesByCategoryDynamic(
+  customTemplates: Array<{ id: string; category: string; label: string; icon: string; templatePath: string; destinationPath: string }> = []
+) {
+  const base = getNoteTypesByCategory();
+  const result: Record<string, Array<{ tipo: string; icon: string; label: string; category: string }>> = { ...base };
+
+  customTemplates.forEach(template => {
+    if (!result[template.category]) {
+      result[template.category] = [];
+    }
+    result[template.category].push({
+      tipo: template.id,
+      icon: template.icon,
+      label: template.label,
+      category: template.category,
+    });
+  });
+
+  return result;
+}
+
+/**
  * Retorna todos os valores padrão de templates e destinos
  */
 export function getDefaultConfigs(): {

@@ -617,3 +617,91 @@ export function getDisplayName(): string {
 export function setDisplayName(name: string): SafeSetResult {
   return safeSetItem(DISPLAY_NAME_KEY, name);
 }
+
+// =====================================
+// Custom Categories (localStorage)
+// =====================================
+
+export interface CustomCategory {
+  id: string;
+  name: string;
+  icon: string;
+  isBuiltIn: boolean;
+}
+
+const CUSTOM_CATEGORIES_KEY = 'obsidian-reviewer-custom-categories';
+
+export function getCustomCategories(): CustomCategory[] {
+  const result = safeLocalStorageGetItem(CUSTOM_CATEGORIES_KEY);
+  if (!result.success || !result.value) return [];
+  try {
+    return JSON.parse(result.value);
+  } catch {
+    return [];
+  }
+}
+
+export function saveCustomCategories(categories: CustomCategory[]): SafeLocalStorageSetResult {
+  return safeLocalStorageSetItem(CUSTOM_CATEGORIES_KEY, JSON.stringify(categories));
+}
+
+// =====================================
+// Custom Templates (localStorage)
+// =====================================
+
+export interface CustomTemplate {
+  id: string;
+  category: string;
+  label: string;
+  icon: string;
+  templatePath: string;
+  destinationPath: string;
+}
+
+const CUSTOM_TEMPLATES_KEY = 'obsidian-reviewer-custom-templates';
+
+export function getCustomTemplates(): CustomTemplate[] {
+  const result = safeLocalStorageGetItem(CUSTOM_TEMPLATES_KEY);
+  if (!result.success || !result.value) return [];
+  try {
+    return JSON.parse(result.value);
+  } catch {
+    return [];
+  }
+}
+
+export function saveCustomTemplates(templates: CustomTemplate[]): SafeLocalStorageSetResult {
+  return safeLocalStorageSetItem(CUSTOM_TEMPLATES_KEY, JSON.stringify(templates));
+}
+
+// =====================================
+// Integrations (localStorage)
+// =====================================
+
+export interface IntegrationConfig {
+  id: string;
+  type: 'whatsapp' | 'telegram';
+  enabled: boolean;
+  config: {
+    target: string;
+    associatedHook: string;
+    customMessage: string;
+    autoSendLink: boolean;
+  };
+}
+
+const INTEGRATIONS_KEY = 'obsidian-reviewer-integrations';
+
+export function getIntegrations(): IntegrationConfig[] {
+  const result = safeLocalStorageGetItem(INTEGRATIONS_KEY);
+  if (!result.success || !result.value) return [];
+  try {
+    return JSON.parse(result.value);
+  } catch {
+    return [];
+  }
+}
+
+export function saveIntegrations(integrations: IntegrationConfig[]): SafeLocalStorageSetResult {
+  return safeLocalStorageSetItem(INTEGRATIONS_KEY, JSON.stringify(integrations));
+}
