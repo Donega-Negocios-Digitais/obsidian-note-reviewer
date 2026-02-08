@@ -14,10 +14,11 @@ import type { AuthorizeResult } from "@liveblocks/node";
 
 const projectRoot = join(import.meta.dir, "../..");
 
-// Initialize Liveblocks with secret key
-const liveblocks = new Liveblocks({
-  secret: process.env.LIVEBLOCKS_SECRET_KEY || "",
-});
+// Initialize Liveblocks with secret key (only if configured)
+const liveblocksSecretKey = process.env.LIVEBLOCKS_SECRET_KEY;
+const liveblocks = liveblocksSecretKey ? new Liveblocks({
+  secret: liveblocksSecretKey,
+}) : null;
 
 // CSP header for API responses (development mode)
 const cspHeader = getPortalCSP(true);
@@ -200,6 +201,15 @@ const server = Bun.serve({
     // Authorizes access to Liveblocks rooms for real-time collaboration
     if (url.pathname === "/api/liveblocks-auth" && req.method === "POST") {
       try {
+        // Check if Liveblocks is configured
+        if (!liveblocks) {
+          console.error("[DevServer] Liveblocks not configured - LIVEBLOCKS_SECRET_KEY not set");
+          return new Response(
+            JSON.stringify({ error: "Liveblocks not configured. Set LIVEBLOCKS_SECRET_KEY environment variable." }),
+            { status: 500, headers: { ...getSecurityHeaders(), "Content-Type": "application/json" } }
+          );
+        }
+
         // Parse request body
         const body = await req.json() as { roomId: string };
         const { roomId } = body;
