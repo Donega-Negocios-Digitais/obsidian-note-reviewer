@@ -9,8 +9,15 @@
 
 import { join } from "path";
 import { getPortalCSP } from "@obsidian-note-reviewer/security/csp";
+import { Liveblocks } from "@liveblocks/node";
+import type { AuthorizeResult } from "@liveblocks/node";
 
 const projectRoot = join(import.meta.dir, "../..");
+
+// Initialize Liveblocks with secret key
+const liveblocks = new Liveblocks({
+  secret: process.env.LIVEBLOCKS_SECRET_KEY || "",
+});
 
 // CSP header for API responses (development mode)
 const cspHeader = getPortalCSP(true);
@@ -185,6 +192,54 @@ const server = Bun.serve({
         return Response.json(
           { ok: false, error: error instanceof Error ? error.message : "Erro na validação" },
           { status: 500, headers: getSecurityHeaders() }
+        );
+      }
+    }
+
+    // API: Liveblocks authentication endpoint
+    // Authorizes access to Liveblocks rooms for real-time collaboration
+    if (url.pathname === "/api/liveblocks-auth" && req.method === "POST") {
+      try {
+        // Parse request body
+        const body = await req.json() as { roomId: string };
+        const { roomId } = body;
+
+        if (!roomId) {
+          return new Response(
+            JSON.stringify({ error: "roomId is required" }),
+            { status: 400, headers: { ...getSecurityHeaders(), "Content-Type": "application/json" } }
+          );
+        }
+
+        // Get user from session (if authenticated)
+        // For dev purposes, allow anonymous access with a default user
+        const userId = "anonymous-user";
+        const userName = "Anonymous User";
+
+        // Authorize the room access
+        const result: AuthorizeResult = await liveblocks.authorize({
+          room: roomId,
+          userId: userId,
+        });
+
+        // Return the token to the client
+        if (result.error) {
+          console.error("[DevServer] Liveblocks auth error:", result.error);
+          return new Response(
+            JSON.stringify({ error: result.error.message }),
+            { status: 403, headers: { ...getSecurityHeaders(), "Content-Type": "application/json" } }
+          );
+        }
+
+        return new Response(
+          JSON.stringify({ token: result.data?.token }),
+          { headers: { ...getSecurityHeaders(), "Content-Type": "application/json" } }
+        );
+      } catch (error) {
+        console.error("[DevServer] Liveblocks auth exception:", error);
+        return new Response(
+          JSON.stringify({ error: "Authentication failed" }),
+          { status: 500, headers: { ...getSecurityHeaders(), "Content-Type": "application/json" } }
         );
       }
     }
