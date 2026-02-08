@@ -14,8 +14,8 @@
 | **Fases Totais** | 10 (após remoção) |
 | **Planos Completos** | 28/43 (65.1%) |
 | **Requisitos Entregues** | 30/45 (66.7%) |
-| **Fases 100% Completas** | 4 (1, 2, 3, 5) |
-| **Fases Parciais** | 3 (2, 6, 7, 9) |
+| **Fases 100% Completas** | 3 (1, 3, 5) |
+| **Fases Parciais** | 4 (2, 6, 7, 9) |
 | **Fases Não Iniciadas** | 3 (4, 8, 10) |
 
 ---
