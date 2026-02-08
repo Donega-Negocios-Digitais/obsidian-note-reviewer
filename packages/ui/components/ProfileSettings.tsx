@@ -8,9 +8,11 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '@obsidian-note-reviewer/security/auth'
 import { uploadAvatar, getAvatarUrl } from '@obsidian-note-reviewer/security/supabase/storage'
-import { Camera, Key, User, Check, X } from 'lucide-react'
+import { Camera, Key, User, Check, X, ChevronDown, ChevronRight, IdCard, Zap } from 'lucide-react'
+import { getIdentity, getAnonymousIdentity, regenerateIdentity } from '../utils/identity'
 
 interface ProfileSettingsProps {
   onSave?: () => void
@@ -29,7 +31,13 @@ type PasswordErrors = {
   general?: string
 }
 
+function getInitials(name: string): string {
+  if (!name.trim()) return '?'
+  return name.trim().split(/\s+/).map(w => w[0].toUpperCase()).slice(0, 2).join('')
+}
+
 export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactElement {
+  const { t } = useTranslation()
   const { user, updateProfile } = useAuth()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -51,6 +59,11 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
   const [passwordErrors, setPasswordErrors] = useState<PasswordErrors>({})
   const [passwordSuccess, setPasswordSuccess] = useState(false)
 
+  // Identity state
+  const [identityOpen, setIdentityOpen] = useState(false)
+  const [identity, setIdentity] = useState('')
+  const [anonymousIdentity, setAnonymousIdentity] = useState('')
+
   // General state
   const [savedField, setSavedField] = useState<string | null>(null)
 
@@ -62,6 +75,8 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
       const existingAvatar = getAvatarUrl(user)
       setAvatarUrl(existingAvatar)
     }
+    setIdentity(getIdentity() || '')
+    setAnonymousIdentity(getAnonymousIdentity() || '')
   }, [user])
 
   // Auto-hide save feedback
@@ -208,7 +223,7 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
     <div className="space-y-8">
       {/* Avatar Section */}
       <div className="flex flex-col items-center space-y-4 pb-6 border-b">
-        <div className="relative group">
+        <div className="relative group cursor-pointer" onClick={() => !uploading && fileInputRef.current?.click()}>
           {displayAvatar ? (
             <img
               src={displayAvatar}
@@ -217,9 +232,16 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
             />
           ) : (
             <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center border-2 border-border">
-              <User className="w-12 h-12 text-muted-foreground" />
+              {displayName.trim() ? (
+                <span className="text-2xl font-semibold text-muted-foreground">{getInitials(displayName)}</span>
+              ) : (
+                <User className="w-12 h-12 text-muted-foreground" />
+              )}
             </div>
           )}
+          <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+            <Camera className="w-6 h-6 text-white" />
+          </div>
           {uploading && (
             <div className="absolute inset-0 rounded-full bg-background/80 flex items-center justify-center">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
@@ -228,7 +250,7 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
-            className="absolute bottom-0 right-0 p-2 bg-primary text-primary-foreground rounded-full hover:bg-primary/90 transition-colors disabled:opacity-50"
+            className="absolute bottom-0 right-0 p-2 bg-primary text-primary-foreground rounded-full hover:bg-primary/90 hover:scale-110 hover:shadow-lg transition-all disabled:opacity-50 disabled:hover:scale-100"
             aria-label="Alterar foto"
           >
             <Camera className="w-4 h-4" />
@@ -246,10 +268,10 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
         {savedField === 'avatar' && (
           <span className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
             <Check className="w-4 h-4" />
-            Foto atualizada
+            {t('settings.profile.photoUpdated')}
           </span>
         )}
-        <p className="text-xs text-muted-foreground">JPG, PNG ou GIF. Máximo 2MB.</p>
+        <p className="text-xs text-muted-foreground">{t('settings.profile.maxSize')}</p>
       </div>
 
       {/* Display Name Section */}
@@ -257,7 +279,7 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
         <div>
           <label htmlFor="displayName" className="block text-sm font-medium mb-2 flex items-center gap-2">
             <User className="w-4 h-4" />
-            Nome de exibição
+            {t('settings.profile.displayName')}
           </label>
           <input
             id="displayName"
@@ -265,7 +287,7 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-background"
-            placeholder="Como você gostaria de ser chamado?"
+            placeholder={t('settings.profile.displayNamePlaceholder')}
           />
         </div>
 
@@ -275,14 +297,14 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
           className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           {savingProfile ? (
-            <>Salvando...</>
+            <>{t('settings.profile.saving')}</>
           ) : savedField === 'profile' ? (
             <>
               <Check className="w-4 h-4" />
-              Salvo
+              {t('settings.profile.saved')}
             </>
           ) : (
-            'Salvar nome'
+            t('settings.profile.saveName')
           )}
         </button>
       </div>
@@ -291,7 +313,7 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
       <div className="space-y-4 pt-6 border-t">
         <h3 className="text-sm font-medium flex items-center gap-2">
           <Key className="w-4 h-4" />
-          Alterar senha
+          {t('settings.profile.changePassword')}
         </h3>
 
         {passwordSuccess && (
@@ -303,7 +325,7 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
 
         <div>
           <label htmlFor="currentPassword" className="block text-sm font-medium mb-1.5">
-            Senha atual
+            {t('settings.profile.currentPassword')}
           </label>
           <div className="relative">
             <input
@@ -314,7 +336,7 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
               className={`w-full px-3 py-2 pr-10 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-background ${
                 passwordErrors.current ? 'border-destructive' : 'border-input'
               }`}
-              placeholder="Digite sua senha atual"
+              placeholder={t('settings.profile.currentPasswordPlaceholder')}
             />
             <button
               type="button"
@@ -339,7 +361,7 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
 
         <div>
           <label htmlFor="newPassword" className="block text-sm font-medium mb-1.5">
-            Nova senha
+            {t('settings.profile.newPassword')}
           </label>
           <input
             id="newPassword"
@@ -349,7 +371,7 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
             className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-background ${
               passwordErrors.new ? 'border-destructive' : 'border-input'
             }`}
-            placeholder="Mínimo 6 caracteres"
+            placeholder={t('settings.profile.newPasswordPlaceholder')}
           />
           {passwordErrors.new && (
             <p className="text-xs text-destructive mt-1">{passwordErrors.new}</p>
@@ -358,7 +380,7 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
 
         <div>
           <label htmlFor="confirmPassword" className="block text-sm font-medium mb-1.5">
-            Confirmar nova senha
+            {t('settings.profile.confirmPassword')}
           </label>
           <input
             id="confirmPassword"
@@ -368,7 +390,7 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
             className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-background ${
               passwordErrors.confirm ? 'border-destructive' : 'border-input'
             }`}
-            placeholder="Digite a nova senha novamente"
+            placeholder={t('settings.profile.confirmPasswordPlaceholder')}
           />
           {passwordErrors.confirm && (
             <p className="text-xs text-destructive mt-1">{passwordErrors.confirm}</p>
@@ -380,7 +402,7 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
           disabled={savingPassword}
           className="w-full px-4 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {savingPassword ? 'Atualizando...' : 'Alterar senha'}
+          {savingPassword ? t('settings.profile.updating') : t('settings.profile.changePassword')}
         </button>
       </div>
 
@@ -394,11 +416,58 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
       {/* Account info */}
       <div className="pt-6 border-t">
         <p className="text-xs text-muted-foreground">
-          Email: {user?.email}
+          {t('settings.profile.accountEmail')}: {user?.email}
         </p>
         <p className="text-xs text-muted-foreground mt-1">
-          ID: {user?.id?.slice(0, 8)}...
+          {t('settings.profile.accountId')}: {user?.id?.slice(0, 8)}...
         </p>
+      </div>
+
+      {/* Identity Section (collapsible) */}
+      <div className="pt-6 border-t">
+        <button
+          onClick={() => setIdentityOpen(!identityOpen)}
+          className="flex items-center gap-2 w-full text-left"
+        >
+          {identityOpen ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+          <span className="text-sm font-medium">{t('settings.profile.identity')}</span>
+        </button>
+
+        {identityOpen && (
+          <div className="mt-4 space-y-4">
+            {/* Current identity */}
+            <div className="flex items-center gap-2">
+              <IdCard className="w-4 h-4 text-muted-foreground" />
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">{t('settings.profile.activeIdentity')}</p>
+                <p className="text-xs font-mono text-muted-foreground/70 break-all">{identity?.slice(0, 16)}...</p>
+              </div>
+            </div>
+
+            {displayName.trim() && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground/60">{t('settings.profile.anonymousBackup')}</p>
+                <p className="text-xs font-mono text-muted-foreground/40 break-all">{anonymousIdentity?.slice(0, 16)}...</p>
+              </div>
+            )}
+
+            {/* Regenerate */}
+            <button
+              onClick={() => {
+                const newId = regenerateIdentity()
+                setAnonymousIdentity(newId)
+                if (!displayName.trim()) setIdentity(newId)
+              }}
+              className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors"
+            >
+              <Zap className="w-3.5 h-3.5" />
+              {t('settings.profile.generateIdentity')}
+            </button>
+            <p className="text-[10px] text-muted-foreground/60">
+              {t('settings.profile.generateIdentityDesc')}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   )

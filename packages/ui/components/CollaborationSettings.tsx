@@ -9,6 +9,7 @@
  */
 
 import React, { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '@obsidian-note-reviewer/security/auth'
 import {
   getDocumentCollaborators,
@@ -21,8 +22,6 @@ import {
   Users,
   UserPlus,
   Mail,
-  Link,
-  Copy,
   Check,
   Trash2,
   Shield,
@@ -49,7 +48,6 @@ interface Invite {
 
 interface CollaborationSettingsProps {
   documentId?: string
-  documentSlug?: string
   onCollaboratorsChange?: (collaborators: Collaborator[]) => void
 }
 
@@ -57,9 +55,9 @@ type PermissionRole = 'viewer' | 'editor' | 'owner'
 
 export function CollaborationSettings({
   documentId,
-  documentSlug,
   onCollaboratorsChange
 }: CollaborationSettingsProps): React.ReactElement {
+  const { t } = useTranslation()
   const { user } = useAuth()
 
   // State
@@ -71,21 +69,12 @@ export function CollaborationSettings({
   const [inviting, setInviting] = useState(false)
   const [inviteError, setInviteError] = useState<string | null>(null)
   const [inviteSuccess, setInviteSuccess] = useState(false)
-  const [linkCopied, setLinkCopied] = useState(false)
-  const [shareableLink, setShareableLink] = useState<string>('')
 
   // Load collaborators
   useEffect(() => {
     loadCollaborators()
   }, [documentId])
 
-  // Generate shareable link
-  useEffect(() => {
-    if (documentSlug) {
-      const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
-      setShareableLink(`${baseUrl}/shared/${documentSlug}`)
-    }
-  }, [documentSlug])
 
   const loadCollaborators = async () => {
     if (!documentId) {
@@ -140,14 +129,14 @@ export function CollaborationSettings({
 
   const handleInvite = async () => {
     if (!inviteEmail.trim()) {
-      setInviteError('Email é obrigatório')
+      setInviteError(t('settings.collaboration.email') + ' é obrigatório')
       return
     }
 
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(inviteEmail)) {
-      setInviteError('Email inválido')
+      setInviteError(t('settings.collaboration.email') + ' inválido')
       return
     }
 
@@ -176,6 +165,19 @@ export function CollaborationSettings({
       )
 
       if (result.success) {
+        // Send invite email via Resend (non-blocking)
+        fetch('/api/invite', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: inviteEmail,
+            role: inviteRole,
+            inviterName: user?.user_metadata?.full_name || user?.email || 'Alguém',
+            documentTitle: documentId ? `Documento ${documentId.slice(0, 8)}` : 'Documento',
+            inviteUrl: typeof window !== 'undefined' ? window.location.href : '',
+          }),
+        }).catch(err => console.warn('Email invite failed (non-critical):', err))
+
         setInviteSuccess(true)
         setInviteEmail('')
         setShowInviteForm(false)
@@ -215,17 +217,6 @@ export function CollaborationSettings({
     }
   }
 
-  const handleCopyLink = async () => {
-    if (!shareableLink) return
-
-    try {
-      await navigator.clipboard.writeText(shareableLink)
-      setLinkCopied(true)
-      setTimeout(() => setLinkCopied(false), 2000)
-    } catch (error) {
-      console.error('Failed to copy link:', error)
-    }
-  }
 
   const getRoleIcon = (role: PermissionRole) => {
     switch (role) {
@@ -241,11 +232,11 @@ export function CollaborationSettings({
   const getRoleLabel = (role: PermissionRole) => {
     switch (role) {
       case 'owner':
-        return 'Proprietário'
+        return t('settings.collaboration.owner')
       case 'editor':
-        return 'Editor'
+        return t('settings.collaboration.permissionLevels').includes('Permission') ? 'Editor' : t('settings.collaboration.editor')
       case 'viewer':
-        return 'Visualizador'
+        return t('settings.collaboration.permissionLevels').includes('Permission') ? 'Viewer' : t('settings.collaboration.viewer')
     }
   }
 
@@ -280,47 +271,12 @@ export function CollaborationSettings({
 
   return (
     <div className="space-y-6">
-      {/* Shareable Link Section */}
-      <div className="p-4 bg-muted/50 rounded-lg space-y-3">
-        <div className="flex items-center gap-2">
-          <Link className="w-5 h-5 text-muted-foreground" />
-          <h3 className="font-medium">Link de compartilhamento</h3>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Compartilhe este link para permitir que outros acessem este documento.
-        </p>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={shareableLink}
-            readOnly
-            className="flex-1 px-3 py-2 text-sm border border-input rounded-md bg-background"
-          />
-          <button
-            onClick={handleCopyLink}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors flex items-center gap-2"
-          >
-            {linkCopied ? (
-              <>
-                <Check className="w-4 h-4" />
-                Copiado
-              </>
-            ) : (
-              <>
-                <Copy className="w-4 h-4" />
-                Copiar
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-
       {/* Collaborators Section */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Users className="w-5 h-5 text-muted-foreground" />
-            <h3 className="font-medium">Colaboradores</h3>
+            <h3 className="font-medium">{t('settings.collaboration.title')}</h3>
             <span className="text-sm text-muted-foreground">
               ({collaborators.length})
             </span>
@@ -330,7 +286,7 @@ export function CollaborationSettings({
             className="px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors flex items-center gap-2"
           >
             <UserPlus className="w-4 h-4" />
-            Convidar
+            {t('settings.collaboration.invite')}
           </button>
         </div>
 
@@ -339,7 +295,7 @@ export function CollaborationSettings({
           <div className="p-4 border rounded-lg space-y-4 bg-card">
             <h4 className="font-medium flex items-center gap-2">
               <Mail className="w-4 h-4" />
-              Convidar novo colaborador
+              {t('settings.collaboration.inviteNew')}
             </h4>
 
             {inviteError && (
@@ -357,7 +313,7 @@ export function CollaborationSettings({
 
             <div>
               <label htmlFor="inviteEmail" className="block text-sm font-medium mb-1.5">
-                Email
+                {t('settings.collaboration.email')}
               </label>
               <input
                 id="inviteEmail"
@@ -365,13 +321,13 @@ export function CollaborationSettings({
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
                 className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-background"
-                placeholder="colaborador@exemplo.com"
+                placeholder={t('settings.collaboration.emailPlaceholder')}
               />
             </div>
 
             <div>
               <label htmlFor="inviteRole" className="block text-sm font-medium mb-1.5">
-                Permissão
+                {t('settings.collaboration.permission')}
               </label>
               <select
                 id="inviteRole"
@@ -379,8 +335,8 @@ export function CollaborationSettings({
                 onChange={(e) => setInviteRole(e.target.value as 'viewer' | 'editor')}
                 className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-background"
               >
-                <option value="viewer">Visualizador - Apenas ver</option>
-                <option value="editor">Editor - Pode anotar</option>
+                <option value="viewer">{t('settings.collaboration.viewer')}</option>
+                <option value="editor">{t('settings.collaboration.editor')}</option>
               </select>
               <p className="text-xs text-muted-foreground mt-1">
                 {getRoleDescription(inviteRole)}
@@ -396,12 +352,12 @@ export function CollaborationSettings({
                 {inviting ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Enviando...
+                    {t('settings.collaboration.sending')}
                   </>
                 ) : (
                   <>
                     <Mail className="w-4 h-4" />
-                    Enviar convite
+                    {t('settings.collaboration.sendInvite')}
                   </>
                 )}
               </button>
@@ -413,7 +369,7 @@ export function CollaborationSettings({
                 }}
                 className="px-4 py-2 border border-input rounded-md hover:bg-accent transition-colors"
               >
-                Cancelar
+                {t('settings.actions.cancel')}
               </button>
             </div>
           </div>
@@ -427,8 +383,8 @@ export function CollaborationSettings({
         ) : collaborators.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
-            <p>Nenhum colaborador ainda.</p>
-            <p className="text-sm">Convide pessoas para colaborar neste documento.</p>
+            <p>{t('settings.collaboration.noneYet')}</p>
+            <p className="text-sm">{t('settings.collaboration.invitePeople')}</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -477,28 +433,28 @@ export function CollaborationSettings({
       <div className="pt-4 border-t">
         <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
           <Shield className="w-4 h-4" />
-          Níveis de permissão
+          {t('settings.collaboration.permissionLevels')}
         </h4>
         <div className="space-y-2 text-sm">
           <div className="flex items-start gap-2">
             <Crown className="w-4 h-4 text-yellow-500 mt-0.5" />
             <div>
-              <span className="font-medium">Proprietário:</span>
-              <span className="text-muted-foreground ml-1">Controle total do documento e permissões</span>
+              <span className="font-medium">{t('settings.collaboration.owner')}:</span>
+              <span className="text-muted-foreground ml-1">{t('settings.collaboration.ownerDesc')}</span>
             </div>
           </div>
           <div className="flex items-start gap-2">
             <Edit3 className="w-4 h-4 text-blue-500 mt-0.5" />
             <div>
               <span className="font-medium">Editor:</span>
-              <span className="text-muted-foreground ml-1">Pode adicionar anotações e comentários</span>
+              <span className="text-muted-foreground ml-1">{t('settings.collaboration.editorDesc')}</span>
             </div>
           </div>
           <div className="flex items-start gap-2">
             <Eye className="w-4 h-4 text-gray-500 mt-0.5" />
             <div>
-              <span className="font-medium">Visualizador:</span>
-              <span className="text-muted-foreground ml-1">Apenas visualização do documento</span>
+              <span className="font-medium">{t('settings.collaboration.viewer')}:</span>
+              <span className="text-muted-foreground ml-1">{t('settings.collaboration.viewerDesc')}</span>
             </div>
           </div>
         </div>

@@ -8,7 +8,9 @@
       "identidade": "Reviewer Identity",
       "atalhos": "Keyboard Shortcuts",
       "hooks": "Hooks",
-      "idioma": "Language"
+      "idioma": "Language",
+      "perfil": "Profile",
+      "colaboracao": "Collaborators"
     },
     "actions": {
       "export": "Export",
@@ -17,7 +19,8 @@
       "close": "Close",
       "save": "Save",
       "cancel": "Cancel",
-      "test": "Test"
+      "test": "Test",
+      "create": "Create"
     },
     "paths": {
       "title": "Paths & Templates",
@@ -88,6 +91,32 @@
         "description": "Opens Note Reviewer when you use the skill to create notes in Obsidian"
       }
     },
+    "integrations": {
+      "title": "Integrations",
+      "subtitle": "Connect external tools to Note Reviewer",
+      "whatsapp": "WhatsApp",
+      "whatsappDesc": "Send review links automatically via WhatsApp",
+      "telegram": "Telegram",
+      "telegramDesc": "Send review links automatically via Telegram",
+      "configure": "Configure",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "phoneNumber": "WhatsApp Number",
+      "phoneNumberPlaceholder": "+1 234 567 8900",
+      "chatId": "Chat ID / Username",
+      "chatIdPlaceholder": "@username or numeric ID",
+      "associatedHook": "Associated Hook",
+      "selectHook": "Select a hook",
+      "noHook": "None",
+      "customMessage": "Custom Message",
+      "customMessagePlaceholder": "New note for review: {{link}}",
+      "autoSendLink": "Send review link automatically",
+      "testConnection": "Test Connection",
+      "testSuccess": "Connection tested successfully!",
+      "testError": "Error testing connection",
+      "testing": "Testing...",
+      "noIntegrations": "No integrations configured yet."
+    },
     "language": {
       "title": "Interface Language",
       "subtitle": "Select your preferred language",
@@ -129,6 +158,55 @@
       "loadDefaults": "Load default values",
       "close": "Close",
       "categoryTabs": "Note type categories"
+    },
+    "collaboration": {
+      "title": "Collaborators",
+      "invite": "Invite",
+      "inviteNew": "Invite new collaborator",
+      "inviteSuccess": "Invite sent successfully!",
+      "sending": "Sending...",
+      "sendInvite": "Send invite",
+      "email": "Email",
+      "emailPlaceholder": "collaborator@example.com",
+      "permission": "Permission",
+      "viewer": "Viewer - View only",
+      "editor": "Editor - Can annotate",
+      "noneYet": "No collaborators yet.",
+      "invitePeople": "Invite people to collaborate on this document.",
+      "permissionLevels": "Permission levels",
+      "owner": "Owner",
+      "ownerDesc": "Full control of document and permissions",
+      "editorDesc": "Can add annotations and comments",
+      "viewerDesc": "View only access to document",
+      "pending": "Pending",
+      "removeCollaborator": "Remove collaborator"
+    },
+    "profile": {
+      "title": "Profile",
+      "subtitle": "Manage your personal information and password.",
+      "displayName": "Display name",
+      "displayNamePlaceholder": "How would you like to be called?",
+      "saveName": "Save name",
+      "saving": "Saving...",
+      "saved": "Saved",
+      "changePassword": "Change password",
+      "currentPassword": "Current password",
+      "currentPasswordPlaceholder": "Enter your current password",
+      "newPassword": "New password",
+      "newPasswordPlaceholder": "Minimum 6 characters",
+      "confirmPassword": "Confirm new password",
+      "confirmPasswordPlaceholder": "Enter new password again",
+      "updatePassword": "Change password",
+      "updating": "Updating...",
+      "photoUpdated": "Photo updated",
+      "maxSize": "JPG, PNG or GIF. Max 2MB.",
+      "identity": "Reviewer Identity",
+      "activeIdentity": "Active Identity",
+      "anonymousBackup": "Anonymous Backup",
+      "generateIdentity": "Generate New Identity",
+      "generateIdentityDesc": "Will create a new anonymous identity for your annotations",
+      "accountEmail": "Email",
+      "accountId": "ID"
     }
   },
   "viewer": {

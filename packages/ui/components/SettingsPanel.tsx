@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BookOpen, FolderOpen, User, Keyboard, Globe, Download, Upload, RotateCcw, Lightbulb, UserCircle, Users, Edit, Trash2 } from 'lucide-react';
-// import { ProfileSettings } from './ProfileSettings';
-// import { CollaborationSettings } from './CollaborationSettings';
+import { BookOpen, FolderOpen, User, Keyboard, Globe, Download, Upload, RotateCcw, Lightbulb, UserCircle, Users, Edit, Trash2, Plug } from 'lucide-react';
+import { ProfileSettings } from './ProfileSettings';
+import { CollaborationSettings } from './CollaborationSettings';
+import { IntegrationsSettings } from './IntegrationsSettings';
+import { CategoryManager } from './CategoryManager';
+import { NewTemplateModal } from './NewTemplateModal';
 
 const BoxingGloveIcon = ({ className }: { className?: string }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor">
@@ -26,7 +29,9 @@ import {
   validateSettingsImport,
   importAllSettings,
   getAllNoteTypePaths,
-  getAllNoteTypeTemplates
+  getAllNoteTypeTemplates,
+  getCustomTemplates,
+  type CustomTemplate
 } from '../utils/storage';
 import {
   getNoteTypesByCategory,
@@ -45,7 +50,7 @@ interface SettingsPanelProps {
   onNotePathChange?: (path: string) => void;
 }
 
-type CategoryTab = 'caminhos' | 'regras' | 'identidade' | 'idioma' | 'atalhos' | 'hooks'; // 'perfil' | 'colaboracao' - temporarily disabled
+type CategoryTab = 'caminhos' | 'regras' | 'idioma' | 'atalhos' | 'hooks' | 'perfil' | 'colaboracao' | 'integracoes';
 
 // Helper to get Lucide icon component from icon name
 function getLucideIcon(iconName: string): React.ComponentType<{ className?: string }> {
@@ -74,6 +79,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const [savedField, setSavedField] = useState<string | null>(null);
   const [saveErrors, setSaveErrors] = useState<Record<string, string>>({});
   const [saveSuccess, setSaveSuccess] = useState<Record<string, boolean>>({});
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-hide save feedback after 2 seconds
@@ -94,6 +100,16 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       return () => clearTimeout(timer);
     }
   }, [saveSuccess]);
+
+  // Auto-hide toast after 3 seconds
+  useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => {
+        setToastMessage(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMessage]);
 
   // Hooks state
   interface Hook {
@@ -121,6 +137,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   ]);
 
   // Add hook modal state
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
+  const [showNewTemplateModal, setShowNewTemplateModal] = useState(false);
+  const [customTemplates, setCustomTemplates] = useState<CustomTemplate[]>([]);
+  const [showShortcutModal, setShowShortcutModal] = useState(false);
+  const [editingShortcut, setEditingShortcut] = useState<{ category: string; id: string; label: string; key: string } | null>(null);
+  const [newShortcutKey, setNewShortcutKey] = useState('');
   const [showAddHookModal, setShowAddHookModal] = useState(false);
   const [newHook, setNewHook] = useState({ name: '', description: '', trigger: '' });
 
@@ -175,6 +197,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             onNotePathChange?.(firstPath);
           }
         }
+
+        // Load custom templates
+        setCustomTemplates(getCustomTemplates());
 
         // Load language preference
         const savedLang = localStorage.getItem('app-language') || 'pt-BR';
@@ -467,17 +492,21 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     }
   };
 
+  const showSuccessToast = (message: string) => {
+    setToastMessage(message);
+  };
+
   const noteTypes = getNoteTypesByCategory();
 
   const tabs: Array<{ id: CategoryTab; Icon: React.ComponentType<{ className?: string }>; label: string }> = [
     { id: 'caminhos', Icon: FolderOpen, label: t('settings.tabs.caminhos') },
     { id: 'regras', Icon: BookOpen, label: t('settings.tabs.regras') },
-    { id: 'identidade', Icon: User, label: t('settings.tabs.identidade') },
     { id: 'idioma', Icon: Globe, label: t('settings.tabs.idioma') },
     { id: 'atalhos', Icon: Keyboard, label: t('settings.tabs.atalhos') },
     { id: 'hooks', Icon: BoxingGloveIcon, label: t('settings.tabs.hooks') },
-    // { id: 'perfil', Icon: UserCircle, label: 'Perfil' }, // temporarily disabled
-    // { id: 'colaboracao', Icon: Users, label: 'Colaboração' }, // temporarily disabled
+    { id: 'perfil', Icon: UserCircle, label: t('settings.tabs.perfil') },
+    { id: 'colaboracao', Icon: Users, label: t('settings.tabs.colaboracao') },
+    { id: 'integracoes', Icon: Plug, label: t('settings.integrations.title') },
   ];
 
   const CategoryContent = ({ category }: { category: CategoryTab }) => {
@@ -616,10 +645,26 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
     return (
       <div className="p-5 space-y-6 overflow-y-auto">
-        {/* Header */}
-        <div className="mb-4">
-          <h4 className="text-base font-semibold text-foreground">{t('settings.paths.title')}</h4>
-          <p className="text-sm text-muted-foreground/90">{t('settings.paths.subtitle')}</p>
+        {/* Header with action buttons */}
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h4 className="text-base font-semibold text-foreground">{t('settings.paths.title')}</h4>
+            <p className="text-sm text-muted-foreground/90">{t('settings.paths.subtitle')}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowCategoryManager(true)}
+              className="px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted rounded-lg transition-colors"
+            >
+              {t('settings.categoryManager.manageCategories')}
+            </button>
+            <button
+              onClick={() => setShowNewTemplateModal(true)}
+              className="px-3 py-1.5 text-xs font-medium text-primary-foreground bg-primary hover:opacity-90 rounded-lg transition-opacity"
+            >
+              {t('settings.newTemplate.newTemplate')}
+            </button>
+          </div>
         </div>
 
         {categoryOrder.map(({ key, icon, label }) => {
@@ -740,6 +785,35 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           );
         })}
 
+        {/* Custom templates */}
+        {customTemplates.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 pb-2 border-b border-border/50">
+              <LucideIcons.Plus className="w-5 h-5 text-primary" />
+              <h5 className="text-sm font-semibold text-foreground">Templates Customizados</h5>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {customTemplates.map((ct) => {
+                const CtIcon = getLucideIcon(ct.icon);
+                return (
+                  <div key={ct.id} className="bg-card/50 rounded-xl border border-border/50 p-4 hover:border-border/80 transition-all hover:shadow-sm">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
+                        <CtIcon className="w-4 h-4" />
+                      </div>
+                      <h4 className="text-sm font-semibold text-foreground truncate">{ct.label}</h4>
+                    </div>
+                    <div className="space-y-1 text-xs text-muted-foreground font-mono">
+                      {ct.templatePath && <p className="truncate">Template: {ct.templatePath}</p>}
+                      <p className="truncate">Destino: {ct.destinationPath}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Info tip */}
         <div className="p-3 rounded-xl bg-muted/30">
           <p className="text-xs text-muted-foreground">
@@ -764,6 +838,16 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             <p className="text-sm font-medium">{t('settings.errors.saveError')}</p>
             <p className="text-xs opacity-90">{t('settings.errors.checkStorage')}</p>
           </div>
+        </div>
+      )}
+
+      {/* Success toast */}
+      {toastMessage && (
+        <div className="fixed bottom-4 right-4 z-[60] bg-green-500 text-white px-4 py-3 rounded-lg shadow-xl flex items-center gap-3 animate-in slide-in-from-bottom-2">
+          <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+          <p className="text-sm font-medium">{toastMessage}</p>
         </div>
       )}
 
@@ -862,139 +946,13 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           id={`settings-panel-content-${activeTab}`}
           role="tabpanel"
           aria-labelledby={`settings-panel-tab-${activeTab}`}
-          className={`${activeTab === 'regras' || activeTab === 'caminhos' || activeTab === 'identidade' || activeTab === 'atalhos' || activeTab === 'hooks' || activeTab === 'idioma' ? '' : 'p-5'} overflow-y-auto flex-1`}
+          className={`${activeTab === 'regras' || activeTab === 'caminhos' || activeTab === 'atalhos' || activeTab === 'hooks' || activeTab === 'idioma' || activeTab === 'perfil' || activeTab === 'colaboracao' || activeTab === 'integracoes' ? '' : 'p-5'} overflow-y-auto flex-1`}
         >
         {activeTab === 'caminhos' ? (
           <AllPathsAndTemplates />
         ) : activeTab === 'regras' ? (
           <div className="flex flex-col h-full">
             <ConfigEditor />
-          </div>
-        ) : activeTab === 'identidade' ? (
-          <div className="p-5 space-y-4 overflow-y-auto">
-            {/* Header */}
-            <div className="mb-2">
-              <h4 className="text-base font-semibold text-foreground">{t('settings.identity.title')}</h4>
-              <p className="text-sm text-muted-foreground/90">{t('settings.identity.subtitle')}</p>
-            </div>
-
-            {/* 3-column grid for identity cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {/* Profile Section */}
-              <div className="bg-card/50 rounded-xl border border-border/50 p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-                    <User className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-semibold text-foreground">{t('settings.identity.profile')}</h4>
-                    <p className="text-[10px] text-muted-foreground">{t('settings.identity.profileDescription')}</p>
-                  </div>
-                </div>
-
-                {/* Display Name */}
-                <div className="space-y-2">
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={displayName}
-                      onChange={(e) => handleDisplayNameChange(e.target.value)}
-                      placeholder={t('settings.identity.displayNamePlaceholder')}
-                      className={`w-full px-2.5 py-2 pr-8 bg-background rounded-lg text-xs border focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all ${
-                        saveErrors['display-name']
-                          ? 'border-red-500'
-                          : saveSuccess['display-name']
-                          ? 'border-green-500'
-                          : 'border-border focus:border-primary'
-                      }`}
-                    />
-                    {saveSuccess['display-name'] && !saveErrors['display-name'] && (
-                      <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                        <svg className="w-3.5 h-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      </div>
-                    )}
-                    {saveErrors['display-name'] && (
-                      <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                        <svg className="w-3.5 h-3.5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </div>
-                    )}
-                  </div>
-                  {saveErrors['display-name'] && (
-                    <p className="text-[9px] text-red-500">
-                      {saveErrors['display-name']}
-                    </p>
-                  )}
-                  <p className="text-[10px] text-muted-foreground/70">
-                    {t('settings.identity.displayNameDescription')}
-                  </p>
-                </div>
-              </div>
-
-              {/* Current Identity Section */}
-              <div className="bg-card/50 rounded-xl border border-border/50 p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center text-muted-foreground">
-                    <LucideIcons.IdCard className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-semibold text-foreground">{t('settings.identity.currentIdentity')}</h4>
-                    <p className="text-[10px] text-muted-foreground">{t('settings.identity.currentIdentityDescription')}</p>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <div>
-                    <label className="text-[10px] font-medium text-muted-foreground block mb-1">
-                      {t('settings.identity.mainIdentity')}
-                    </label>
-                    <div className="px-2 py-1.5 bg-muted rounded-lg text-[10px] font-mono text-muted-foreground break-all">
-                      {identity?.slice(0, 16)}...
-                    </div>
-                  </div>
-
-                  {displayName.trim() && (
-                    <div>
-                      <label className="text-[10px] font-medium text-muted-foreground/60 block mb-1">
-                        {t('settings.identity.anonymousBackup')}
-                      </label>
-                      <div className="px-2 py-1.5 bg-muted/50 rounded-lg text-[9px] font-mono text-muted-foreground/50 break-all">
-                        {anonymousIdentity?.slice(0, 16)}...
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Actions Section */}
-              <div className="bg-card/50 rounded-xl border border-border/50 p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center text-accent-foreground">
-                    <LucideIcons.Zap className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-semibold text-foreground">{t('settings.identity.actions')}</h4>
-                    <p className="text-[10px] text-muted-foreground">{t('settings.identity.actionsDescription')}</p>
-                  </div>
-                </div>
-
-                <button
-                  onClick={handleRegenerateIdentity}
-                  className="w-full px-3 py-2 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors flex items-center justify-center gap-2"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  {t('settings.identity.regenerateShort')}
-                </button>
-                <p className="text-[9px] text-muted-foreground/60 text-center mt-2">
-                  {t('settings.identity.regenerateDescription')}
-                </p>
-              </div>
-            </div>
           </div>
         ) : activeTab === 'idioma' ? (
           <div className="p-5 space-y-4 overflow-y-auto">
@@ -1089,11 +1047,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                         key={shortcut.id}
                         className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-muted/50 transition-colors group cursor-pointer"
                         onClick={() => {
-                          const newKey = prompt(`${t('settings.shortcuts.pressKey')} "${shortcut.label}"`, shortcut.key);
-                          if (newKey && newKey !== shortcut.key) {
-                            updateShortcut(category, shortcut.id, newKey);
-                            window.location.reload();
-                          }
+                          setEditingShortcut({ category, id: shortcut.id, label: shortcut.label, key: shortcut.key });
+                          setNewShortcutKey(shortcut.key);
+                          setShowShortcutModal(true);
                         }}
                       >
                         <span className="text-xs font-medium text-foreground truncate">
@@ -1404,6 +1360,24 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               </div>
             )}
           </div>
+        ) : activeTab === 'perfil' ? (
+          <div className="p-5 overflow-y-auto">
+            <div className="mb-4">
+              <h4 className="text-base font-semibold text-foreground">{t('settings.profile.title')}</h4>
+              <p className="text-sm text-muted-foreground/90">{t('settings.profile.subtitle')}</p>
+            </div>
+            <ProfileSettings />
+          </div>
+        ) : activeTab === 'colaboracao' ? (
+          <div className="p-5 overflow-y-auto">
+            <div className="mb-4">
+              <h4 className="text-base font-semibold text-foreground">{t('settings.collaboration.title')}</h4>
+              <p className="text-sm text-muted-foreground/90">{t('settings.integrations.subtitle')}</p>
+            </div>
+            <CollaborationSettings />
+          </div>
+        ) : activeTab === 'integracoes' ? (
+          <IntegrationsSettings hooks={hooks} />
         ) : (
           <>
             <CategoryContent category={activeTab} />
@@ -1416,6 +1390,75 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         )}
         </div>
       </div>
+
+      {/* Shortcut Redefine Modal */}
+      {showShortcutModal && editingShortcut && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
+          <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-sm p-6 animate-in fade-in slide-in-from-bottom-4 duration-200">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-base font-semibold text-foreground">{t('settings.shortcuts.promptTitle')}</h3>
+              <button
+                onClick={() => { setShowShortcutModal(false); setEditingShortcut(null); }}
+                className="p-1 text-muted-foreground hover:text-foreground rounded-md transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              {t('settings.shortcuts.pressKey')} <strong>"{editingShortcut.label}"</strong>
+            </p>
+            <input
+              autoFocus
+              type="text"
+              value={newShortcutKey}
+              readOnly
+              onKeyDown={(e) => {
+                e.preventDefault();
+                setNewShortcutKey(e.key);
+              }}
+              placeholder="Pressione uma tecla..."
+              className="w-full px-3 py-2 text-sm font-mono border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 mb-4"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowShortcutModal(false); setEditingShortcut(null); }}
+                className="flex-1 px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors text-sm font-medium"
+              >
+                {t('settings.actions.cancel')}
+              </button>
+              <button
+                onClick={() => {
+                  if (newShortcutKey && newShortcutKey !== editingShortcut.key) {
+                    updateShortcut(editingShortcut.category, editingShortcut.id, newShortcutKey);
+                  }
+                  setShowShortcutModal(false);
+                  setEditingShortcut(null);
+                }}
+                className="flex-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity text-sm font-medium"
+              >
+                {t('common.confirm')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Category Manager Modal */}
+      <CategoryManager
+        isOpen={showCategoryManager}
+        onClose={() => setShowCategoryManager(false)}
+        onCategoriesChange={() => {}}
+      />
+
+      {/* New Template Modal */}
+      <NewTemplateModal
+        isOpen={showNewTemplateModal}
+        onClose={() => setShowNewTemplateModal(false)}
+        onTemplateCreated={() => setCustomTemplates(getCustomTemplates())}
+        showSuccessToast={showSuccessToast}
+      />
     </div>
   );
 };
