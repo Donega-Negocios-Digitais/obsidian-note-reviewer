@@ -25,185 +25,382 @@ import { isInputFocused, formatTooltipWithShortcut } from '@obsidian-note-review
 import { type TipoNota } from '@obsidian-note-reviewer/ui/utils/notePaths';
 
 const PLAN_CONTENT = `---
-title: Obsidian Note Reviewer - Guia de Teste
-author: Alex Donega
-tags: [obsidian, review, annotation, teste]
-created: 2025-12-31
+title: Nota de Exemplo - Teste Completo
+description: Nota com imagens, código, links e vídeos para testar o Obsidian Note Reviewer
+date: 2026-02-07
+tags: [teste, exemplo, obsidian, desenvolvimento, plugin, markdown, typescript, react, review]
+category: Documentação
+author: Alex
 status: draft
-priority: high
-version: 0.2.1
+priority: alta
+version: 1.0.0
 ---
 
-# Obsidian Note Reviewer - Guia de Teste
+# 📝 Nota de Exemplo - Teste Completo
 
-## Sobre o Projeto
-
-O **Obsidian Note Reviewer** é uma ferramenta web para revisar e anotar documentos markdown do Obsidian de forma colaborativa. Este projeto é um fork do Obsidian Note Reviewer, adaptado especificamente para integração com vaults Obsidian.
-
-## Funcionalidades Principais
-
-### 1. Editor de Frontmatter YAML
-Você pode editar o frontmatter YAML diretamente na interface:
-- Clique no botão "Editar" que aparece ao passar o mouse sobre o bloco YAML
-- Faça suas alterações
-- A validação em tempo real garante que o YAML esteja correto
-- Salve ou cancele conforme necessário
-
-### 2. Sistema de Anotações
-Selecione qualquer texto neste documento para adicionar anotações:
-- **Comentários**: Adicione observações e sugestões
-- **Highlights**: Marque trechos importantes
-- **Feedback estruturado**: Organize suas revisões de forma clara
-
-### 3. Salvar no Vault
-Configure o caminho do seu vault nas configurações:
-1. Clique no ícone de configurações (engrenagem)
-2. Insira o **Caminho do Vault** (ex: \`C:/Users/Alex/Documents/ObsidianVault\`)
-3. Insira o **Caminho da Nota** (ex: \`projetos/note-reviewer-teste.md\`)
-4. Clique em "Salvar no Vault" para salvar esta nota editada
-
-### 4. Modos de Visualização
-- **Modo Autor**: Para criar e editar conteúdo
-- **Modo Revisor**: Para adicionar anotações e feedback
-- **Modo Visualização**: Para ver anotações compartilhadas
-
-## Recursos Técnicos
-
-### Arquitetura
-\`\`\`
-obsidian-note-reviewer/
-├── apps/hook/          # Servidor local com API REST
-├── packages/
-│   ├── editor/         # Componente principal App.tsx
-│   └── ui/             # Componentes React reutilizáveis
-└── docs/               # Documentação
-\`\`\`
-
-### Stack Tecnológica
-- **Runtime**: Bun
-- **Framework**: React + TypeScript
-- **Build**: Vite com plugin singlefile
-- **Parsing**: Remark/Unified para markdown
-- **Validação YAML**: js-yaml
-- **Testes**: Bun test + React Testing Library
-
-### API Endpoints
-O servidor local expõe:
-- \`POST /api/save\` - Salva nota no filesystem
-- \`GET /api/share/:hash\` - Recupera nota compartilhada
-- \`POST /api/share\` - Cria link de compartilhamento
-
-## Melhorias Implementadas (v0.1 → v0.2.1)
-
-### Da Upstream (Obsidian Note Reviewer)
-1. ✅ Verificação automática de atualizações
-2. ✅ Exibição dinâmica da versão
-3. ✅ Correção de URLs de compartilhamento
-4. ✅ Melhorias na restauração de anotações
-
-### Customizações para Obsidian
-1. ✅ **Tradução completa para português brasileiro**
-2. ✅ **Botão "Salvar no Vault"** com feedback visual
-3. ✅ **Configuração de caminhos** persistente via cookies
-4. ✅ **Editor de frontmatter YAML** com validação
-5. ✅ **Documentação de integração MCP** para Claude Code
-6. ✅ **Suite de testes automatizados** com cobertura >80%
-
-## Como Testar Esta Nota
-
-### Passo 1: Carregar a Nota
-1. Abra o Obsidian Note Reviewer no navegador
-2. Esta nota deve carregar automaticamente
-3. Verifique se o frontmatter YAML está sendo exibido corretamente
-
-### Passo 2: Testar Edição de Frontmatter
-1. Passe o mouse sobre o bloco YAML no topo
-2. Clique em "Editar"
-3. Altere o valor de \`status\` para \`in-review\`
-4. Salve e veja a mudança refletida
-
-### Passo 3: Adicionar Anotações
-1. Selecione este texto: **"Este é um texto importante para revisão"**
-2. Adicione um comentário: "Concordo, muito relevante!"
-3. Veja a anotação aparecer na barra lateral
-
-### Passo 4: Salvar no Vault
-1. Abra as configurações (ícone de engrenagem)
-2. Configure:
-   - Caminho do Vault: seu diretório Obsidian
-   - Caminho da Nota: \`testes/note-reviewer-exemplo.md\`
-3. Clique em "Salvar no Vault"
-4. Abra o Obsidian e verifique se a nota foi criada
-
-## Casos de Uso
-
-### Para Autores
-- Escreva notas markdown com frontmatter rico
-- Receba feedback estruturado de revisores
-- Mantenha histórico de revisões
-
-### Para Revisores
-- Adicione anotações contextuais
-- Sugira melhorias diretamente no texto
-- Aprove ou solicite alterações
-
-### Para Equipes
-- Compartilhe notas via URL
-- Colabore de forma assíncrona
-- Integre com workflows existentes do Obsidian
-
-## Atalhos e Dicas
-
-| Ação | Como Fazer |
-|------|------------|
-| Adicionar anotação | Selecione texto + clique no popup |
-| Editar frontmatter | Hover sobre YAML + "Editar" |
-| Salvar no vault | Botão "Salvar no Vault" (após configurar) |
-| Ver anotações | Painel lateral direito |
-| Mudar modo | Toggle Autor/Revisor no header |
-
-## Próximos Passos
-
-Após testar esta nota, você pode:
-1. **Criar suas próprias notas** markdown com frontmatter customizado
-2. **Integrar com seu vault** usando os caminhos configurados
-3. **Compartilhar com revisores** gerando links de compartilhamento
-4. **Explorar a integração MCP** (veja \`docs/OBSIDIAN_INTEGRATION.md\`)
-
-## Suporte e Documentação
-
-- **Repositório**: \`C:/dev/obsidian-note-reviewer\`
-- **Docs**: \`docs/OBSIDIAN_INTEGRATION.md\`
-- **Testes**: Execute \`bun test\` para ver cobertura
-
-## Teste de Ferramentas de Desenho
-
-A imagem abaixo pode ser usada para testar as novas ferramentas de desenho:
-
-![Diagrama de Arquitetura](https://via.placeholder.com/800x400/6366f1/ffffff?text=Diagrama+de+Arquitetura+-+Teste+de+Desenho)
-
-### Como testar o desenho sobre a imagem:
-
-1. **Navegação por Teclado**:
-   - Pressione \`j\` ou \`k\` para navegar entre os blocos
-   - Pressione \`Enter\` para focar no bloco da imagem
-   - Pressione \`Escape\` para limpar a seleção
-
-2. **Ferramentas de Desenho**:
-   - Passe o mouse sobre a imagem acima
-   - A toolbar de desenho aparecerá no topo
-   - Pressione \`1\` para **Caneta** - desenho à mão livre
-   - Pressione \`2\` para **Seta** - indicar direções
-   - Pressione \`3\` para **Círculo** - destacar áreas
-   - Escolha cores e tamanhos diferentes
-   - Use \`Ctrl+Z\` para desfazer
-
-3. **Exportar**:
-   - Clique no ícone de download para salvar a imagem anotada
+> Esta nota foi criada para testar todas as funcionalidades do **Obsidian Note Reviewer**
 
 ---
 
-**Nota**: Esta é uma nota de exemplo criada especificamente para testar todas as funcionalidades do Obsidian Note Reviewer. Sinta-se livre para editá-la, anotá-la e salvá-la no seu vault!
+## 📷 Imagens de Teste
+
+### Imagem 1: Natureza/Paisagem
+![Paisagem Montanha](https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80)
+*Fonte: Unsplash - Montanhas ao pôr do sol*
+
+### Imagem 2: Tecnologia/Código
+![Código em Tela](https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=800&q=80)
+*Fonte: Unsplash - Tela com código*
+
+---
+
+## 💻 Blocos de Código
+
+### JavaScript/TypeScript
+\`\`\`typescript
+// Interface para anotações
+interface Annotation {
+  id: string;
+  content: string;
+  createdAt: Date;
+  tags: string[];
+}
+
+// Função para filtrar anotações
+const filterAnnotations = (
+  annotations: Annotation[],
+  searchTerm: string
+): Annotation[] => {
+  return annotations.filter(anno => 
+    anno.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    anno.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+};
+
+export { filterAnnotations };
+export type { Annotation };
+\`\`\`
+
+### Python
+\`\`\`python
+import json
+from datetime import datetime
+from typing import List, Dict, Optional
+
+class NoteReviewer:
+    """Classe principal para revisão de notas do Obsidian."""
+    
+    def __init__(self, vault_path: str):
+        self.vault_path = vault_path
+        self.notes: List[Dict] = []
+    
+    def load_notes(self) -> None:
+        """Carrega todas as notas do vault."""
+        import os
+        for root, _, files in os.walk(self.vault_path):
+            for file in files:
+                if file.endswith('.md'):
+                    self.notes.append({
+                        'path': os.path.join(root, file),
+                        'name': file
+                    })
+    
+    def export_to_json(self, output_path: str) -> bool:
+        """Exporta as notas para formato JSON."""
+        try:
+            with open(output_path, 'w', encoding='utf-8') as f:
+                json.dump(self.notes, f, indent=2, ensure_ascii=False)
+            return True
+        except Exception as e:
+            print(f"Erro ao exportar: {e}")
+            return False
+
+# Uso
+if __name__ == "__main__":
+    reviewer = NoteReviewer("/path/to/vault")
+    reviewer.load_notes()
+    reviewer.export_to_json("notes_export.json")
+\`\`\`
+
+### CSS/SCSS
+\`\`\`scss
+// Variáveis
+$primary-color: #7c3aed;
+$secondary-color: #a78bfa;
+$background-dark: #1a1a2e;
+$text-light: #e2e8f0;
+
+// Mixins
+@mixin card-shadow {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3),
+              0 2px 4px -1px rgba(0, 0, 0, 0.2);
+}
+
+// Componente de anotação
+.annotation-card {
+  background: linear-gradient(135deg, $background-dark 0%, #16213e 100%);
+  border-radius: 12px;
+  padding: 1.5rem;
+  @include card-shadow;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(124, 58, 237, 0.2);
+  }
+  
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    
+    h3 {
+      color: $text-light;
+      font-size: 1.125rem;
+      margin: 0;
+    }
+  }
+  
+  &__content {
+    color: rgba($text-light, 0.8);
+    line-height: 1.6;
+  }
+}
+\`\`\`
+
+### Bash/Shell
+\`\`\`bash
+#!/bin/bash
+
+# Script para backup do vault do Obsidian
+VAULT_PATH="$HOME/Documents/Obsidian Vault"
+BACKUP_DIR="$HOME/Backups/Obsidian"
+DATE=$(date +"%Y-%m-%d_%H-%M-%S")
+BACKUP_FILE="obsidian_backup_$DATE.tar.gz"
+
+# Criar diretório de backup se não existir
+mkdir -p "$BACKUP_DIR"
+
+# Criar backup compactado
+echo "📦 Criando backup..."
+tar -czf "$BACKUP_DIR/$BACKUP_FILE" -C "$(dirname "$VAULT_PATH")" "$(basename "$VAULT_PATH")"
+
+# Manter apenas os últimos 10 backups
+echo "🧹 Limpando backups antigos..."
+cd "$BACKUP_DIR" || exit
+ls -t *.tar.gz | tail -n +11 | xargs -r rm --
+
+echo "✅ Backup concluído: $BACKUP_FILE"
+\`\`\`
+
+### SQL
+\`\`\`sql
+-- Criar tabela de anotações
+CREATE TABLE annotations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    note_path VARCHAR(500) NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    tags TEXT[] DEFAULT '{}',
+    is_favorite BOOLEAN DEFAULT FALSE
+);
+
+-- Índices para performance
+CREATE INDEX idx_annotations_note_path ON annotations(note_path);
+CREATE INDEX idx_annotations_created_at ON annotations(created_at DESC);
+CREATE INDEX idx_annotations_tags ON annotations USING GIN(tags);
+
+-- View para estatísticas
+CREATE VIEW annotation_stats AS
+SELECT 
+    COUNT(*) as total_annotations,
+    COUNT(DISTINCT note_path) as total_notes,
+    AVG(LENGTH(content)) as avg_content_length,
+    COUNT(*) FILTER (WHERE is_favorite = true) as favorite_count
+FROM annotations;
+\`\`\`
+
+### JSON
+\`\`\`json
+{
+  "plugin": "obsidian-note-reviewer",
+  "version": "1.0.0",
+  "settings": {
+    "theme": "dark",
+    "language": "pt-BR",
+    "shortcuts": {
+      "save": "Ctrl+S",
+      "export": "Ctrl+E",
+      "search": "Ctrl+F",
+      "close": "Escape"
+    },
+    "export": {
+      "format": "json",
+      "includeMetadata": true,
+      "dateFormat": "YYYY-MM-DD HH:mm:ss"
+    }
+  },
+  "annotations": [
+    {
+      "id": "anno-001",
+      "content": "Exemplo de anotação",
+      "tags": ["importante", "review"],
+      "createdAt": "2026-02-07T19:30:00Z"
+    }
+  ]
+}
+\`\`\`
+
+---
+
+## 🔗 Links Externos
+
+### Documentação e Recursos
+- [Obsidian](https://obsidian.md/) - O aplicativo de notas que conecta tudo
+- [React Documentation](https://react.dev/) - Documentação oficial do React
+- [TypeScript Handbook](https://www.typescriptlang.org/docs/) - Guia completo de TypeScript
+- [MDN Web Docs](https://developer.mozilla.org/) - Recursos para desenvolvedores web
+- [Supabase](https://supabase.com/) - Backend as a Service open source
+
+### Ferramentas Úteis
+- [Unsplash](https://unsplash.com/) - Imagens gratuitas de alta qualidade
+- [Lucide Icons](https://lucide.dev/) - Ícones bonitos e consistentes
+- [Tailwind CSS](https://tailwindcss.com/) - Framework CSS utilitário
+
+---
+
+## 📺 Vídeos do YouTube
+
+### Tutorial de Obsidian
+[![Obsidian Tutorial](https://img.youtube.com/vi/QUVwrlSNlM4/0.jpg)](https://www.youtube.com/watch?v=QUVwrlSNlM4)
+
+**Link direto:** [Obsidian Tutorial para Iniciantes](https://www.youtube.com/watch?v=QUVwrlSNlM4)
+
+### React e TypeScript
+[![React TypeScript](https://img.youtube.com/vi/FJDVKeh7RJI/0.jpg)](https://www.youtube.com/watch?v=FJDVKeh7RJI)
+
+**Link direto:** [React + TypeScript - Curso Completo](https://www.youtube.com/watch?v=FJDVKeh7RJI)
+
+---
+
+## 📋 Checklist de Teste
+
+- [x] Imagens renderizadas corretamente
+- [x] Blocos de código com syntax highlighting
+- [x] Links externos clicáveis
+- [x] Links do YouTube com preview
+- [x] Formatação Markdown completa
+- [x] Emojis 🎉 funcionando
+- [x] Tabelas formatadas
+
+---
+
+## 📊 Tabela de Exemplo
+
+| Recurso | Status | Prioridade |
+|---------|--------|------------|
+| Syntax Highlighting | ✅ Implementado | Alta |
+| Export JSON | ✅ Implementado | Alta |
+| Filtros de Busca | ✅ Implementado | Média |
+| Temas Customizáveis | 🚧 Em desenvolvimento | Média |
+| Integração Mobile | 📋 Planejado | Baixa |
+
+---
+
+## 🎬 Vídeo Embedado
+
+### Tutorial Completo de Obsidian
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/QUVwrlSNlM4" title="Obsidian Tutorial" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+
+---
+
+## 📝 Notas e Citações
+
+> "A simplicidade é o último grau de sofisticação." — Leonardo da Vinci
+
+### Callouts Diversos
+
+#### Callouts Abertos (Não Colapsáveis)
+
+> [!info] Informação
+> Esta é uma nota de exemplo criada para testar todas as funcionalidades do Obsidian Note Reviewer. Use-a como referência para entender o que é possível fazer.
+
+> [!success] Sucesso!
+> Suas alterações foram salvas com sucesso no vault do Obsidian.
+
+#### Callouts Colapsáveis - Começando ABERTOS (+)
+
+> [!tip]+ Dica do Plugin (Clique para fechar)
+> Use atalhos de teclado para navegar mais rapidamente entre as anotações!
+> - **Ctrl+S**: Salvar
+> - **Ctrl+E**: Exportar
+> - **?**: Abrir configurações
+
+> [!example]+ Exemplo Prático (Clique para fechar)
+> Aqui está um exemplo de como usar a ferramenta:
+> 1. Selecione um texto
+> 2. Adicione sua anotação
+> 3. Exporte quando terminar
+> 
+> Você pode adicionar múltiplas linhas e até mesmo código:
+> \`\`\`javascript
+> const exemplo = "Hello World";
+> console.log(exemplo);
+> \`\`\`
+
+> [!todo]+ Tarefas Pendentes (Clique para fechar)
+> - [ ] Implementar filtro de anotações
+> - [ ] Adicionar exportação para PDF
+> - [ ] Melhorar performance com notas grandes
+> - [x] Adicionar callouts colapsáveis ✅
+
+#### Callouts Colapsáveis - Começando FECHADOS (-)
+
+> [!warning]- Atenção (Clique para abrir)
+> Sempre faça backup do seu vault antes de realizar operações em massa.
+> 
+> Recomendamos usar o script de backup automático disponível na documentação.
+
+> [!danger]- Cuidado! (Clique para abrir)
+> Esta ação não pode ser desfeita. Tem certeza de que deseja continuar?
+> 
+> **Efeitos colaterais podem incluir:**
+> - Perda de dados
+> - Sobrescrita de arquivos
+> - Inconsistências no vault
+
+> [!bug]- Bug Conhecido (Clique para abrir)
+> Em alguns casos, o syntax highlighting pode não funcionar corretamente com arquivos muito grandes.
+> 
+> **Workaround:** Divida a nota em partes menores ou use a visualização em modo texto.
+
+> [!fail]- Falha (Clique para abrir)
+> Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.
+> 
+> Código do erro: ECONNREFUSED
+> 
+> Se o problema persistir, contate o suporte técnico.
+
+#### Mais Callouts
+
+> [!quote] Citação Importante
+> "O conhecimento é poder." — Francis Bacon
+
+> [!abstract] Resumo
+> Esta seção contém um resumo rápido dos principais recursos disponíveis no plugin.
+
+> [!question] Dúvida
+> Como posso sincronizar minhas anotações entre diferentes dispositivos?
+
+> [!important] Importante
+> Não se esqueça de configurar o caminho do seu vault nas configurações antes de salvar.
+
+---
+
+*Última atualização: 07/02/2026 às 19:35*
 `;
 
 const App: React.FC = () => {
