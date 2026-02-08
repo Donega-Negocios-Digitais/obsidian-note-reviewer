@@ -14,6 +14,7 @@ import { BreakpointPreview } from './BreakpointPreview';
 import { MarkdownRenderer } from '@obsidian-note-reviewer/ui/markdown';
 import { AnnotationExport } from '@obsidian-note-reviewer/ui/annotation';
 import type { Annotation } from '@obsidian-note-reviewer/ui/types';
+import { ShareButton } from '@/components/ShareButton';
 
 export interface Document {
   id: string;
@@ -189,13 +190,19 @@ export function DocumentWorkspace({
               <div className="max-w-3xl mx-auto">
                 {/* Document Header */}
                 <div className="mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center gap-3">
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                      {activeTab.title}
-                    </h1>
-                    <ReferenceCountBadge
-                      count={getReferences(activeTab.id).inbound.length}
-                      onClick={() => setShowReferences(!showReferences)}
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-3 flex-1">
+                      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                        {activeTab.title}
+                      </h1>
+                      <ReferenceCountBadge
+                        count={getReferences(activeTab.id).inbound.length}
+                        onClick={() => setShowReferences(!showReferences)}
+                      />
+                    </div>
+                    <ShareButton
+                      documentId={activeTab.documentId}
+                      documentTitle={activeTab.title}
                     />
                   </div>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
