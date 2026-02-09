@@ -138,6 +138,8 @@ export {
   getDocumentCollaborators,
   inviteCollaborator,
   removeCollaborator,
+  deactivateCollaborator,
+  reactivateCollaborator,
   updateCollaboratorRole,
   getDocumentInvites,
   acceptInvite,

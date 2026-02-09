@@ -254,6 +254,12 @@ const server = Bun.serve({
       }
     }
 
+    // API: Send collaboration invite email via Resend
+    if (url.pathname === "/api/invite" && req.method === "POST") {
+      const { POST } = await import("./api/invite");
+      return POST(req);
+    }
+
     return Response.json({ ok: false, error: "Not found" }, { status: 404, headers: getSecurityHeaders() });
   },
 });

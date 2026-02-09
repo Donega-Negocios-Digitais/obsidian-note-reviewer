@@ -68,7 +68,11 @@
 - Purpose: Real-time collaboration with Liveblocks
 - Location: `C:\dev\tools\obsidian-note-reviewer\packages\collaboration\`
 - Contains: Liveblocks client setup, shareable links, vault integration
-- Exports: `.`, `./shareableLinks`, `./vaultIntegration`
+- Exports: `.`, `./shareableLinks`, `./vaultIntegration`, `./collaborators`
+- Features:
+  - 3-status collaborator system (Pending ⏳, Active ✓, Inactive 🚫)
+  - API functions: deactivateCollaborator(), reactivateCollaborator()
+  - Color-coded badges and power button UI
 - Used by: Portal app
 
 **Shared Layer:**
@@ -76,6 +80,50 @@
 - Location: `C:\dev\tools\obsidian-note-reviewer\packages\shared\`
 - Contains: Pricing tiers (pricing.ts)
 - Note: No package.json, utilities directly in packages/shared/
+
+**i18n Layer (Internationalization):**
+- Purpose: Multi-language support system
+- Location: `C:\dev\tools\obsidian-note-reviewer\packages\ui\i18n\`
+- Contains: Configuration, translation files
+- Languages Supported: pt-BR (default), en-US, es-ES, zh-CN
+- Translation Keys: 400+ keys across all components
+- Implementation: React i18next with localStorage persistence
+- Export: `./config`, `../locales/*`
+- Used by: All apps requiring translations
+
+**Email Integration Layer:**
+- Purpose: Email notifications and invites via Resend
+- Location: `C:\dev\tools\obsidian-note-reviewer\apps\portal\api\`
+- Contains: invite.ts (invite endpoint with HTML templates)
+- Features:
+  - Viewer and Editor HTML templates
+  - Dynamic variables for customization
+  - Resend API integration
+- Environment Variable: RESEND_API_KEY
+- Used by: CollaborationSettings for sending invites
+
+**Template Management Layer:**
+- Purpose: Custom template and category management
+- Location: `C:\dev\tools\obsidian-note-reviewer\packages\ui\components\`
+- Contains: CategoryManager.tsx, NewTemplateModal.tsx
+- Storage: localStorage-based (getCustomTemplates, saveCustomTemplates, etc.)
+- Features:
+  - CRUD operations for custom categories
+  - Custom template creation modal
+  - Dynamic path configuration
+- Used by: SettingsPanel (Paths tab)
+
+**Integration Layer (Telegram/WhatsApp):**
+- Purpose: Third-party messaging integrations
+- Location: `C:\dev\tools\obsidian-note-reviewer\packages\ui\components\IntegrationsSettings.tsx`
+- Contains: Configuration cards for Telegram and WhatsApp
+- Features:
+  - Telegram bot token configuration
+  - Clickable variables: {emoji}, {titulo}, {tipo}, {link}, {timestamp}
+  - Multi-select hooks association
+  - Test message functionality
+- Storage: localStorage-based integration configs
+- Environment Variables: TELEGRAM_BOT_TOKEN, WHATSAPP_API_KEY
 
 ## Data Flow
 
@@ -100,6 +148,31 @@
 2. Presence tracked with useMyPresence hook
 3. Other users' cursors rendered via useOthers
 4. Storage changes synced via Liveblocks storage
+
+**Email Invitation Flow:**
+1. User opens CollaborationSettings and clicks "Send Invite"
+2. Input email address and select role (Viewer/Editor)
+3. API endpoint `/api/invite` called with Resend
+4. HTML template generated with dynamic variables
+5. Email sent via Resend API
+6. Recipient receives invite with link to shared document
+
+**Telegram Notification Flow:**
+1. User enables Telegram integration in IntegrationsSettings
+2. Configures bot token via @BotFather
+3. Sets custom message with clickable variables
+4. On note save/review, notification triggers
+5. Edge Function `send-telegram` processes message
+6. Variables replaced with actual values
+7. Message sent to configured Telegram chat
+
+**Custom Template Flow:**
+1. User opens SettingsPanel → Paths tab
+2. Clicks "New Template" to open NewTemplateModal
+3. Configures template name, category, and content
+4. Template saved to localStorage via saveCustomTemplates()
+5. Template appears as card in Paths tab
+6. Template used when creating new notes via nota-obsidian skill
 
 **State Management:**
 - Frontend: Zustand for local state (where used)
@@ -132,6 +205,40 @@
 - Implementation: Anthropic Claude API via @anthropic-ai/sdk
 - Output: Structured suggestions with type, targetText, suggestedText, reason, confidence
 - Location: packages/ai/src/suggester.ts
+
+**Compressed Sharing Abstraction:**
+- Purpose: Efficient URL-based sharing with data compression
+- Implementation: CompressionStream/DecompressionStream APIs
+- URL Format: `slug~count~hash` (base64url encoded)
+- Features:
+  - Payload validation with integrity checking
+  - URL-safe encoding for social sharing
+  - Decompress on load with error handling
+- Location: packages/ui/utils/sharing.ts
+- Functions: compressSharedData(), decompressSharedData(), validateSharedPayload()
+
+**Collaborator Status Abstraction:**
+- Purpose: Multi-state collaborator management
+- States: Pending (⏳), Active (✓), Inactive (🚫)
+- Transitions:
+  - Pending → Active (automatic on invite acceptance)
+  - Active ↔ Inactive (manual via power button)
+- API Functions:
+  - deactivateCollaborator(noteId, userId) - Active → Inactive
+  - reactivateCollaborator(noteId, userId) - Inactive → Active
+  - getDocumentCollaborators(noteId, includeInactive) - List with filtering
+- Location: packages/collaboration/src/collaborators.ts
+
+**Custom Template Abstraction:**
+- Purpose: User-defined note templates and categories
+- Storage: localStorage with schema validation
+- Types: CustomTemplate, CustomCategory
+- Functions:
+  - getCustomTemplates(), saveCustomTemplates()
+  - getCustomCategories(), saveCustomCategories()
+  - deleteCustomTemplate(), deleteCustomCategory()
+- Integration: Works with nota-obsidian skill for template selection
+- Location: packages/ui/utils/storage.ts
 
 ## Entry Points
 
@@ -188,6 +295,30 @@
 - Mass assignment protection: Field whitelisting in batch operations
 - HTML sanitization: DOMPurify
 
+**Internationalization (i18n):**
+- Library: react-i18next with i18next backend
+- Languages: pt-BR (default), en-US, es-ES, zh-CN
+- Storage: localStorage for language preference
+- Key Count: 400+ translation keys
+- Translation Files: packages/ui/locales/{lang}.json
+- Usage: t('key.path') function across all components
+- Language Switcher: SettingsPanel → Geral tab
+
+**Notification System:**
+- Providers: Telegram (via Edge Function), Email (via Resend)
+- Variables: {emoji}, {titulo}, {tipo}, {link}, {timestamp}
+- Configuration: IntegrationsSettings in SettingsPanel
+- Storage: localStorage-based integration configs
+- Test Mode: Built-in test button for each integration
+
+**Template System:**
+- Custom Templates: User-defined note templates
+- Categories: Built-in + custom categories
+- Storage: localStorage with CRUD operations
+- UI: CategoryManager + NewTemplateModal components
+- Integration: Works with Claude Code nota-obsidian skill
+
 ---
 
-*Architecture analysis: 2025-02-08*
+*Architecture analysis: 2026-02-08*
+*Updated with Phase 11-14 features*

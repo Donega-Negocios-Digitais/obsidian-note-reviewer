@@ -53,7 +53,7 @@ export function ModeToggle() {
 
       {isOpen && (
         <div
-          className="absolute right-0 mt-1 w-32 rounded-lg border border-border bg-popover shadow-xl z-50 overflow-hidden py-1"
+          className="absolute right-0 mt-1 w-32 rounded-lg border border-border bg-popover shadow-xl z-[100] overflow-hidden py-1"
           role="menu"
           aria-label="Opções de tema"
         >

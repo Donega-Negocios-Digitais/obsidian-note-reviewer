@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { MessageCircle, Send, Edit, Check, AlertCircle } from 'lucide-react';
+import { MessageCircle, Send, Edit, Check, AlertCircle, Power, Zap, BookOpen, FileCode } from 'lucide-react';
 import { getIntegrations, saveIntegrations, type IntegrationConfig } from '../utils/storage';
 
 interface Hook {
@@ -21,7 +21,7 @@ const DEFAULT_INTEGRATIONS: IntegrationConfig[] = [
     enabled: false,
     config: {
       target: '',
-      associatedHook: '',
+      associatedHooks: [],
       customMessage: '',
       autoSendLink: false,
     },
@@ -32,7 +32,29 @@ const DEFAULT_INTEGRATIONS: IntegrationConfig[] = [
     enabled: false,
     config: {
       target: '',
-      associatedHook: '',
+      associatedHooks: [],
+      customMessage: '',
+      autoSendLink: false,
+    },
+  },
+  {
+    id: 'notion',
+    type: 'notion',
+    enabled: false,
+    config: {
+      target: '',
+      associatedHooks: [],
+      customMessage: '',
+      autoSendLink: false,
+    },
+  },
+  {
+    id: 'obsidian',
+    type: 'obsidian',
+    enabled: false,
+    config: {
+      target: '',
+      associatedHooks: [],
       customMessage: '',
       autoSendLink: false,
     },
@@ -125,6 +147,8 @@ export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({ hook
     switch (type) {
       case 'whatsapp': return MessageCircle;
       case 'telegram': return Send;
+      case 'notion': return BookOpen;
+      case 'obsidian': return FileCode;
       default: return Edit;
     }
   };
@@ -133,6 +157,8 @@ export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({ hook
     switch (type) {
       case 'whatsapp': return t('settings.integrations.whatsapp');
       case 'telegram': return t('settings.integrations.telegram');
+      case 'notion': return 'Notion';
+      case 'obsidian': return 'Obsidian';
       default: return type;
     }
   };
@@ -141,6 +167,8 @@ export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({ hook
     switch (type) {
       case 'whatsapp': return t('settings.integrations.whatsappDesc');
       case 'telegram': return t('settings.integrations.telegramDesc');
+      case 'notion': return 'Sincronize notas e documentos com o Notion';
+      case 'obsidian': return 'Integração direta com seu vault do Obsidian';
       default: return '';
     }
   };
@@ -169,21 +197,27 @@ export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({ hook
               }`}
             >
               {/* Header */}
-              <div className="flex items-center gap-2 mb-2">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                  integration.type === 'whatsapp' ? 'bg-green-500/10 text-green-500' : 'bg-blue-500/10 text-blue-500'
-                }`}>
-                  <Icon className="w-4 h-4" />
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                    integration.type === 'whatsapp' ? 'bg-green-500/10 text-green-500' :
+                    integration.type === 'telegram' ? 'bg-blue-500/10 text-blue-500' :
+                    integration.type === 'notion' ? 'bg-gray-800/10 text-gray-800 dark:text-gray-200' :
+                    integration.type === 'obsidian' ? 'bg-purple-500/10 text-purple-500' :
+                    'bg-blue-500/10 text-blue-500'
+                  }`}>
+                    <Icon className="w-4 h-4" />
+                  </div>
+                  <h3 className="text-sm font-semibold text-foreground truncate">
+                    {getIntegrationLabel(integration.type)}
+                  </h3>
                 </div>
-                <h3 className="text-sm font-semibold text-foreground">
-                  {getIntegrationLabel(integration.type)}
-                </h3>
                 {integration.enabled ? (
-                  <span className="px-2 py-0.5 text-[10px] bg-green-500/20 text-green-600 dark:text-green-400 rounded-full font-medium ml-auto">
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 flex-shrink-0">
                     {t('settings.integrations.enabled')}
                   </span>
                 ) : (
-                  <span className="px-2 py-0.5 text-[10px] bg-muted/50 text-muted-foreground rounded-full font-medium ml-auto">
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-gray-500/10 text-gray-600 dark:text-gray-400 flex-shrink-0">
                     {t('settings.integrations.disabled')}
                   </span>
                 )}
@@ -214,25 +248,28 @@ export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({ hook
               )}
 
               {/* Actions */}
-              <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/50">
-                {/* Toggle */}
-                <button
-                  onClick={() => toggleIntegration(integration.id)}
-                  className={`relative w-12 h-6 rounded-full transition-colors overflow-hidden ${
-                    integration.enabled ? 'bg-green-500' : 'bg-muted'
-                  }`}
-                >
-                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform ${
-                    integration.enabled ? 'translate-x-6' : 'translate-x-0'
-                  }`} />
-                </button>
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/50">
+                <div className="text-xs text-muted-foreground"></div>
 
                 <div className="flex items-center gap-1">
+                  {/* Power Button - Activate/Deactivate */}
+                  <button
+                    onClick={() => toggleIntegration(integration.id)}
+                    className={`p-1.5 rounded-md transition-colors ${
+                      integration.enabled
+                        ? 'text-muted-foreground hover:text-destructive hover:bg-destructive/10'
+                        : 'text-green-600 hover:text-green-700 hover:bg-green-500/10'
+                    }`}
+                    title={integration.enabled ? t('settings.collaboration.deactivate') : t('settings.collaboration.activate')}
+                  >
+                    <Power className="w-3.5 h-3.5" />
+                  </button>
                   <button
                     onClick={() => testConnection(integration.id)}
-                    className="px-2 py-1.5 text-xs font-medium text-foreground bg-primary/10 hover:bg-primary/20 rounded-md transition-colors"
+                    className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-md transition-colors"
+                    title={t('settings.actions.test')}
                   >
-                    {t('settings.actions.test')}
+                    <Zap className="w-3.5 h-3.5" />
                   </button>
                   <button
                     onClick={() => openConfig(integration)}
@@ -278,6 +315,12 @@ export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({ hook
                 <label className="block text-sm font-medium text-foreground mb-1.5">
                   {integrations.find(i => i.id === configuring)?.type === 'whatsapp'
                     ? t('settings.integrations.phoneNumber')
+                    : integrations.find(i => i.id === configuring)?.type === 'telegram'
+                    ? t('settings.integrations.chatId')
+                    : integrations.find(i => i.id === configuring)?.type === 'notion'
+                    ? 'API Key ou Token'
+                    : integrations.find(i => i.id === configuring)?.type === 'obsidian'
+                    ? 'Caminho do Vault'
                     : t('settings.integrations.chatId')}
                 </label>
                 <input
@@ -286,6 +329,12 @@ export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({ hook
                   onChange={e => setConfigForm({ ...configForm, target: e.target.value })}
                   placeholder={integrations.find(i => i.id === configuring)?.type === 'whatsapp'
                     ? t('settings.integrations.phoneNumberPlaceholder')
+                    : integrations.find(i => i.id === configuring)?.type === 'telegram'
+                    ? t('settings.integrations.chatIdPlaceholder')
+                    : integrations.find(i => i.id === configuring)?.type === 'notion'
+                    ? 'secret_xxxxxxxx'
+                    : integrations.find(i => i.id === configuring)?.type === 'obsidian'
+                    ? 'C:/Users/SeuUsuario/Documents/ObsidianVault'
                     : t('settings.integrations.chatIdPlaceholder')}
                   className="w-full p-2.5 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-sm"
                 />
@@ -337,13 +386,58 @@ export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({ hook
                 <label className="block text-sm font-medium text-foreground mb-1.5">
                   {t('settings.integrations.customMessage')}
                 </label>
-                <textarea
-                  value={configForm.customMessage}
-                  onChange={e => setConfigForm({ ...configForm, customMessage: e.target.value })}
-                  placeholder={t('settings.integrations.customMessagePlaceholder')}
-                  rows={3}
-                  className="w-full p-2.5 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-sm resize-none"
-                />
+                <div className="relative">
+                  <textarea
+                    ref={el => {
+                      if (el && configuring && !document.querySelector(`[data-textarea-ref="${configuring}"]`)) {
+                        el.dataset.textareaRef = configuring;
+                      }
+                    }}
+                    value={configForm.customMessage}
+                    onChange={e => setConfigForm({ ...configForm, customMessage: e.target.value })}
+                    placeholder={t('settings.integrations.customMessagePlaceholder')}
+                    rows={3}
+                    className="w-full p-2.5 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-sm resize-none"
+                  />
+                </div>
+                {/* Variable tags */}
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  <span className="text-xs text-muted-foreground/70 mr-1 self-center">
+                    {t('settings.integrations.customMessageVariables')}:
+                  </span>
+                  {[
+                    { key: '{emoji}', label: t('settings.integrations.variableEmoji') },
+                    { key: '{titulo}', label: t('settings.integrations.variableTitle') },
+                    { key: '{tipo}', label: t('settings.integrations.variableType') },
+                    { key: '{link}', label: t('settings.integrations.variableLink') },
+                    { key: '{timestamp}', label: t('settings.integrations.variableTimestamp') },
+                  ].map(variable => (
+                    <button
+                      key={variable.key}
+                      onClick={() => {
+                        const textarea = document.querySelector(`[data-textarea-ref="${configuring}"]`) as HTMLTextAreaElement;
+                        if (textarea) {
+                          const start = textarea.selectionStart;
+                          const end = textarea.selectionEnd;
+                          const text = configForm.customMessage;
+                          const before = text.substring(0, start);
+                          const after = text.substring(end);
+                          const newText = before + variable.key + after;
+                          setConfigForm({ ...configForm, customMessage: newText });
+                          // Set cursor position after inserted variable
+                          setTimeout(() => {
+                            textarea.focus();
+                            textarea.setSelectionRange(start + variable.key.length, start + variable.key.length);
+                          }, 0);
+                        }
+                      }}
+                      className="px-2 py-0.5 text-xs font-medium rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors cursor-pointer border border-primary/20"
+                      title={variable.key}
+                    >
+                      {variable.key}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Auto send link */}

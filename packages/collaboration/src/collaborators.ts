@@ -11,7 +11,7 @@ import { supabase } from '@obsidian-note-reviewer/security/supabase/client';
 // ============================================
 
 export type CollaboratorRole = 'owner' | 'editor' | 'viewer';
-export type CollaboratorStatus = 'active' | 'pending' | 'removed';
+export type CollaboratorStatus = 'active' | 'pending' | 'inactive';
 export type InviteStatus = 'pending' | 'accepted' | 'expired' | 'cancelled';
 
 export interface Collaborator {
@@ -67,9 +67,10 @@ export interface RemoveCollaboratorResult {
  * Get all collaborators for a document
  */
 export async function getDocumentCollaborators(
-  noteId: string
+  noteId: string,
+  includeInactive: boolean = true
 ): Promise<Collaborator[]> {
-  const { data, error } = await supabase
+  const query = supabase
     .from('document_collaborators')
     .select(`
       *,
@@ -80,9 +81,17 @@ export async function getDocumentCollaborators(
         avatar_url
       )
     `)
-    .eq('note_id', noteId)
-    .eq('status', 'active')
-    .order('created_at', { ascending: true });
+    .eq('note_id', noteId);
+
+  // Se não incluir inativos, busca apenas ativos
+  if (!includeInactive) {
+    query.eq('status', 'active');
+  } else {
+    // Incluir ativos e inativos (mas não 'removed')
+    query.in('status', ['active', 'inactive']);
+  }
+
+  const { data, error } = await query.order('created_at', { ascending: true });
 
   if (error) {
     console.error('Error fetching collaborators:', error);
@@ -137,7 +146,7 @@ export async function inviteCollaborator(
 }
 
 /**
- * Remove a collaborator from a document
+ * Remove a collaborator permanently from a document (hard delete)
  */
 export async function removeCollaborator(
   noteId: string,
@@ -145,7 +154,47 @@ export async function removeCollaborator(
 ): Promise<RemoveCollaboratorResult> {
   const { error } = await supabase
     .from('document_collaborators')
-    .update({ status: 'removed', updated_at: new Date().toISOString() })
+    .delete()
+    .eq('note_id', noteId)
+    .eq('user_id', userId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
+}
+
+/**
+ * Deactivate a collaborator (soft delete - sets status to inactive)
+ */
+export async function deactivateCollaborator(
+  noteId: string,
+  userId: string
+): Promise<RemoveCollaboratorResult> {
+  const { error } = await supabase
+    .from('document_collaborators')
+    .update({ status: 'inactive', updated_at: new Date().toISOString() })
+    .eq('note_id', noteId)
+    .eq('user_id', userId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
+}
+
+/**
+ * Reactivate a collaborator (sets status back to active)
+ */
+export async function reactivateCollaborator(
+  noteId: string,
+  userId: string
+): Promise<RemoveCollaboratorResult> {
+  const { error } = await supabase
+    .from('document_collaborators')
+    .update({ status: 'active', updated_at: new Date().toISOString() })
     .eq('note_id', noteId)
     .eq('user_id', userId);
 

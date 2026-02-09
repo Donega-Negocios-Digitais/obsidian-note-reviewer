@@ -4,7 +4,7 @@
     "subtitle": "Configure caminhos e templates",
     "tabs": {
       "regras": "Regras e Workflows",
-      "caminhos": "Caminhos e Templates",
+      "caminhos": "Templates",
       "identidade": "Identidade do Revisor",
       "atalhos": "Atalhos de Teclado",
       "hooks": "Hooks",
@@ -23,7 +23,7 @@
       "create": "Criar"
     },
     "paths": {
-      "title": "Caminhos e Templates",
+      "title": "Templates",
       "subtitle": "Configure onde cada tipo de nota será salvo",
       "template": "Template",
       "templateOptional": "Opc",
@@ -76,6 +76,8 @@
       "subtitle": "Configure integrações automáticas",
       "active": "✓ Ativo",
       "inactive": "Inativo",
+      "activate": "Ativar",
+      "deactivate": "Desativar",
       "moreSoon": "Mais hooks serão adicionados em breve",
       "trigger": "Trigger",
       "test": "Testar",
@@ -139,7 +141,13 @@
       "selectHook": "Selecione um hook",
       "noHook": "Nenhum",
       "customMessage": "Mensagem Personalizada",
-      "customMessagePlaceholder": "Nova nota para revisão: {{link}}",
+      "customMessagePlaceholder": "Variáveis: {emoji}, {titulo}, {tipo}, {link}, {timestamp}",
+      "customMessageVariables": "Variáveis disponíveis",
+      "variableEmoji": "Emoji",
+      "variableTitle": "Título",
+      "variableType": "Tipo",
+      "variableLink": "Link",
+      "variableTimestamp": "Timestamp",
       "autoSendLink": "Enviar link para revisão automaticamente",
       "testConnection": "Testar Conexão",
       "testSuccess": "Conexão testada com sucesso!",
@@ -209,7 +217,14 @@
       "editorDesc": "Pode adicionar anotações e comentários",
       "viewerDesc": "Apenas visualização do documento",
       "pending": "Pendente",
-      "removeCollaborator": "Remover colaborador"
+      "active": "Ativo",
+      "inactive": "Desativado",
+      "removeCollaborator": "Remover colaborador",
+      "activate": "Ativar",
+      "deactivate": "Desativar",
+      "statusPending": "Pendente",
+      "statusActive": "Ativo",
+      "statusInactive": "Desativado"
     },
     "profile": {
       "title": "Perfil",

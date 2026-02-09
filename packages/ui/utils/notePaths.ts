@@ -361,3 +361,20 @@ export function getDefaultConfigs(): {
 
   return { templates, paths };
 }
+
+// =====================================
+// Category helpers (dynamic)
+// =====================================
+
+export function getBuiltInCategories() {
+  return [
+    { id: 'terceiros', name: 'Conteúdo de Terceiros', icon: 'BookOpen', isBuiltIn: true },
+    { id: 'atomica', name: 'Notas Atômicas', icon: 'Atom', isBuiltIn: true },
+    { id: 'organizacional', name: 'Notas Organizacionais', icon: 'Map', isBuiltIn: true },
+    { id: 'alex', name: 'Conteúdo Próprio', icon: 'PenTool', isBuiltIn: true },
+  ] as const;
+}
+
+export function getAllCategories(customCategories: Array<{ id: string; name: string; icon: string; isBuiltIn: boolean }> = []) {
+  return [...getBuiltInCategories(), ...customCategories];
+}

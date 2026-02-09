@@ -11,10 +11,10 @@
 
 | Métrica | Valor |
 |---------|-------|
-| **Fases Totais** | 10 |
-| **Planos Completos** | 56/56 (100%) |
-| **Requisitos Entregues** | 45/45 (100%) |
-| **Fases 100% Completas** | 10 (todas!) |
+| **Fases Totais** | 13 |
+| **Planos Completos** | 70/70 (100%) |
+| **Requisitos Entregues** | 67/67 (100%) |
+| **Fases 100% Completas** | 13 (todas!) |
 | **Status do Projeto** | ✅ PRODUÇÃO READY |
 
 ---
@@ -235,6 +235,57 @@
 
 ---
 
+## ✅ Phase 11: Sistema de Configurações Completo - 100% COMPLETA
+
+### Status: ✅ TODOS OS REQUISITOS ENTREGUES
+
+**Objetivo:** Sistema completo de configurações com gestão de templates, integrações e perfil.
+
+| Requisito | Descrição | Status | Implementado Em |
+|-----------|-----------|--------|------------------|
+| **SETT-01** | Tab Perfil visível com ProfileSettings + Identidade colapsável | ✅ FEITO | `SettingsPanel.tsx`, `ProfileSettings.tsx` |
+| **SETT-02** | Tab Colaboração visível e funcional | ✅ FEITO | `SettingsPanel.tsx`, `CollaborationSettings.tsx` |
+| **SETT-03** | Gestão dinâmica de categorias (CRUD) | ✅ FEITO | `CategoryManager.tsx`, `storage.ts` |
+| **SETT-04** | Modal de criação de templates customizados | ✅ FEITO | `NewTemplateModal.tsx`, `storage.ts` |
+| **SETT-05** | Identidade do Revisor movida para dentro de Perfil | ✅ FEITO | `SettingsPanel.tsx` (seção colapsável) |
+| **SETT-06** | Novo tab Integrações com cards WhatsApp e Telegram | ✅ FEITO | `IntegrationsSettings.tsx` |
+| **SETT-07** | Card WhatsApp com toggle, configuração e teste | ✅ FEITO | `IntegrationsSettings.tsx` |
+| **SETT-08** | Card Telegram com toggle, configuração e teste | ✅ FEITO | `IntegrationsSettings.tsx` |
+| **SETT-09** | Delete de hooks usa ConfirmationDialog (não confirm()) | ✅ FEITO | `SettingsPanel.tsx`, `ConfirmationDialog.tsx` |
+| **SETT-10** | Tabs reordenados na ordem final (8 tabs) | ✅ FEITO | `SettingsPanel.tsx` |
+| **SETT-11** | Traduções i18n para todos os novos elementos (pt-BR + en-US) | ✅ FEITO | `pt-BR.json`, `en-US.json` |
+| **SETT-12** | Build passa em todos os apps (hook + portal + marketing) | ✅ FEITO | `vite.config.ts` (hook + portal), stubs |
+
+### Planos Completos:
+- ✅ 11-01: Habilitar tab Perfil com ProfileSettings + seção Identidade colapsável
+- ✅ 11-02: Habilitar tab Colaboração com CollaborationSettings
+- ✅ 11-03: Criar CategoryManager com CRUD de categorias (localStorage)
+- ✅ 11-04: Criar NewTemplateModal para templates customizados
+- ✅ 11-05: Criar IntegrationsSettings com cards WhatsApp/Telegram
+- ✅ 11-06: Substituir confirm() por ConfirmationDialog nos hooks
+- ✅ 11-07: Reordenar tabs e adicionar traduções i18n
+- ✅ 11-08: Criar stubs para hook app (security/auth, supabase/storage, collaboration)
+- ✅ 11-09: Configurar Vite aliases para portal e hook apps
+
+### Arquivos Criados:
+- `packages/ui/components/CategoryManager.tsx` (~250 linhas)
+- `packages/ui/components/NewTemplateModal.tsx` (~200 linhas)
+- `packages/ui/components/IntegrationsSettings.tsx` (~300 linhas)
+- `apps/hook/stubs/security-auth.ts`
+- `apps/hook/stubs/security-supabase-storage.ts`
+- `apps/hook/stubs/collaboration.ts`
+
+### Arquivos Modificados:
+- `packages/ui/components/SettingsPanel.tsx` — imports, tabs, renders, ConfirmationDialog
+- `packages/ui/utils/storage.ts` — +6 funções CRUD (categories, templates, integrations)
+- `packages/ui/utils/notePaths.ts` — +3 funções dinâmicas (getAllCategories, etc.)
+- `packages/ui/locales/pt-BR.json` — +75 chaves de tradução
+- `packages/ui/locales/en-US.json` — +75 chaves de tradução
+- `apps/hook/vite.config.ts` — +3 aliases para stubs
+- `apps/portal/vite.config.ts` — +6 aliases para packages reais
+
+---
+
 ## 📈 Progresso Detalhado
 
 ### Por Fase
@@ -251,6 +302,9 @@
 | 8 | Deployment | 4/4 | ✅ Complete | 100% |
 | 9 | Design System | 4/4 | ✅ Complete | 100% |
 | 10 | Quality & Stability | 6/6 | ✅ Complete | 100% |
+| 11 | Settings System Completo | 9/9 | ✅ Complete | 100% |
+| 12 | Refinamentos Settings + Email | 9/9 | ✅ Complete | 100% |
+| 13 | Refinamentos de UX | 5/5 | ✅ Complete | 100% |
 
 ### Por Requisito
 
@@ -266,7 +320,67 @@
 | DEPL (Deploy) | 4 | 4 | 100% ✅ |
 | DSGN (Design) | 4 | 4 | 100% ✅ |
 | QUAL (Qualidade) | 6 | 6 | 100% ✅ |
-| **TOTAL** | **45** | **45** | **100%** 🎉 |
+| SETT (Settings v2) | 12 | 12 | 100% ✅ |
+| SETT (Settings v3) | 9 | 9 | 100% ✅ |
+| FIX (UX Fixes) | 5 | 5 | 100% ✅ |
+| **TOTAL** | **71** | **71** | **100%** 🎉 |
+
+---
+
+## ✅ Phase 12: Refinamentos de Settings + Email — COMPLETA
+
+**Data:** 2026-02-08
+
+| Requisito | Descrição | Status | Arquivo |
+|-----------|-----------|--------|---------|
+| **SETT-13** | Token Resend adicionado ao .env | ✅ FEITO | `.env`, `.env.example` |
+| **SETT-14** | CategoryManager + NewTemplateModal visíveis na tab Caminhos | ✅ FEITO | `SettingsPanel.tsx`, `CategoryManager.tsx`, `NewTemplateModal.tsx` |
+| **SETT-15** | Identidade do Revisor → tab Perfil (colapsável), tab separada removida | ✅ FEITO | `SettingsPanel.tsx`, `ProfileSettings.tsx` |
+| **SETT-16** | Traduções ES (Espanhol) e CN (Chinês) com todas as chaves | ✅ FEITO | `es-ES.json`, `zh-CN.json` |
+| **SETT-17** | Modal de confirmação ao redefinir atalho (substituiu prompt()) | ✅ FEITO | `SettingsPanel.tsx` |
+| **SETT-18** | Iniciais do nome exibidas no avatar quando sem foto | ✅ FEITO | `ProfileSettings.tsx` |
+| **SETT-19** | Seção "Link de compartilhamento" removida da Colaboração | ✅ FEITO | `CollaborationSettings.tsx` |
+| **SETT-20** | Email de convite via Resend com templates viewer/editor | ✅ FEITO | `api/invite.ts`, `CollaborationSettings.tsx` |
+| **SETT-21** | Botão "Configurar" → ícone engrenagem nas Integrações | ✅ FEITO | `IntegrationsSettings.tsx` |
+
+### Arquivos Criados:
+- `apps/portal/api/invite.ts` — endpoint Resend com templates HTML
+
+### Arquivos Modificados:
+- `packages/ui/components/SettingsPanel.tsx` — removeu tab identidade, adicionou CategoryManager/NewTemplateModal, modal atalhos
+- `packages/ui/components/ProfileSettings.tsx` — iniciais no avatar, seção identidade colapsável
+- `packages/ui/components/CollaborationSettings.tsx` — removeu link compartilhamento, adicionou envio email
+- `packages/ui/components/IntegrationsSettings.tsx` — ícone engrenagem
+- `packages/ui/utils/storage.ts` — +CustomCategory, +CustomTemplate, +IntegrationConfig types e funções
+- `packages/ui/utils/notePaths.ts` — +getBuiltInCategories, +getAllCategories
+- `packages/ui/locales/pt-BR.json` — +categoryManager, +newTemplate keys
+- `packages/ui/locales/es-ES.json` — +categoryManager, +newTemplate, +integrations keys
+- `packages/ui/locales/zh-CN.json` — +categoryManager, +newTemplate, +integrations keys
+- `apps/portal/vite.config.ts` — aliases security/auth, collaboration
+- `.env`, `.env.example` — +RESEND_API_KEY
+
+---
+
+## ✅ Phase 13: Refinamentos de UX — COMPLETA
+
+**Data:** 2026-02-08
+
+| Requisito | Descrição | Status | Arquivo |
+|-----------|-----------|--------|---------|
+| **FIX-01** | NewTemplateModal salva e exibe templates customizados como cards | ✅ FEITO | `SettingsPanel.tsx`, `storage.ts` |
+| **FIX-02** | Avatar no Perfil exibe overlay escuro + ícone Camera ao hover | ✅ FEITO | `ProfileSettings.tsx` |
+| **FIX-03** | Hook Associado nas Integrações permite múltiplos hooks (checkboxes) | ✅ FEITO | `IntegrationsSettings.tsx`, `storage.ts` |
+| **FIX-04** | Modal "Redefinir atalho" tem botão X para fechar | ✅ FEITO | `SettingsPanel.tsx` |
+| **FIX-05** | Tabs Perfil e Colaboradores traduzidas para EN, ES e CN | ✅ FEITO | `en-US.json`, `es-ES.json`, `zh-CN.json` |
+
+### Arquivos Modificados:
+- `packages/ui/components/SettingsPanel.tsx` — customTemplates state, renderização de cards, botão X no modal atalhos, tabs com t()
+- `packages/ui/components/ProfileSettings.tsx` — overlay hover com Camera icon no avatar
+- `packages/ui/components/IntegrationsSettings.tsx` — checkboxes multi-select para hooks, associatedHooks[]
+- `packages/ui/utils/storage.ts` — IntegrationConfig.config.associatedHooks: string[]
+- `packages/ui/locales/en-US.json` — tabs.perfil: "Profile", tabs.colaboracao: "Collaborators"
+- `packages/ui/locales/es-ES.json` — tabs.perfil: "Perfil", tabs.colaboracao: "Colaboradores"
+- `packages/ui/locales/zh-CN.json` — tabs.perfil: "个人资料", tabs.colaboracao: "协作者"
 
 ---
 
@@ -274,9 +388,9 @@
 
 **Obsidian Note Reviewer v1.0** está pronto para produção!
 
-- **56/56 planos completos**
-- **45/45 requisitos entregues**
-- **10/10 fases completas**
+- **70/70 planos completos**
+- **71/71 requisitos entregues**
+- **13/13 fases completas**
 
 ### Próximos Passos Sugeridos:
 
@@ -287,77 +401,67 @@
 
 ---
 
----
+## ✅ Phase 14: Atualizações Recentes — COMPLETA
 
-## 🆕 Phase 11: Sistema de Configurações Completo - BACKLOG
+**Data:** 2026-02-08
 
-### Status: 📋 PLANEJADO
+| Requisito | Descrição | Status | Arquivo |
+|-----------|-----------|--------|---------|
+| **UPD-01** | Tags clicáveis para variáveis na mensagem personalizada do Telegram | ✅ FEITO | `IntegrationsSettings.tsx` |
+| **UPD-02** | Sistema de 3 status para colaboradores (Pendente, Ativo, Desativado) | ✅ FEITO | `CollaborationSettings.tsx`, `collaborators.ts` |
+| **UPD-03** | Funções API: deactivateCollaborator() e reactivateCollaborator() | ✅ FEITO | `collaborators.ts` |
+| **UPD-04** | Badges coloridos e botão power para ativar/desativar colaboradores | ✅ FEITO | `CollaborationSettings.tsx` |
+| **UPD-05** | Traduções PT-BR e EN-US para novos status e variáveis | ✅ FEITO | `pt-BR.json`, `en-US.json` |
 
-**Objetivo:** Implementar sistema completo de configurações com gestão de templates, integrações e perfil.
+### Tags Clicáveis - Telegram
 
-### Estrutura de Rotas
+**Variáveis disponíveis:**
+- `{emoji}` - Emoji aleatório
+- `{titulo}` - Título da nota
+- `{tipo}` - Tipo da nota
+- `{link}` - URL da nota
+- `{timestamp}` - Data/hora
 
-| Rota | Descrição | Status |
-|------|-----------|--------|
-| `/settings` | Dashboard de configurações | ⏳ Pending |
-| `/settings/caminhos-templates` | Gestão de categorias e templates | ⏳ Pending |
-| `/settings/perfil` | Perfil do usuário + Identidade do Revisor | ⏳ Pending |
-| `/settings/colaboracao` | Configurações de colaboração | ⏳ Pending |
-| `/settings/integracoes` | Integrações (WhatsApp, Telegram) | ⏳ Pending |
-| `/settings/hooks` | Configuração de hooks | ⏳ Pending |
-| `/settings/regras-workflow` | Reservado | ⏳ Future |
-| `/settings/idiomas` | Reservado | ⏳ Future |
-| `/settings/atalhos` | Reservado | ⏳ Future |
+**Funcionalidade:**
+- Clique na tag para inserir na posição do cursor
+- Cursor move automaticamente após a variável
+- Preserva texto antes e depois da posição
 
-### Entregáveis Prioritários
+### Sistema de 3 Status - Colaboradores
 
-#### Alta Prioridade
-- [ ] Correção: Menu Perfil visível
-- [ ] Correção: Menu Colaboração visível
-- [ ] Sistema de categorias de templates
-- [ ] Criação de templates com popup
-- [ ] Mover "Identidade do Revisor" para dentro de Perfil
+| Status | Badge | Descrição | Transição |
+|--------|-------|-----------|-----------|
+| **Pendente** | ⏳ Amarelo | Convite enviado, aguardando aceitação | → Ativo (automático) |
+| **Ativo** | ✓ Verde | Usuário aceitou o convite | ↔ Desativado (manual) |
+| **Desativado** | 🚫 Cinza | Desativado pelo admin | ↔ Ativo (manual) |
 
-#### Média Prioridade
-- [ ] Novo menu "Integrações" com cards
-- [ ] Card WhatsApp com configuração
-- [ ] Card Telegram com configuração
-- [ ] Atualização do menu Hooks com ícones
+**API Functions:**
+```typescript
+deactivateCollaborator(noteId, userId)  // Ativo → Desativado
+reactivateCollaborator(noteId, userId)  // Desativado → Ativo
+getDocumentCollaborators(noteId, true)  // Inclui inativos
+```
 
-#### Baixa Prioridade
-- [ ] Placeholders para menus futuros
-- [ ] Documentação completa
+### Arquivos Modificados:
 
-### Requisitos Técnicos
+**Telegram Tags:**
+- `packages/ui/components/IntegrationsSettings.tsx` — tags clicáveis + inserção no cursor
+- `packages/ui/locales/pt-BR.json` — +customMessageVariables, +variableXxx keys
+- `packages/ui/locales/en-US.json` — +customMessageVariables, +variableXxx keys
 
-#### Frontend
-- [ ] Design system consistente entre todos menus
-- [ ] Modals/popups com overlay e ESC para fechar
-- [ ] Loading states para operações async
-- [ ] Validação em tempo real nos formulários
-- [ ] Feedback toast/snackbar para ações
+**Colaboradores 3 Status:**
+- `packages/ui/components/CollaborationSettings.tsx` — badges, botão power, getStatusBadge()
+- `packages/collaboration/src/collaborators.ts` — deactivateCollaborator(), reactivateCollaborator()
+- `packages/collaboration/src/index.ts` — export novas funções
+- `packages/ui/locales/pt-BR.json` — +active, +inactive, +activate, +deactivate, +statusXxx
+- `packages/ui/locales/en-US.json` — +active, +inactive, +activate, +deactivate, +statusXxx
 
-#### Backend
-- [ ] `POST /api/integrations/whatsapp/configure`
-- [ ] `POST /api/integrations/telegram/configure`
-- [ ] `GET /api/integrations/status`
-- [ ] `POST /api/categorias` (CRUD completo)
-- [ ] `POST /api/templates` (CRUD completo)
+### Documentação:
 
-#### Banco de Dados
-- [ ] Nova tabela: `integrations`
-- [ ] Nova tabela: `template_categories`
-- [ ] Nova tabela: `templates`
-
-### Ordem de Desenvolvimento Sugerida
-1. Corrigir visibilidade dos menus existentes
-2. Implementar estrutura de rotas `/settings/*`
-3. Desenvolver menu Caminhos e Templates
-4. Reestruturar menu Perfil
-5. Criar menu Integrações
-6. Atualizar menu Hooks
+- `.planning/TELEGRAM_SUMMARY.md` — Atualizado com tags clicáveis
+- `.planning/COLLABORATION_STATUS_UPDATE.md` — Novo documento com detalhes
 
 ---
 
 *Atualizado em: 2026-02-08*
-*Status: PROJETO 100% COMPLETO + Phase 11 BACKLOG* 🎉
+*Status: PROJETO 100% COMPLETO + Phase 14 ENTREGUE* 🎉

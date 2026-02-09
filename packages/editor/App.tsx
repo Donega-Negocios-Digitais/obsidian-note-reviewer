@@ -432,6 +432,7 @@ const App: React.FC = () => {
   const [showHelpVideo, setShowHelpVideo] = useState(false);
   const [isPanelOpen, setIsPanelOpen] = useState(true);
   const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<'caminhos' | 'regras' | 'idioma' | 'atalhos' | 'hooks' | 'perfil' | 'colaboracao' | 'integracoes'>('caminhos');
   const [editorMode, setEditorMode] = useState<EditorMode>('selection');
 
   const [isApiMode, setIsApiMode] = useState(false);
@@ -1010,6 +1011,7 @@ const App: React.FC = () => {
             onNoteTypeChange={handleNoteTypeChange}
             onNotePathChange={handleNotePathChange}
             onNoteNameChange={handleNoteNameChange}
+            initialTab={settingsInitialTab}
           />
         ) : (
           <>
@@ -1022,6 +1024,7 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-1 md:gap-2">
+            <ModeToggle />
             {isApiMode && (
               <>
                 <button
@@ -1542,10 +1545,10 @@ const App: React.FC = () => {
                 </h2>
                 <button
                   onClick={() => setShowShareDialog(false)}
-                  className="p-1 text-destructive hover:text-destructive/80"
+                  className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/15 transition-colors rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 >
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>

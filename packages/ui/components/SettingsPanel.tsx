@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BookOpen, FolderOpen, User, Keyboard, Globe, Download, Upload, RotateCcw, Lightbulb, UserCircle, Users, Edit, Trash2, Plug } from 'lucide-react';
+import { BookOpen, FolderOpen, User, Keyboard, Globe, Download, Upload, RotateCcw, Lightbulb, UserCircle, Users, Edit, Trash2, Plug, Power, Ban, Eye, FileText, Zap } from 'lucide-react';
 import { ProfileSettings } from './ProfileSettings';
 import { CollaborationSettings } from './CollaborationSettings';
 import { IntegrationsSettings } from './IntegrationsSettings';
 import { CategoryManager } from './CategoryManager';
 import { NewTemplateModal } from './NewTemplateModal';
+import { ConfirmModal } from './ConfirmModal';
 
 const BoxingGloveIcon = ({ className }: { className?: string }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor">
@@ -16,7 +17,6 @@ const BoxingGloveIcon = ({ className }: { className?: string }) => (
 );
 import { getIdentity, getAnonymousIdentity, regenerateIdentity, updateDisplayName } from '../utils/identity';
 import { getDisplayName } from '../utils/storage';
-import { ModeToggle } from './ModeToggle';
 import { CATEGORY_ORDER, CATEGORY_LABELS, getShortcutsByCategory, formatShortcutKey, resetShortcuts, updateShortcut } from '../utils/shortcuts';
 import {
   getNoteTypePath,
@@ -48,6 +48,7 @@ interface SettingsPanelProps {
   onNoteTypeChange?: (tipo: TipoNota) => void;
   onNoteNameChange?: (name: string) => void;
   onNotePathChange?: (path: string) => void;
+  initialTab?: CategoryTab;
 }
 
 type CategoryTab = 'caminhos' | 'regras' | 'idioma' | 'atalhos' | 'hooks' | 'perfil' | 'colaboracao' | 'integracoes';
@@ -67,7 +68,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   isOpen,
   onClose,
   onIdentityChange,
-  onNotePathChange
+  onNotePathChange,
+  initialTab
 }) => {
   const { t, i18n } = useTranslation();
   const [identity, setIdentity] = useState('');
@@ -75,7 +77,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const [anonymousIdentity, setAnonymousIdentity] = useState('');
   const [notePaths, setNotePaths] = useState<Record<string, string>>({});
   const [noteTemplates, setNoteTemplates] = useState<Record<string, string>>({});
-  const [activeTab, setActiveTab] = useState<CategoryTab>('caminhos');
+  const [activeTab, setActiveTab] = useState<CategoryTab>(initialTab || 'caminhos');
   const [savedField, setSavedField] = useState<string | null>(null);
   const [saveErrors, setSaveErrors] = useState<Record<string, string>>({});
   const [saveSuccess, setSaveSuccess] = useState<Record<string, boolean>>({});
@@ -110,6 +112,13 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       return () => clearTimeout(timer);
     }
   }, [toastMessage]);
+
+  // Update active tab when initialTab changes
+  useEffect(() => {
+    if (initialTab && isOpen) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab, isOpen]);
 
   // Hooks state
   interface Hook {
@@ -146,6 +155,14 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const [showAddHookModal, setShowAddHookModal] = useState(false);
   const [newHook, setNewHook] = useState({ name: '', description: '', trigger: '' });
 
+  // Edit template/path modal state
+  const [showEditPathModal, setShowEditPathModal] = useState(false);
+  const [editingPath, setEditingPath] = useState<{ tipo: string; label: string; icon: string } | null>(null);
+  const [editPathData, setEditPathData] = useState({
+    template: '',
+    path: '',
+  });
+
   // Edit hook modal state
   const [showEditHookModal, setShowEditHookModal] = useState(false);
   const [editingHook, setEditingHook] = useState<Hook | null>(null);
@@ -154,6 +171,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     description: '',
     trigger: '',
   });
+
+  // Delete confirmation modal state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ tipo: string; label: string } | null>(null);
 
   // Language state
   const [currentLanguage, setCurrentLanguage] = useState(() => {
@@ -485,10 +506,70 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   };
 
   const deleteHook = (id: string) => {
-    if (confirm('Tem certeza que deseja excluir este hook?')) {
-      const updatedHooks = hooks.filter(h => h.id !== id);
-      setHooks(updatedHooks);
-      localStorage.setItem('obsreview-hooks', JSON.stringify(updatedHooks));
+    const hook = hooks.find(h => h.id === id);
+    if (hook) {
+      setDeleteTarget({ tipo: id, label: hook.name });
+      setShowDeleteConfirm(true);
+    }
+  };
+
+  // Funções para editar template/caminho
+  const openEditPathModal = (tipo: string, label: string, icon: string) => {
+    setEditingPath({ tipo, label, icon });
+    setEditPathData({
+      template: noteTemplates[tipo] || '',
+      path: notePaths[tipo] || '',
+    });
+    setShowEditPathModal(true);
+  };
+
+  const savePathEdit = () => {
+    if (editingPath) {
+      // Salvar template
+      if (editPathData.template !== noteTemplates[editingPath.tipo]) {
+        handleTemplateChange(editingPath.tipo, editPathData.template);
+      }
+      // Salvar path
+      if (editPathData.path !== notePaths[editingPath.tipo]) {
+        handlePathChange(editingPath.tipo, editPathData.path);
+      }
+      setShowEditPathModal(false);
+      setEditingPath(null);
+      showSuccessToast('Configuração salva com sucesso!');
+    }
+  };
+
+  const deactivatePath = (tipo: string, label: string) => {
+    setDeleteTarget({ tipo, label });
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = () => {
+    if (deleteTarget) {
+      // Check if it's a hook (id starts with 'hook-')
+      if (deleteTarget.tipo.startsWith('hook-')) {
+        const updatedHooks = hooks.filter(h => h.id !== deleteTarget.tipo);
+        setHooks(updatedHooks);
+        localStorage.setItem('obsreview-hooks', JSON.stringify(updatedHooks));
+      }
+      // Check if it's a custom template (id starts with 'custom_')
+      else if (deleteTarget.tipo.startsWith('custom_')) {
+        const templates = getCustomTemplates();
+        const updatedTemplates = templates.filter(t => t.id !== deleteTarget.tipo);
+        localStorage.setItem('obsreview-custom-templates', JSON.stringify(updatedTemplates));
+        setCustomTemplates(updatedTemplates);
+      }
+      // Built-in template - just clear the paths
+      else {
+        setNotePaths(prev => ({ ...prev, [deleteTarget.tipo]: '' }));
+        setNoteTemplates(prev => ({ ...prev, [deleteTarget.tipo]: '' }));
+        setNoteTypePath(deleteTarget.tipo, '');
+        setNoteTypeTemplate(deleteTarget.tipo, '');
+      }
+
+      showSuccessToast(`"${deleteTarget.label}" deletado com sucesso!`);
+      setShowDeleteConfirm(false);
+      setDeleteTarget(null);
     }
   };
 
@@ -496,15 +577,28 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     setToastMessage(message);
   };
 
+  // Funções para templates customizados
+  const deleteCustomTemplate = (id: string, label: string) => {
+    setDeleteTarget({ tipo: id, label });
+    setShowDeleteConfirm(true);
+  };
+
+  const editCustomTemplate = (ct: CustomTemplate) => {
+    // Para custom templates, vamos abrir o modal de novo template com os dados preenchidos
+    // Por enquanto, apenas mostramos um toast
+    showSuccessToast(`Editar template customizado: ${ct.label}`);
+    // TODO: Implementar modal de edição completo
+  };
+
   const noteTypes = getNoteTypesByCategory();
 
   const tabs: Array<{ id: CategoryTab; Icon: React.ComponentType<{ className?: string }>; label: string }> = [
-    { id: 'caminhos', Icon: FolderOpen, label: t('settings.tabs.caminhos') },
-    { id: 'regras', Icon: BookOpen, label: t('settings.tabs.regras') },
-    { id: 'idioma', Icon: Globe, label: t('settings.tabs.idioma') },
-    { id: 'atalhos', Icon: Keyboard, label: t('settings.tabs.atalhos') },
-    { id: 'hooks', Icon: BoxingGloveIcon, label: t('settings.tabs.hooks') },
     { id: 'perfil', Icon: UserCircle, label: t('settings.tabs.perfil') },
+    { id: 'idioma', Icon: Globe, label: t('settings.tabs.idioma') },
+    { id: 'caminhos', Icon: FolderOpen, label: 'Templates' },
+    { id: 'atalhos', Icon: Keyboard, label: t('settings.tabs.atalhos') },
+    { id: 'regras', Icon: BookOpen, label: t('settings.tabs.regras') },
+    { id: 'hooks', Icon: BoxingGloveIcon, label: t('settings.tabs.hooks') },
     { id: 'colaboracao', Icon: Users, label: t('settings.tabs.colaboracao') },
     { id: 'integracoes', Icon: Plug, label: t('settings.integrations.title') },
   ];
@@ -634,7 +728,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     );
   };
 
-  // New component for unified paths and templates with 3-column grid
+  // New component for unified paths and templates with 3-column grid (same design as Collaborators)
   const AllPathsAndTemplates = () => {
     const categoryOrder: Array<{ key: keyof typeof noteTypes; icon: string; label: string }> = [
       { key: 'terceiros', icon: 'BookOpen', label: t('settings.categories.terceiros') },
@@ -642,6 +736,33 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       { key: 'organizacional', icon: 'Map', label: t('settings.categories.organizacional') },
       { key: 'alex', icon: 'PenTool', label: t('settings.categories.alex') },
     ];
+
+    // Helper para status badge baseado em campos preenchidos (mesmo estilo que colaboradores)
+    const getPathStatusBadge = (tipo: string) => {
+      const hasPath = notePaths[tipo] && notePaths[tipo].trim() !== '';
+      const hasTemplate = noteTemplates[tipo] && noteTemplates[tipo].trim() !== '';
+
+      if (hasPath && hasTemplate) {
+        return (
+          <span className="text-xs px-2 py-0.5 rounded-md bg-green-500/10 text-green-600 dark:text-green-400 flex items-center gap-1 whitespace-nowrap">
+            ✓ Completo
+          </span>
+        );
+      } else if (hasPath) {
+        return (
+          <span className="text-xs px-2 py-0.5 rounded-md bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 flex items-center gap-1 whitespace-nowrap">
+            ⏳ Sem Template
+          </span>
+        );
+      } else {
+        return (
+          <span className="text-xs px-2 py-0.5 rounded-md bg-gray-500/10 text-gray-600 dark:text-gray-400 flex items-center gap-1 whitespace-nowrap">
+            <Ban className="w-3 h-3" />
+            Incompleto
+          </span>
+        );
+      }
+    };
 
     return (
       <div className="p-5 space-y-6 overflow-y-auto">
@@ -680,101 +801,80 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 <h5 className="text-sm font-semibold text-foreground">{label}</h5>
               </div>
 
-              {/* 3-column grid for cards */}
+              {/* 3-column grid for cards - MINIMALIST DESIGN */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {items.map(({ tipo, icon: itemIcon, label: itemLabel }) => {
                   const ItemIcon = getLucideIcon(itemIcon);
+                  const hasPath = notePaths[tipo] && notePaths[tipo].trim() !== '';
+                  const hasTemplate = noteTemplates[tipo] && noteTemplates[tipo].trim() !== '';
+                  const isActive = hasPath && hasTemplate;
+
                   return (
                     <div
                       key={tipo}
-                      className="bg-card/50 rounded-xl border border-border/50 p-4 hover:border-border/80 transition-all hover:shadow-sm"
+                      className="bg-card/50 rounded-xl border border-border/50 p-4 transition-all hover:border-primary/30 hover:bg-accent/30"
                     >
-                      {/* Item header - compact */}
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
-                          <ItemIcon className="w-4 h-4" />
+                      {/* Linha superior: ícone + título + status */}
+                      <div className="flex items-center justify-between gap-2 mb-3">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
+                            <ItemIcon className="w-4 h-4" />
+                          </div>
+                          <h4 className="font-semibold text-sm text-foreground truncate">
+                            {itemLabel}
+                          </h4>
                         </div>
-                        <h4 className="text-sm font-semibold text-foreground truncate">{itemLabel}</h4>
+                        {isActive ? (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 flex-shrink-0">
+                            Ativado
+                          </span>
+                        ) : hasPath ? (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 flex-shrink-0">
+                            Incompleto
+                          </span>
+                        ) : (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-gray-500/10 text-gray-600 dark:text-gray-400 flex-shrink-0">
+                            Inativo
+                          </span>
+                        )}
                       </div>
 
-                      {/* Form fields - more compact */}
-                      <div className="space-y-2">
-                        {/* Template field */}
-                        <div className="space-y-1">
-                          <label className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5">
-                            <span>{t('settings.paths.template')}</span>
-                            <span className="text-[9px] px-1 py-0.5 rounded bg-muted/50 text-muted-foreground/60">
-                              {t('settings.paths.templateOptional')}
-                            </span>
-                          </label>
-                          <div className="relative">
-                            <input
-                              type="text"
-                              value={noteTemplates[tipo] || ''}
-                              onChange={(e) => handleTemplateChange(tipo, e.target.value)}
-                              placeholder={t('settings.paths.templatePlaceholder')}
-                              className={`w-full px-2.5 py-1.5 pr-8 bg-background rounded-lg text-xs border focus:ring-2 focus:ring-primary/20 focus:outline-none font-mono transition-all placeholder:text-muted-foreground/50 ${
-                                saveErrors[`${tipo}-template`]
-                                  ? 'border-red-500'
-                                  : saveSuccess[`${tipo}-template`]
-                                  ? 'border-green-500'
-                                  : 'border-border focus:border-primary'
-                              }`}
-                            />
-                            {saveSuccess[`${tipo}-template`] && !saveErrors[`${tipo}-template`] && (
-                              <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                                <svg className="w-3.5 h-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                </svg>
-                              </div>
-                            )}
-                            {saveErrors[`${tipo}-template`] && (
-                              <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                                <svg className="w-3.5 h-3.5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              </div>
-                            )}
-                          </div>
-                        </div>
+                      {/* Divisor */}
+                      <div className="border-t border-border/30 my-3"></div>
 
-                        {/* Destination field */}
-                        <div className="space-y-1">
-                          <label className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5">
-                            <span>{t('settings.paths.destination')}</span>
-                            <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary">
-                              {t('settings.paths.destinationRequired')}
-                            </span>
-                          </label>
-                          <div className="relative">
-                            <input
-                              type="text"
-                              value={notePaths[tipo] || ''}
-                              onChange={(e) => handlePathChange(tipo, e.target.value)}
-                              placeholder={t('settings.paths.destinationPlaceholder')}
-                              className={`w-full px-2.5 py-1.5 pr-8 bg-background rounded-lg text-xs border focus:ring-2 focus:ring-primary/20 focus:outline-none font-mono transition-all placeholder:text-muted-foreground/50 ${
-                                saveErrors[`${tipo}-path`]
-                                  ? 'border-red-500'
-                                  : saveSuccess[`${tipo}-path`]
-                                  ? 'border-green-500'
-                                  : 'border-border focus:border-primary'
-                              }`}
-                            />
-                            {saveSuccess[`${tipo}-path`] && !saveErrors[`${tipo}-path`] && (
-                              <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                                <svg className="w-3.5 h-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                </svg>
-                              </div>
-                            )}
-                            {saveErrors[`${tipo}-path`] && (
-                              <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                                <svg className="w-3.5 h-3.5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              </div>
-                            )}
-                          </div>
+                      {/* Linha inferior: ícones de ação */}
+                      <div className="flex items-center justify-end gap-3">
+                        {/* Ícones de ação */}
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => {
+                              if (notePaths[tipo]) {
+                                showSuccessToast(`Caminho: ${notePaths[tipo]}`);
+                              } else if (noteTemplates[tipo]) {
+                                showSuccessToast(`Template: ${noteTemplates[tipo]}`);
+                              } else {
+                                showSuccessToast('Configure o caminho e template primeiro');
+                              }
+                            }}
+                            className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
+                            title="Ver configuração"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => deactivatePath(tipo, itemLabel)}
+                            className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                            title="Deletar"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => openEditPathModal(tipo, itemLabel, itemIcon)}
+                            className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
+                            title="Editar configuração"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -796,16 +896,57 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               {customTemplates.map((ct) => {
                 const CtIcon = getLucideIcon(ct.icon);
                 return (
-                  <div key={ct.id} className="bg-card/50 rounded-xl border border-border/50 p-4 hover:border-border/80 transition-all hover:shadow-sm">
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
-                        <CtIcon className="w-4 h-4" />
+                  <div key={ct.id} className="bg-card/50 rounded-xl border border-border/50 p-4 transition-all hover:border-primary/30 hover:bg-accent/30">
+                    {/* Linha superior: ícone + título + status */}
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
+                          <CtIcon className="w-4 h-4" />
+                        </div>
+                        <h4 className="font-semibold text-sm text-foreground truncate">
+                          {ct.label}
+                        </h4>
                       </div>
-                      <h4 className="text-sm font-semibold text-foreground truncate">{ct.label}</h4>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 flex-shrink-0">
+                        Ativado
+                      </span>
                     </div>
-                    <div className="space-y-1 text-xs text-muted-foreground font-mono">
-                      {ct.templatePath && <p className="truncate">Template: {ct.templatePath}</p>}
-                      <p className="truncate">Destino: {ct.destinationPath}</p>
+
+                    {/* Divisor */}
+                    <div className="border-t border-border/30 my-3"></div>
+
+                    {/* Linha inferior: ícones de ação */}
+                    <div className="flex items-center justify-end gap-3">
+                      {/* Ícones de ação */}
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => {
+                            const info = [
+                              ct.templatePath && `Template: ${ct.templatePath}`,
+                              ct.destinationPath && `Caminho: ${ct.destinationPath}`
+                            ].filter(Boolean).join('\n');
+                            showSuccessToast(info || 'Template sem configuração');
+                          }}
+                          className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
+                          title="Ver configuração"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => deleteCustomTemplate(ct.id, ct.label)}
+                          className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                          title="Excluir"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => editCustomTemplate(ct)}
+                          className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
+                          title="Editar"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -856,7 +997,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-semibold text-foreground">{t('settings.title')}</h3>
           <div className="flex items-center gap-2">
-            <ModeToggle />
             {onClose && (
               <button
                 onClick={onClose}
@@ -955,54 +1095,77 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             <ConfigEditor />
           </div>
         ) : activeTab === 'idioma' ? (
-          <div className="p-5 space-y-4 overflow-y-auto">
+          <div className="p-5 space-y-6 overflow-y-auto">
             {/* Header */}
-            <div className="mb-2">
-              <h4 className="text-sm font-semibold text-foreground">{t('settings.language.title')}</h4>
-              <p className="text-xs text-muted-foreground">{t('settings.language.subtitle')}</p>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Globe className="w-5 h-5 text-muted-foreground" />
+                <h3 className="font-medium">{t('settings.language.title')}</h3>
+              </div>
             </div>
 
-            {/* Language options */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+            {/* Language options - 3 columns like collaborators */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {[
                 { code: 'pt-BR', name: t('settings.language.portugueseFull'), flag: '🇧🇷', native: t('settings.language.portuguese') },
                 { code: 'en-US', name: t('settings.language.englishFull'), flag: '🇺🇸', native: t('settings.language.english') },
                 { code: 'es-ES', name: t('settings.language.spanishFull'), flag: '🇪🇸', native: t('settings.language.spanish') },
                 { code: 'zh-CN', name: t('settings.language.chineseFull'), flag: '🇨🇳', native: t('settings.language.chinese') },
-              ].map((lang) => (
-                <button
-                  key={lang.code}
-                  onClick={() => {
-                    setCurrentLanguage(lang.code);
-                    i18n.changeLanguage(lang.code);
-                  }}
-                  className={`
-                    relative flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all
-                    ${currentLanguage === lang.code
-                      ? 'border-green-500/50 bg-green-500/5'
-                      : 'border-border/50 bg-card/30 hover:border-border/80'
-                    }
-                  `}
-                >
-                  {/* Selected indicator */}
-                  {currentLanguage === lang.code && (
-                    <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center">
-                      <svg className="w-3 h-3 text-green-500 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
+              ].map((lang) => {
+                const isSelected = currentLanguage === lang.code;
+                return (
+                  <button
+                    key={lang.code}
+                    onClick={() => {
+                      setCurrentLanguage(lang.code);
+                      i18n.changeLanguage(lang.code);
+                    }}
+                    className="bg-card/50 rounded-xl border border-border/50 p-5 transition-all hover:border-primary/30 hover:bg-accent/30 flex flex-col gap-4"
+                  >
+                    {/* Header: Nome + Status Badge */}
+                    <div className="flex items-start justify-between gap-2">
+                      <h4 className="font-semibold text-base text-foreground">
+                        {lang.native}
+                      </h4>
+                      {isSelected && (
+                        <span className="text-xs px-2 py-0.5 rounded-md bg-green-500/10 text-green-600 dark:text-green-400 flex items-center gap-1 whitespace-nowrap">
+                          ✓ {t('settings.collaboration.statusActive')}
+                        </span>
+                      )}
                     </div>
-                  )}
 
-                  {/* Flag */}
-                  <div className="text-2xl">{lang.flag}</div>
+                    {/* Descrição: Nome completo */}
+                    <p className="text-sm text-muted-foreground -mt-2">
+                      {lang.name}
+                    </p>
 
-                  {/* Language info */}
-                  <div className="text-center">
-                    <div className="text-xs font-medium text-foreground">{lang.native}</div>
-                    <div className="text-[10px] text-muted-foreground">{lang.name}</div>
-                  </div>
-                </button>
-              ))}
+                    {/* Bandeira + código (estilo role badge) */}
+                    <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-muted/50 w-fit font-mono text-xs">
+                      <span className="text-lg">{lang.flag}</span>
+                      <span className="text-muted-foreground">{lang.code}</span>
+                    </div>
+
+                    {/* Footer: ícone de status */}
+                    <div className="flex items-center justify-between mt-auto pt-3 border-t border-border/30">
+                      <div className="text-xs text-muted-foreground">
+                        {/* Espaço reservado */}
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        {isSelected ? (
+                          <div className="p-1.5 rounded-md bg-green-500/10 text-green-600">
+                            <Power className="w-4 h-4" />
+                          </div>
+                        ) : (
+                          <div className="p-1.5 rounded-md text-muted-foreground">
+                            <Ban className="w-4 h-4" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
 
             {/* Info note */}
@@ -1075,9 +1238,20 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         ) : activeTab === 'hooks' ? (
           <div className="p-5 space-y-4 overflow-y-auto">
             {/* Header */}
-            <div className="mb-3">
-              <h4 className="text-base font-semibold text-foreground">{t('settings.hooks.title')}</h4>
-              <p className="text-sm text-muted-foreground/90">{t('settings.hooks.subtitle')}</p>
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h4 className="text-base font-semibold text-foreground">{t('settings.hooks.title')}</h4>
+                <p className="text-sm text-muted-foreground/90">{t('settings.hooks.subtitle')}</p>
+              </div>
+              <button
+                onClick={() => setShowAddHookModal(true)}
+                className="px-3 py-1.5 text-xs font-medium text-primary-foreground bg-primary hover:opacity-90 rounded-lg transition-opacity flex items-center gap-1.5"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                {t('settings.hooks.addHook')}
+              </button>
             </div>
 
             {/* Hooks grid - 3 columns */}
@@ -1094,18 +1268,18 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   `}
                 >
                   {/* Header with status */}
-                  <div className="flex items-center gap-2 mb-2">
-                    <h3 className="text-sm font-semibold text-foreground">
-                      {hook.id === 'plan-mode' ? t('settings.hooks.planMode.name') : 
-                       hook.id === 'obsidian-note' ? t('settings.hooks.obsidianNote.name') : 
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <h3 className="text-sm font-semibold text-foreground truncate">
+                      {hook.id === 'plan-mode' ? t('settings.hooks.planMode.name') :
+                       hook.id === 'obsidian-note' ? t('settings.hooks.obsidianNote.name') :
                        hook.name}
                     </h3>
                     {hook.enabled ? (
-                      <span className="px-2 py-0.5 text-[10px] bg-green-500/20 text-green-600 dark:text-green-400 rounded-full font-medium">
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 flex-shrink-0">
                         {t('settings.hooks.active')}
                       </span>
                     ) : (
-                      <span className="px-2 py-0.5 text-[10px] bg-muted/50 text-muted-foreground rounded-full font-medium">
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-gray-500/10 text-gray-600 dark:text-gray-400 flex-shrink-0">
                         {t('settings.hooks.inactive')}
                       </span>
                     )}
@@ -1120,9 +1294,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
                   {/* Trigger badge */}
                   <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-muted/50 rounded-md mb-3">
-                    <svg className="w-3 h-3 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
+                    <BoxingGloveIcon className="w-3 h-3 text-muted-foreground" />
                     <code className="text-[10px] font-mono text-muted-foreground">
                       {hook.trigger}
                     </code>
@@ -1130,34 +1302,21 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
                   {/* Actions */}
                   <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/50">
-                    {/* Toggle Switch */}
-                    <button
-                      onClick={() => toggleHook(hook.id)}
-                      className={`relative w-12 h-6 rounded-full transition-colors overflow-hidden ${
-                        hook.enabled ? 'bg-green-500' : 'bg-muted'
-                      }`}
-                    >
-                      <span
-                        className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform ${
-                          hook.enabled ? 'translate-x-6' : 'translate-x-0'
-                        }`}
-                      />
-                    </button>
+                    <div className="text-xs text-muted-foreground"></div>
 
                     {/* Action Buttons */}
                     <div className="flex items-center gap-1">
-                      {/* Test Button */}
+                      {/* Power Button - Activate/Deactivate */}
                       <button
-                        onClick={() => {
-                          // Simulate testing the hook
-                          const hookName = hook.id === 'plan-mode' ? t('settings.hooks.planMode.name') :
-                                           hook.id === 'obsidian-note' ? t('settings.hooks.obsidianNote.name') :
-                                           hook.name;
-                          alert(`${t('settings.hooks.testMessage')}: ${hookName}\n\n${t('settings.hooks.trigger')}: ${hook.trigger}`);
-                        }}
-                        className="px-2 py-1.5 text-xs font-medium text-foreground bg-primary/10 hover:bg-primary/20 rounded-md transition-colors"
+                        onClick={() => toggleHook(hook.id)}
+                        className={`p-1.5 rounded-md transition-colors ${
+                          hook.enabled
+                            ? 'text-muted-foreground hover:text-destructive hover:bg-destructive/10'
+                            : 'text-green-600 hover:text-green-700 hover:bg-green-500/10'
+                        }`}
+                        title={hook.enabled ? t('settings.collaboration.deactivate') : t('settings.collaboration.activate')}
                       >
-                        {t('settings.hooks.test')}
+                        <Power className="w-3.5 h-3.5" />
                       </button>
 
                       {/* Edit Button */}
@@ -1183,21 +1342,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   </div>
                 </div>
               ))}
-            </div>
-
-            {/* Add new hook button */}
-            <div
-              onClick={() => setShowAddHookModal(true)}
-              className="p-4 rounded-xl border-2 border-dashed border-border/50 text-center
-                         hover:border-primary/50 hover:bg-primary/10 hover:shadow-md
-                         cursor-pointer group transition-all duration-200"
-            >
-              <svg className="w-6 h-6 mx-auto text-muted-foreground/50 group-hover:text-primary transition-colors mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-              </svg>
-              <p className="text-xs text-muted-foreground/60 group-hover:text-primary transition-colors font-medium">
-                {t('settings.hooks.addHook')}
-              </p>
             </div>
 
             {/* Add Hook Modal */}
@@ -1458,6 +1602,108 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         onClose={() => setShowNewTemplateModal(false)}
         onTemplateCreated={() => setCustomTemplates(getCustomTemplates())}
         showSuccessToast={showSuccessToast}
+      />
+
+      {/* Edit Path/Template Modal */}
+      {showEditPathModal && editingPath && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
+          <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-6 animate-in fade-in slide-in-from-bottom-4 duration-200">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-foreground">Editar Configuração</h3>
+              <button
+                onClick={() => {
+                  setShowEditPathModal(false);
+                  setEditingPath(null);
+                }}
+                className="p-1 text-muted-foreground hover:text-foreground rounded-md transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Info do tipo */}
+            <div className="flex items-center gap-2 mb-4 p-3 bg-muted/30 rounded-lg">
+              {(() => {
+                const Icon = getLucideIcon(editingPath.icon);
+                return <Icon className="w-5 h-5 text-primary" />;
+              })()}
+              <div>
+                <p className="text-sm font-medium text-foreground">{editingPath.label}</p>
+                <p className="text-xs text-muted-foreground font-mono">{editingPath.tipo}</p>
+              </div>
+            </div>
+
+            {/* Form */}
+            <div className="space-y-4">
+              {/* Template field */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">
+                  Template
+                  <span className="text-xs text-muted-foreground ml-2">(opcional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={editPathData.template}
+                  onChange={(e) => setEditPathData({ ...editPathData, template: e.target.value })}
+                  placeholder="Ex: Templates/Nota.md"
+                  className="w-full p-2.5 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary font-mono text-sm"
+                />
+              </div>
+
+              {/* Path field */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">
+                  Caminho de destino
+                  <span className="text-xs text-primary ml-2">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={editPathData.path}
+                  onChange={(e) => setEditPathData({ ...editPathData, path: e.target.value })}
+                  placeholder="Ex: YouTube/Transcrições"
+                  className="w-full p-2.5 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary font-mono text-sm"
+                />
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowEditPathModal(false);
+                  setEditingPath(null);
+                }}
+                className="flex-1 px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors text-sm font-medium"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={savePathEdit}
+                className="flex-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity text-sm font-medium"
+              >
+                Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showDeleteConfirm}
+        onConfirm={confirmDelete}
+        onCancel={() => {
+          setShowDeleteConfirm(false);
+          setDeleteTarget(null);
+        }}
+        title="Deletar Template"
+        message={deleteTarget ? `Tem certeza que deseja deletar "${deleteTarget.label}"? Esta ação não pode ser desfeita.` : ''}
+        type="delete"
+        confirmLabel="Deletar"
+        cancelLabel="Cancelar"
       />
     </div>
   );

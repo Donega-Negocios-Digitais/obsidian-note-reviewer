@@ -7,7 +7,7 @@ import pkg from '../../package.json';
 
 export default defineConfig({
   server: {
-    port: 3001,
+    port: 5173,
     host: '0.0.0.0',
     proxy: {
       '/api': {
@@ -26,6 +26,10 @@ export default defineConfig({
       '@obsidian-note-reviewer/ui': path.resolve(__dirname, '../../packages/ui'),
       '@obsidian-note-reviewer/editor/styles': path.resolve(__dirname, '../../packages/editor/index.css'),
       '@obsidian-note-reviewer/editor': path.resolve(__dirname, '../../packages/editor/App.tsx'),
+      '@obsidian-note-reviewer/security/auth': path.resolve(__dirname, '../../packages/security/src/auth/context.tsx'),
+      '@obsidian-note-reviewer/security/supabase/storage': path.resolve(__dirname, '../../packages/security/src/supabase/storage.ts'),
+      '@obsidian-note-reviewer/security/supabase/client': path.resolve(__dirname, '../../packages/security/src/supabase/client.ts'),
+      '@obsidian-note-reviewer/collaboration': path.resolve(__dirname, '../../packages/collaboration/src/index.ts'),
       'react': path.resolve(__dirname, 'node_modules/react'),
       'react-dom': path.resolve(__dirname, 'node_modules/react-dom'),
     },
