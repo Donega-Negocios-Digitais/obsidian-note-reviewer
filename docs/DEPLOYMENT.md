@@ -154,29 +154,37 @@ curl https://r.alexdonega.com.br
 
 ## Deployment Workflow
 
-### Automatic Deployments
+### Production Deployments (Current)
 
-Vercel automatically deploys:
+Production deploy is executed via GitHub Actions workflow:
+- Workflow: `.github/workflows/deploy.yml`
+- Trigger: `workflow_dispatch` (manual)
+- Targets: `all`, `marketing`, `portal`
+- Environment: `production`
 
-- **On push to `main`**: Production deployment
-- **On pull request**: Preview deployment
-- **On push to other branches**: Preview deployment
+This prevents deploys on every push to `main`.
+
+### Required Approval (GitHub Environment)
+
+To enforce approval before production deploy:
+1. Go to repository Settings → Environments → `production`.
+2. Enable **Required reviewers**.
+3. Add at least one reviewer/team.
+
+With this protection enabled, workflow jobs targeting `production` will pause until approved.
 
 ### Manual Deployment
 
 ```bash
-# Using Vercel CLI
-vercel --prod
-
-# Or from dashboard
-# Vercel → Project → Deployments → Deploy
+# GitHub UI
+# Actions → Deploy → Run workflow
 ```
 
 ### Environment-Specific
 
 | Environment | Deploy Trigger | URL |
 |-------------|----------------|-----|
-| Production | Push to `main` | `r.alexdonega.com.br` |
+| Production | GitHub Actions `workflow_dispatch` + environment approval | `r.alexdonega.com.br` |
 | Preview | Pull Request | `*.vercel.app` |
 | Development | `vercel dev` | `localhost:3000` |
 

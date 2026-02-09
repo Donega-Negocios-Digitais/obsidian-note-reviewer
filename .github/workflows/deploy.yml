@@ -1,13 +1,6 @@
 name: Deploy
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'apps/marketing/**'
-      - 'apps/portal/**'
-      - 'packages/**'
   workflow_dispatch:
     inputs:
       target:

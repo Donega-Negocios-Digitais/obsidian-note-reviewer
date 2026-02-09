@@ -9,8 +9,8 @@ import {
   sendTelegramNotification,
   formatTelegramMessage,
   DEFAULT_TELEGRAM_TEMPLATE,
-} from '@repo/api/telegram';
-import { getIntegrations, type IntegrationConfig } from '@repo/ui/utils/storage';
+} from '../../../../packages/api/telegram';
+import { getIntegrations } from '../../../../packages/ui/utils/storage';
 
 // ========================================
 // Types

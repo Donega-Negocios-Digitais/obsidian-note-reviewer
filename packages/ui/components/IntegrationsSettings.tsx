@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { MessageCircle, Send, Edit, Check, AlertCircle, Power, Zap, BookOpen, FileCode } from 'lucide-react';
+import { MessageCircle, Send, Edit, Check, AlertCircle, Power, Zap } from 'lucide-react';
 import { getIntegrations, saveIntegrations, type IntegrationConfig } from '../utils/storage';
 
 interface Hook {
@@ -29,28 +29,6 @@ const DEFAULT_INTEGRATIONS: IntegrationConfig[] = [
   {
     id: 'telegram',
     type: 'telegram',
-    enabled: false,
-    config: {
-      target: '',
-      associatedHooks: [],
-      customMessage: '',
-      autoSendLink: false,
-    },
-  },
-  {
-    id: 'notion',
-    type: 'notion',
-    enabled: false,
-    config: {
-      target: '',
-      associatedHooks: [],
-      customMessage: '',
-      autoSendLink: false,
-    },
-  },
-  {
-    id: 'obsidian',
-    type: 'obsidian',
     enabled: false,
     config: {
       target: '',
@@ -143,32 +121,26 @@ export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({ hook
     }, 500);
   };
 
-  const getIntegrationIcon = (type: string) => {
+  const getIntegrationIcon = (type: IntegrationConfig['type']) => {
     switch (type) {
       case 'whatsapp': return MessageCircle;
       case 'telegram': return Send;
-      case 'notion': return BookOpen;
-      case 'obsidian': return FileCode;
       default: return Edit;
     }
   };
 
-  const getIntegrationLabel = (type: string) => {
+  const getIntegrationLabel = (type: IntegrationConfig['type']) => {
     switch (type) {
       case 'whatsapp': return t('settings.integrations.whatsapp');
       case 'telegram': return t('settings.integrations.telegram');
-      case 'notion': return 'Notion';
-      case 'obsidian': return 'Obsidian';
       default: return type;
     }
   };
 
-  const getIntegrationDesc = (type: string) => {
+  const getIntegrationDesc = (type: IntegrationConfig['type']) => {
     switch (type) {
       case 'whatsapp': return t('settings.integrations.whatsappDesc');
       case 'telegram': return t('settings.integrations.telegramDesc');
-      case 'notion': return 'Sincronize notas e documentos com o Notion';
-      case 'obsidian': return 'Integração direta com seu vault do Obsidian';
       default: return '';
     }
   };
@@ -202,8 +174,6 @@ export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({ hook
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
                     integration.type === 'whatsapp' ? 'bg-green-500/10 text-green-500' :
                     integration.type === 'telegram' ? 'bg-blue-500/10 text-blue-500' :
-                    integration.type === 'notion' ? 'bg-gray-800/10 text-gray-800 dark:text-gray-200' :
-                    integration.type === 'obsidian' ? 'bg-purple-500/10 text-purple-500' :
                     'bg-blue-500/10 text-blue-500'
                   }`}>
                     <Icon className="w-4 h-4" />
@@ -317,10 +287,6 @@ export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({ hook
                     ? t('settings.integrations.phoneNumber')
                     : integrations.find(i => i.id === configuring)?.type === 'telegram'
                     ? t('settings.integrations.chatId')
-                    : integrations.find(i => i.id === configuring)?.type === 'notion'
-                    ? 'API Key ou Token'
-                    : integrations.find(i => i.id === configuring)?.type === 'obsidian'
-                    ? 'Caminho do Vault'
                     : t('settings.integrations.chatId')}
                 </label>
                 <input
@@ -331,10 +297,6 @@ export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({ hook
                     ? t('settings.integrations.phoneNumberPlaceholder')
                     : integrations.find(i => i.id === configuring)?.type === 'telegram'
                     ? t('settings.integrations.chatIdPlaceholder')
-                    : integrations.find(i => i.id === configuring)?.type === 'notion'
-                    ? 'secret_xxxxxxxx'
-                    : integrations.find(i => i.id === configuring)?.type === 'obsidian'
-                    ? 'C:/Users/SeuUsuario/Documents/ObsidianVault'
                     : t('settings.integrations.chatIdPlaceholder')}
                   className="w-full p-2.5 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-sm"
                 />

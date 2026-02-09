@@ -19,6 +19,7 @@
   ],
   "scripts": {
     "prepare": "husky install",
+    "dev": "bun run --cwd apps/portal dev",
     "dev:hook": "bun run --cwd apps/hook dev",
     "dev:portal": "bun run --cwd apps/portal dev",
     "dev:marketing": "bun run --cwd apps/marketing dev",

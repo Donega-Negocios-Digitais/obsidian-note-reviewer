@@ -4,17 +4,15 @@
  * Hook for sending Telegram notifications based on user configuration
  */
 
-import { useCallback, useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import { useLogger } from '@repo/ui/src/hooks/useLogger';
+import { useCallback, useMemo, useState } from 'react';
 import {
   sendTelegramNotification,
   testTelegramConnection,
   formatTelegramMessage,
   DEFAULT_TELEGRAM_TEMPLATE,
   type TelegramSendResult,
-} from '@repo/api/telegram';
-import { getIntegrations, type IntegrationConfig } from '@repo/ui/utils/storage';
+} from '../../../../packages/api/telegram';
+import { getIntegrations, type IntegrationConfig } from '../../../../packages/ui/utils/storage';
 
 // ========================================
 // Types
@@ -69,8 +67,15 @@ export interface UseTelegramNotificationReturn {
  * ```
  */
 export function useTelegramNotification(): UseTelegramNotificationReturn {
-  const { t } = useTranslation();
-  const logger = useLogger();
+  const logger = useMemo(
+    () => ({
+      debug: (...args: unknown[]) => console.debug(...args),
+      info: (...args: unknown[]) => console.info(...args),
+      warn: (...args: unknown[]) => console.warn(...args),
+      error: (...args: unknown[]) => console.error(...args),
+    }),
+    []
+  );
   const [state, setState] = useState<TelegramNotificationState>({
     isSending: false,
     lastResult: null,

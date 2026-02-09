@@ -45,9 +45,39 @@ interface Collaborator {
   invited_at?: string
 }
 
-interface Invite {
+interface InviteEmailPayload {
   email: string
   role: 'editor' | 'viewer'
+  inviterName: string
+  documentTitle: string
+  inviteUrl: string
+}
+
+async function sendInviteEmail(payload: InviteEmailPayload): Promise<void> {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+  const endpoint = supabaseUrl
+    ? `${supabaseUrl}/functions/v1/send-invite-email`
+    : 'http://localhost:54321/functions/v1/send-invite-email'
+
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  }
+
+  if (supabaseUrl && supabaseAnonKey) {
+    headers['Authorization'] = `Bearer ${supabaseAnonKey}`
+    headers['apikey'] = supabaseAnonKey
+  }
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Invite email request failed with status ${response.status}`)
+  }
 }
 
 interface CollaborationSettingsProps {
@@ -199,17 +229,13 @@ export function CollaborationSettings({
       )
 
       if (result.success) {
-        // Send invite email via Resend (non-blocking)
-        fetch('/api/invite', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: inviteEmail,
-            role: inviteRole,
-            inviterName: user?.user_metadata?.full_name || user?.email || 'Alguém',
-            documentTitle: documentId ? `Documento ${documentId.slice(0, 8)}` : 'Documento',
-            inviteUrl: typeof window !== 'undefined' ? window.location.href : '',
-          }),
+        // Send invite email via edge function (non-blocking).
+        sendInviteEmail({
+          email: inviteEmail,
+          role: inviteRole,
+          inviterName: user?.user_metadata?.full_name || user?.email || 'Alguém',
+          documentTitle: documentId ? `Documento ${documentId.slice(0, 8)}` : 'Documento',
+          inviteUrl: typeof window !== 'undefined' ? window.location.href : '',
         }).catch(err => console.warn('Email invite failed (non-critical):', err))
 
         setInviteSuccess(true)
