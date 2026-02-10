@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { storage } from '../utils/storage';
 
 type Theme = 'dark' | 'light' | 'system';
@@ -24,9 +25,10 @@ export function ThemeProvider({
   defaultTheme = 'dark',
   storageKey = 'obsidian-reviewer-theme',
 }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(
+  const [theme, setThemeState] = useState<Theme>(
     () => (storage.getItem(storageKey) as Theme) || defaultTheme
   );
+  const transitionTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -46,6 +48,14 @@ export function ThemeProvider({
       root.classList.add('light');
     }
   }, [theme]);
+
+  useEffect(() => {
+    return () => {
+      if (transitionTimeoutRef.current) {
+        window.clearTimeout(transitionTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Listen for system theme changes
   useEffect(() => {
@@ -68,7 +78,37 @@ export function ThemeProvider({
     theme,
     setTheme: (newTheme: Theme) => {
       storage.setItem(storageKey, newTheme);
-      setTheme(newTheme);
+
+      const root = window.document.documentElement;
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const supportsViewTransition =
+        typeof document !== 'undefined' &&
+        'startViewTransition' in document &&
+        !prefersReducedMotion;
+
+      if (supportsViewTransition) {
+        const doc = document as Document & {
+          startViewTransition?: (updateCallback: () => void) => { finished: Promise<void> };
+        };
+
+        doc.startViewTransition?.(() => {
+          flushSync(() => setThemeState(newTheme));
+        });
+        return;
+      }
+
+      if (!prefersReducedMotion) {
+        root.classList.add('theme-switching');
+        if (transitionTimeoutRef.current) {
+          window.clearTimeout(transitionTimeoutRef.current);
+        }
+        transitionTimeoutRef.current = window.setTimeout(() => {
+          root.classList.remove('theme-switching');
+          transitionTimeoutRef.current = null;
+        }, 220);
+      }
+
+      setThemeState(newTheme);
     },
   };
 

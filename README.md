@@ -56,6 +56,15 @@ When your AI agent finishes planning, obsidian-note-reviewer:
 
 ---
 
+## Recent UI Updates (2026-02-10)
+
+- Header action updated: primary sharing action is now exposed as **Compartilhar** (using export flow under the hood).
+- Theme toggle behavior simplified: single-click **Light/Dark** switch (no theme dropdown).
+- Theme transition improved for smoother visual switching.
+- Integration cards now use branded SVG logos for **Notion** and **Obsidian**.
+
+---
+
 ## License
 
 **Copyright (c) 2025 backnotprop.**

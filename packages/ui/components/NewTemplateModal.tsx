@@ -92,7 +92,7 @@ export const NewTemplateModal: React.FC<NewTemplateModalProps> = ({
           </div>
           <button
             onClick={resetAndClose}
-            className="p-1.5 text-muted-foreground hover:text-foreground rounded-md transition-colors"
+            className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/15 transition-colors rounded-md"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />

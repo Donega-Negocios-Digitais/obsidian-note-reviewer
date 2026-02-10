@@ -94,6 +94,7 @@ export async function getVersions(
       .select('*', { count: 'exact' })
       .eq('document_id', documentId)
       .eq('deleted', false)
+      .order('version_number', { ascending: false })
       .order('created_at', { ascending: false })
       .range(from, to);
 
@@ -283,6 +284,7 @@ async function applyRetentionPolicy(documentId: string): Promise<number> {
       .select('id, created_at')
       .eq('document_id', documentId)
       .eq('deleted', false)
+      .order('version_number', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(MAX_VERSIONS_PER_DOCUMENT + 1);
 
@@ -328,6 +330,7 @@ export async function getVersionStats(documentId: string): Promise<{
       .select('*', { count: 'exact' })
       .eq('document_id', documentId)
       .eq('deleted', false)
+      .order('version_number', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(1);
 

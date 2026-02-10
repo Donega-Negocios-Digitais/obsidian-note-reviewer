@@ -32,7 +32,8 @@ import {
   Crown,
   Loader2,
   Ban,
-  Power
+  Power,
+  AlertCircle
 } from 'lucide-react'
 
 interface Collaborator {
@@ -102,7 +103,6 @@ export function CollaborationSettings({
   const [inviteRole, setInviteRole] = useState<'viewer' | 'editor'>('viewer')
   const [inviting, setInviting] = useState(false)
   const [inviteError, setInviteError] = useState<string | null>(null)
-  const [inviteSuccess, setInviteSuccess] = useState(false)
   const [editingCollaborator, setEditingCollaborator] = useState<Collaborator | null>(null)
   const [editRole, setEditRole] = useState<'viewer' | 'editor'>('viewer')
 
@@ -111,6 +111,17 @@ export function CollaborationSettings({
     type: 'remove' | 'activate' | 'deactivate'
     collaborator: Collaborator
   } | null>(null)
+
+  // Success toast state
+  const [successToast, setSuccessToast] = useState<string | null>(null)
+
+  // Auto-hide success toast after 3 seconds
+  useEffect(() => {
+    if (successToast) {
+      const timer = setTimeout(() => setSuccessToast(null), 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [successToast])
 
   // Load collaborators
   useEffect(() => {
@@ -238,14 +249,13 @@ export function CollaborationSettings({
           inviteUrl: typeof window !== 'undefined' ? window.location.href : '',
         }).catch(err => console.warn('Email invite failed (non-critical):', err))
 
-        setInviteSuccess(true)
+        // Show success toast and close modal
+        setSuccessToast(`Convite enviado para ${inviteEmail}!`)
         setInviteEmail('')
         setShowInviteForm(false)
         // Reload collaborators to show the new one
         await loadCollaborators()
         onCollaboratorsChange?.(collaborators)
-        // Auto-hide success message
-        setTimeout(() => setInviteSuccess(false), 3000)
       } else {
         setInviteError(result.error || 'Erro ao enviar convite')
       }
@@ -488,87 +498,110 @@ export function CollaborationSettings({
           </button>
         </div>
 
-        {/* Invite Form */}
+        {/* Invite Form Modal */}
         {showInviteForm && (
-          <div className="p-4 border rounded-lg space-y-4 bg-card">
-            <h4 className="font-medium flex items-center gap-2">
-              <Mail className="w-4 h-4" />
-              {t('settings.collaboration.inviteNew')}
-            </h4>
-
-            {inviteError && (
-              <div className="p-3 rounded-md bg-destructive/15 text-destructive text-sm">
-                {inviteError}
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
+            <div
+              className="bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-6 animate-in fade-in slide-in-from-bottom-4 duration-200"
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Mail className="w-5 h-5 text-primary" />
+                  <h3 className="text-lg font-semibold text-foreground">
+                    {t('settings.collaboration.inviteNew')}
+                  </h3>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowInviteForm(false)
+                    setInviteEmail('')
+                    setInviteError(null)
+                  }}
+                  className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/15 transition-colors rounded-md"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
-            )}
 
-            {inviteSuccess && (
-              <div className="p-3 rounded-md bg-green-500/15 text-green-600 dark:text-green-400 text-sm flex items-center gap-2">
-                <Check className="w-4 h-4" />
-                Convite enviado com sucesso!
+              {/* Error message */}
+              {inviteError && (
+                <div className="mb-4 p-3 rounded-md bg-destructive/15 text-destructive text-sm flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  {inviteError}
+                </div>
+              )}
+
+              {/* Form */}
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="inviteEmail" className="block text-sm font-medium text-foreground mb-1.5">
+                    {t('settings.collaboration.email')}
+                    <span className="text-red-500 ml-1">*</span>
+                  </label>
+                  <input
+                    id="inviteEmail"
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    className="w-full p-2.5 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-sm"
+                    placeholder={t('settings.collaboration.emailPlaceholder')}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="inviteRole" className="block text-sm font-medium text-foreground mb-1.5">
+                    {t('settings.collaboration.permission')}
+                    <span className="text-red-500 ml-1">*</span>
+                  </label>
+                  <select
+                    id="inviteRole"
+                    value={inviteRole}
+                    onChange={(e) => setInviteRole(e.target.value as 'viewer' | 'editor')}
+                    className="w-full p-2.5 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-sm"
+                  >
+                    <option value="viewer">{t('settings.collaboration.viewer')}</option>
+                    <option value="editor">{t('settings.collaboration.editor')}</option>
+                  </select>
+                  <p className="text-xs text-muted-foreground mt-1.5">
+                    {getRoleDescription(inviteRole)}
+                  </p>
+                </div>
               </div>
-            )}
 
-            <div>
-              <label htmlFor="inviteEmail" className="block text-sm font-medium mb-1.5">
-                {t('settings.collaboration.email')}
-              </label>
-              <input
-                id="inviteEmail"
-                type="email"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-background"
-                placeholder={t('settings.collaboration.emailPlaceholder')}
-              />
-            </div>
-
-            <div>
-              <label htmlFor="inviteRole" className="block text-sm font-medium mb-1.5">
-                {t('settings.collaboration.permission')}
-              </label>
-              <select
-                id="inviteRole"
-                value={inviteRole}
-                onChange={(e) => setInviteRole(e.target.value as 'viewer' | 'editor')}
-                className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-background"
-              >
-                <option value="viewer">{t('settings.collaboration.viewer')}</option>
-                <option value="editor">{t('settings.collaboration.editor')}</option>
-              </select>
-              <p className="text-xs text-muted-foreground mt-1">
-                {getRoleDescription(inviteRole)}
-              </p>
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                onClick={handleInvite}
-                disabled={inviting}
-                className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {inviting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    {t('settings.collaboration.sending')}
-                  </>
-                ) : (
-                  <>
-                    <Mail className="w-4 h-4" />
-                    {t('settings.collaboration.sendInvite')}
-                  </>
-                )}
-              </button>
-              <button
-                onClick={() => {
-                  setShowInviteForm(false)
-                  setInviteEmail('')
-                  setInviteError(null)
-                }}
-                className="px-4 py-2 border border-input rounded-md hover:bg-accent transition-colors"
-              >
-                {t('settings.actions.cancel')}
-              </button>
+              {/* Actions */}
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => {
+                    setShowInviteForm(false)
+                    setInviteEmail('')
+                    setInviteError(null)
+                  }}
+                  className="flex-1 px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors text-sm font-medium"
+                >
+                  {t('settings.actions.cancel')}
+                </button>
+                <button
+                  onClick={handleInvite}
+                  disabled={inviting}
+                  className="flex-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {inviting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      {t('settings.collaboration.sending')}
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="w-4 h-4" />
+                      {t('settings.collaboration.sendInvite')}
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -589,7 +622,8 @@ export function CollaborationSettings({
             {collaborators.map((collaborator) => (
               <div
                 key={collaborator.id}
-                className="bg-card/50 rounded-xl border border-border/50 p-5 transition-all hover:border-primary/30 hover:bg-accent/30 flex flex-col gap-4"
+                onClick={() => handleEditCollaborator(collaborator)}
+                className="bg-card/50 rounded-xl border border-border/50 p-5 transition-all hover:border-primary/30 hover:bg-accent/30 flex flex-col gap-4 cursor-pointer"
               >
                 {/* Header: Nome + Status Badge */}
                 <div className="flex items-start justify-between gap-2">
@@ -628,14 +662,10 @@ export function CollaborationSettings({
                     <div className="flex items-center gap-1">
                       {getActionButton(collaborator)}
                       <button
-                        onClick={() => handleEditCollaborator(collaborator)}
-                        className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors"
-                        aria-label="Editar colaborador"
-                      >
-                        <Edit3 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleRemoveCollaborator(collaborator.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemoveCollaborator(collaborator.id);
+                        }}
                         className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors"
                         aria-label={t('settings.collaboration.removeCollaborator')}
                       >
@@ -652,9 +682,19 @@ export function CollaborationSettings({
 
       {/* Edit Collaborator Modal */}
       {editingCollaborator && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setEditingCollaborator(null)}>
-          <div className="bg-card rounded-lg p-6 max-w-md w-full mx-4 border border-border" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold mb-4">Editar Colaborador</h3>
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
+          <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-6 animate-in fade-in slide-in-from-bottom-4 duration-200" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-foreground">Editar Colaborador</h3>
+              <button
+                onClick={() => setEditingCollaborator(null)}
+                className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/15 transition-colors rounded-md"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
 
             <div className="space-y-4">
               <div>
@@ -797,6 +837,14 @@ export function CollaborationSettings({
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Success Toast */}
+      {successToast && (
+        <div className="fixed bottom-4 right-4 z-[80] bg-green-500 text-white px-4 py-3 rounded-lg shadow-xl flex items-center gap-3 animate-in slide-in-from-bottom-2">
+          <Check className="w-5 h-5 flex-shrink-0" />
+          <p className="text-sm font-medium">{successToast}</p>
         </div>
       )}
     </div>

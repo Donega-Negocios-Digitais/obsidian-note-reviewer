@@ -85,6 +85,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Estado para templates ativos/desativados
+  const [activeTemplates, setActiveTemplates] = useState<Set<string>>(() => {
+    const saved = localStorage.getItem('obsreview-active-templates');
+    return saved ? new Set(JSON.parse(saved)) : new Set();
+  });
+
   // Auto-hide save feedback after 2 seconds
   useEffect(() => {
     if (savedField) {
@@ -578,6 +584,18 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     setToastMessage(message);
   };
 
+  // Função para ativar/desativar template
+  const toggleTemplateActive = (tipo: string) => {
+    const newActive = new Set(activeTemplates);
+    if (newActive.has(tipo)) {
+      newActive.delete(tipo);
+    } else {
+      newActive.add(tipo);
+    }
+    setActiveTemplates(newActive);
+    localStorage.setItem('obsreview-active-templates', JSON.stringify([...newActive]));
+  };
+
   // Funções para templates customizados
   const deleteCustomTemplate = (id: string, label: string) => {
     setDeleteTarget({ tipo: id, label });
@@ -808,12 +826,14 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   const ItemIcon = getLucideIcon(itemIcon);
                   const hasPath = notePaths[tipo] && notePaths[tipo].trim() !== '';
                   const hasTemplate = noteTemplates[tipo] && noteTemplates[tipo].trim() !== '';
-                  const isActive = hasPath && hasTemplate;
+                  const isTemplateActive = activeTemplates.has(tipo);
+                  const isConfigured = hasPath && hasTemplate;
 
                   return (
                     <div
                       key={tipo}
-                      className="bg-card/50 rounded-xl border border-border/50 p-4 transition-all hover:border-primary/30 hover:bg-accent/30"
+                      onClick={() => openEditPathModal(tipo, itemLabel, itemIcon)}
+                      className="bg-card/50 rounded-xl border border-border/50 p-4 transition-all hover:border-primary/30 hover:bg-accent/30 cursor-pointer"
                     >
                       {/* Linha superior: ícone + título + status */}
                       <div className="flex items-center justify-between gap-2 mb-3">
@@ -825,9 +845,13 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                             {itemLabel}
                           </h4>
                         </div>
-                        {isActive ? (
+                        {isConfigured && isTemplateActive ? (
                           <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 flex-shrink-0">
-                            Ativado
+                            Ativo
+                          </span>
+                        ) : isConfigured ? (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-gray-500/10 text-gray-600 dark:text-gray-400 flex-shrink-0">
+                            Inativo
                           </span>
                         ) : hasPath ? (
                           <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 flex-shrink-0">
@@ -845,32 +869,43 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
                       {/* Linha inferior: ícones de ação */}
                       <div className="flex items-center justify-end gap-3">
-                        {/* Ícones de ação */}
                         <div className="flex items-center gap-1">
+                          {/* Botão Deletar - PRIMEIRO */}
                           <button
-                            onClick={() => {
-                              if (notePaths[tipo]) {
-                                showSuccessToast(`Caminho: ${notePaths[tipo]}`);
-                              } else if (noteTemplates[tipo]) {
-                                showSuccessToast(`Template: ${noteTemplates[tipo]}`);
-                              } else {
-                                showSuccessToast('Configure o caminho e template primeiro');
-                              }
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deactivatePath(tipo, itemLabel);
                             }}
-                            className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
-                            title="Ver configuração"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => deactivatePath(tipo, itemLabel)}
                             className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
                             title="Deletar"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
+
+                          {/* Botão Power para ativar/desativar - MEIO */}
+                          {isConfigured && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleTemplateActive(tipo);
+                              }}
+                              className={`p-2 rounded-lg transition-colors ${
+                                isTemplateActive
+                                  ? 'text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 hover:bg-green-500/10'
+                                  : 'text-muted-foreground hover:text-green-600 dark:hover:text-green-400 hover:bg-green-500/10'
+                              }`}
+                              title={isTemplateActive ? 'Desativar' : 'Ativar'}
+                            >
+                              <Power className="w-4 h-4" />
+                            </button>
+                          )}
+
+                          {/* Botão Editar - ÚLTIMO (NO CANTO) */}
                           <button
-                            onClick={() => openEditPathModal(tipo, itemLabel, itemIcon)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEditPathModal(tipo, itemLabel, itemIcon);
+                            }}
                             className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
                             title="Editar configuração"
                           >
@@ -896,8 +931,15 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {customTemplates.map((ct) => {
                 const CtIcon = getLucideIcon(ct.icon);
+                const isCustomTemplateActive = activeTemplates.has(ct.id);
+                const isConfigured = ct.path && ct.path.trim() !== '';
+
                 return (
-                  <div key={ct.id} className="bg-card/50 rounded-xl border border-border/50 p-4 transition-all hover:border-primary/30 hover:bg-accent/30">
+                  <div
+                    key={ct.id}
+                    onClick={() => editCustomTemplate(ct)}
+                    className="bg-card/50 rounded-xl border border-border/50 p-4 transition-all hover:border-primary/30 hover:bg-accent/30 cursor-pointer"
+                  >
                     {/* Linha superior: ícone + título + status */}
                     <div className="flex items-center justify-between gap-2 mb-3">
                       <div className="flex items-center gap-2 min-w-0">
@@ -908,9 +950,19 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                           {ct.label}
                         </h4>
                       </div>
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 flex-shrink-0">
-                        Ativado
-                      </span>
+                      {isConfigured && isCustomTemplateActive ? (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 flex-shrink-0">
+                          Ativo
+                        </span>
+                      ) : isConfigured ? (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-gray-500/10 text-gray-600 dark:text-gray-400 flex-shrink-0">
+                          Inativo
+                        </span>
+                      ) : (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 flex-shrink-0">
+                          Incompleto
+                        </span>
+                      )}
                     </div>
 
                     {/* Divisor */}
@@ -920,30 +972,44 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     <div className="flex items-center justify-end gap-3">
                       {/* Ícones de ação */}
                       <div className="flex items-center gap-1">
+                        {/* Botão Deletar - PRIMEIRO */}
                         <button
-                          onClick={() => {
-                            const info = [
-                              ct.templatePath && `Template: ${ct.templatePath}`,
-                              ct.destinationPath && `Caminho: ${ct.destinationPath}`
-                            ].filter(Boolean).join('\n');
-                            showSuccessToast(info || 'Template sem configuração');
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteCustomTemplate(ct.id, ct.label);
                           }}
-                          className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
-                          title="Ver configuração"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => deleteCustomTemplate(ct.id, ct.label)}
                           className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
                           title="Excluir"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
+
+                        {/* Botão Power para ativar/desativar - MEIO */}
+                        {isConfigured && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleTemplateActive(ct.id);
+                            }}
+                            className={`p-2 rounded-lg transition-colors ${
+                              isCustomTemplateActive
+                                ? 'text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 hover:bg-green-500/10'
+                                : 'text-muted-foreground hover:text-green-600 dark:hover:text-green-400 hover:bg-green-500/10'
+                            }`}
+                            title={isCustomTemplateActive ? 'Desativar' : 'Ativar'}
+                          >
+                            <Power className="w-4 h-4" />
+                          </button>
+                        )}
+
+                        {/* Botão Editar - ÚLTIMO (NO CANTO) */}
                         <button
-                          onClick={() => editCustomTemplate(ct)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            editCustomTemplate(ct);
+                          }}
                           className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
-                          title="Editar"
+                          title="Editar configuração"
                         >
                           <Edit className="w-4 h-4" />
                         </button>
@@ -1357,7 +1423,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                         setShowAddHookModal(false);
                         setNewHook({ name: '', description: '', trigger: '' });
                       }}
-                      className="p-1 text-destructive hover:text-destructive/80 rounded-md transition-colors"
+                      className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/15 transition-colors rounded-md"
                     >
                       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -1437,7 +1503,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                         setEditingHook(null);
                         setEditHookData({ name: '', description: '', trigger: '' });
                       }}
-                      className="p-1 text-destructive hover:text-destructive/80 rounded-md transition-colors"
+                      className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/15 transition-colors rounded-md"
                     >
                       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -1552,7 +1618,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               <h3 className="text-base font-semibold text-foreground">{t('settings.shortcuts.promptTitle')}</h3>
               <button
                 onClick={() => { setShowShortcutModal(false); setEditingShortcut(null); }}
-                className="p-1 text-muted-foreground hover:text-foreground rounded-md transition-colors"
+                className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/15 transition-colors rounded-md"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -1625,7 +1691,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   setShowEditPathModal(false);
                   setEditingPath(null);
                 }}
-                className="p-1 text-muted-foreground hover:text-foreground rounded-md transition-colors"
+                className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/15 transition-colors rounded-md"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />

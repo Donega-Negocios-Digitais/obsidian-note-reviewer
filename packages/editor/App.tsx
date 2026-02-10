@@ -1024,51 +1024,7 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-1 md:gap-2">
-            <ModeToggle />
-            {isApiMode && (
-              <>
-                <button
-                  onClick={() => {
-                    if (annotations.length === 0) {
-                      setShowFeedbackPrompt(true);
-                    } else {
-                      handleDeny();
-                    }
-                  }}
-                  disabled={isSubmitting}
-                  className={`p-1.5 md:px-2.5 md:py-1 rounded-md text-xs font-medium transition-all ${
-                    isSubmitting
-                      ? 'opacity-50 cursor-not-allowed bg-muted text-muted-foreground'
-                      : 'bg-accent/15 text-accent hover:bg-accent/25 border border-accent/30'
-                  }`}
-                  title="Solicitar Alterações"
-                >
-                  <svg className="w-4 h-4 md:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                  </svg>
-                  <span className="hidden md:inline">{isSubmitting ? 'Enviando...' : 'Solicitar Alterações'}</span>
-                </button>
-
-                <button
-                  onClick={handleApprove}
-                  disabled={isSubmitting}
-                  className={`px-2 py-1 md:px-2.5 rounded-md text-xs font-medium transition-all ${
-                    isSubmitting
-                      ? 'opacity-50 cursor-not-allowed bg-muted text-muted-foreground'
-                      : 'bg-green-600 text-white hover:bg-green-500'
-                  }`}
-                  title="Aprovar Nota"
-                >
-                  <span className="md:hidden">{isSubmitting ? '...' : 'OK'}</span>
-                  <span className="hidden md:inline">{isSubmitting ? 'Aprovando...' : 'Aprovar'}</span>
-                </button>
-
-                <div className="w-px h-5 bg-border/50 mx-1 hidden md:block" />
-              </>
-            )}
-
-
-            {/* Botão Salvar/Alterações - Condicional */}
+            {/* Salvar/Alterações - PRIMEIRO da esquerda */}
             <button
               onClick={handleSaveToVault}
               disabled={isSaving || !savePath}
@@ -1106,7 +1062,10 @@ const App: React.FC = () => {
               )}
             </button>
 
-            {/* Help Button - Opens video directly */}
+            {/* ModeToggle - Segundo da esquerda */}
+            <ModeToggle />
+
+            {/* Help - Como funciona - Terceiro da esquerda */}
             <button
               onClick={() => setShowHelpVideo(true)}
               className="p-1.5 rounded-md text-xs font-medium transition-all text-muted-foreground hover:text-foreground hover:bg-muted"
@@ -1116,15 +1075,48 @@ const App: React.FC = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </button>
+
+            {/* Atalhos - Quarto da esquerda */}
             <button
               onClick={() => setShowShortcutsModal(true)}
               className="p-1.5 rounded-md text-xs font-medium transition-all text-muted-foreground hover:text-foreground hover:bg-muted"
               title={t('app.keyboardShortcuts')}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                {/* Ícone de teclado - Keyboard */}
+                <rect x="3" y="5" width="18" height="14" rx="2" />
+                <path d="M7 9h.01M11 9h.01M15 9h.01M7 13h.01M11 13h.01M15 13h.01M7 17h10" />
               </svg>
             </button>
+
+            {/* Compartilhar (ex-Exportar) */}
+            <button
+              onClick={() => setShowExport(true)}
+              className="p-1.5 md:px-2.5 md:py-1 rounded-md text-xs font-medium bg-muted hover:bg-muted/80 transition-colors flex items-center gap-1.5"
+              title={t('app.share')}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+              <span className="hidden md:inline">{t('app.share')}</span>
+            </button>
+
+            {/* Toggle Painel */}
+            <button
+              onClick={() => setIsPanelOpen(!isPanelOpen)}
+              className={`p-1.5 rounded-md text-xs font-medium transition-all ${
+                isPanelOpen
+                  ? 'bg-primary/15 text-primary'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+              }`}
+              title={isPanelOpen ? t('app.hideAnnotationPanel') : t('app.showAnnotationPanel')}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+              </svg>
+            </button>
+
+            {/* Configurações - ÚLTIMO da direita */}
             <button
               onClick={() => {
                 setIsSettingsPanelOpen(!isSettingsPanelOpen);
@@ -1143,41 +1135,47 @@ const App: React.FC = () => {
               </svg>
             </button>
 
-            <button
-              onClick={() => setIsPanelOpen(!isPanelOpen)}
-              className={`p-1.5 rounded-md text-xs font-medium transition-all ${
-                isPanelOpen
-                  ? 'bg-primary/15 text-primary'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-              }`}
-              title={isPanelOpen ? t('app.hideAnnotationPanel') : t('app.showAnnotationPanel')}
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-              </svg>
-            </button>
+            {isApiMode && (
+              <>
+                <div className="w-px h-5 bg-border/50 mx-1 hidden md:block" />
 
-            <button
-              onClick={() => setShowExport(true)}
-              className="p-1.5 md:px-2.5 md:py-1 rounded-md text-xs font-medium bg-muted hover:bg-muted/80 transition-colors flex items-center gap-1.5"
-              title={t('app.export')}
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-              </svg>
-              <span className="hidden md:inline">{t('app.export')}</span>
-            </button>
+                <button
+                  onClick={() => {
+                    if (annotations.length === 0) {
+                      setShowFeedbackPrompt(true);
+                    } else {
+                      handleDeny();
+                    }
+                  }}
+                  disabled={isSubmitting}
+                  className={`p-1.5 md:px-2.5 md:py-1 rounded-md text-xs font-medium transition-all ${
+                    isSubmitting
+                      ? 'opacity-50 cursor-not-allowed bg-muted text-muted-foreground'
+                      : 'bg-accent/15 text-accent hover:bg-accent/25 border border-accent/30'
+                  }`}
+                  title="Solicitar Alterações"
+                >
+                  <svg className="w-4 h-4 md:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                  <span className="hidden md:inline">{isSubmitting ? 'Enviando...' : 'Solicitar Alterações'}</span>
+                </button>
 
-            <button
-              onClick={() => setShowShareDialog(true)}
-              className="p-1.5 md:px-2.5 md:py-1 rounded-md text-xs font-medium bg-blue-600/20 text-blue-600 hover:bg-blue-600/30 transition-colors flex items-center gap-1.5"
-              title={t('app.share')}
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-              </svg>
-              <span className="hidden md:inline">{t('app.share')}</span>
-            </button>
+                <button
+                  onClick={handleApprove}
+                  disabled={isSubmitting}
+                  className={`px-2 py-1 md:px-2.5 rounded-md text-xs font-medium transition-all ${
+                    isSubmitting
+                      ? 'opacity-50 cursor-not-allowed bg-muted text-muted-foreground'
+                      : 'bg-green-600 text-white hover:bg-green-500'
+                  }`}
+                  title="Aprovar Nota"
+                >
+                  <span className="md:hidden">{isSubmitting ? '...' : 'OK'}</span>
+                  <span className="hidden md:inline">{isSubmitting ? 'Aprovando...' : 'Aprovar'}</span>
+                </button>
+              </>
+            )}
           </div>
         </header>
 
@@ -1222,42 +1220,43 @@ const App: React.FC = () => {
                   )}
                 </button>
 
-                {/* Exportar */}
-                <button
-                  onClick={() => setShowExport(true)}
-                  className="p-1.5 md:px-2.5 md:py-1 rounded-md text-xs font-medium bg-muted hover:bg-muted/80 transition-colors flex items-center gap-1.5"
-                  title={t('app.export')}
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                  </svg>
-                  <span className="hidden md:inline">{t('app.export')}</span>
-                </button>
+                {/* ModeToggle */}
+                <ModeToggle />
 
-                {/* Atalhos */}
+                {/* Help - Como funciona */}
                 <button
-                  onClick={() => setShowShortcutsModal(true)}
-                  className="p-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
-                  title={t('app.keyboardShortcuts')}
+                  onClick={() => setShowHelpVideo(true)}
+                  className="p-1.5 rounded-md text-xs font-medium transition-all text-muted-foreground hover:text-foreground hover:bg-muted"
+                  title={t('app.howItWorks')}
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </button>
 
-                {/* Configurações */}
+                {/* Atalhos - ÍCONE DE TECLADO */}
                 <button
-                  onClick={() => {
-                    setIsSettingsPanelOpen(true);
-                    setShowStickyBar(false);
-                  }}
+                  onClick={() => setShowShortcutsModal(true)}
                   className="p-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
-                  title={t('app.settings')}
+                  title={t('app.keyboardShortcuts')}
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    {/* Ícone de teclado - Keyboard */}
+                    <rect x="3" y="5" width="18" height="14" rx="2" />
+                    <path d="M7 9h.01M11 9h.01M15 9h.01M7 13h.01M11 13h.01M15 13h.01M7 17h10" />
                   </svg>
+                </button>
+
+                {/* Compartilhar (ex-Exportar) */}
+                <button
+                  onClick={() => setShowExport(true)}
+                  className="p-1.5 md:px-2.5 md:py-1 rounded-md text-xs font-medium bg-muted hover:bg-muted/80 transition-colors flex items-center gap-1.5"
+                  title={t('app.share')}
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  </svg>
+                  <span className="hidden md:inline">{t('app.share')}</span>
                 </button>
 
                 {/* Toggle painel de anotações */}
@@ -1272,6 +1271,21 @@ const App: React.FC = () => {
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                  </svg>
+                </button>
+
+                {/* Configurações - ÚLTIMO da direita */}
+                <button
+                  onClick={() => {
+                    setIsSettingsPanelOpen(true);
+                    setShowStickyBar(false);
+                  }}
+                  className="p-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+                  title={t('app.settings')}
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                 </button>
               </div>

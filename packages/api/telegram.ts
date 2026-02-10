@@ -163,7 +163,7 @@ export async function sendTelegramNotification(
     const data = await response.json();
 
     // Handle API errors
-    if (!response.ok || !data.ok) {
+    if (!response.ok || !data.success) {
       return {
         success: false,
         error: data.error || data.message || 'Failed to send Telegram message',

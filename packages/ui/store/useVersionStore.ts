@@ -143,6 +143,7 @@ export const useVersionStore = create<VersionState>()(
             .select('*', { count: 'exact' })
             .eq('document_id', documentId)
             .eq('deleted', false)
+            .order('version_number', { ascending: false })
             .order('created_at', { ascending: false })
             .range(from, to);
 
@@ -255,6 +256,22 @@ export const useVersionStore = create<VersionState>()(
           // Create a new version for the restore action
           const restoreDescription = `Restored from version ${version.version_number}`;
 
+          // Always append restore as the latest logical version number.
+          const { data: latestVersionRow, error: latestVersionError } = await supabase
+            .from('document_versions')
+            .select('version_number')
+            .eq('document_id', documentId)
+            .eq('deleted', false)
+            .order('version_number', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (latestVersionError) {
+            throw latestVersionError;
+          }
+
+          const nextVersionNumber = (latestVersionRow?.version_number || 0) + 1;
+
           // Create the restore version
           const { data: newVersion, error: createError } = await supabase
             .from('document_versions')
@@ -264,7 +281,7 @@ export const useVersionStore = create<VersionState>()(
               created_by: version.created_by,
               change_description: restoreDescription,
               annotation_ids: version.annotation_ids,
-              version_number: version.version_number + 1,
+              version_number: nextVersionNumber,
               metadata: {
                 ...version.metadata,
                 restoredFrom: versionId,
