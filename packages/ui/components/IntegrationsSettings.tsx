@@ -12,6 +12,7 @@ interface Hook {
 
 interface IntegrationsSettingsProps {
   hooks?: Hook[];
+  onTestConnection?: (type: IntegrationConfig['type'], target: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const DEFAULT_INTEGRATIONS: IntegrationConfig[] = [
@@ -39,7 +40,7 @@ const DEFAULT_INTEGRATIONS: IntegrationConfig[] = [
   },
 ];
 
-export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({ hooks = [] }) => {
+export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({ hooks = [], onTestConnection }) => {
   const { t } = useTranslation();
   const [integrations, setIntegrations] = useState<IntegrationConfig[]>([]);
   const [configuring, setConfiguring] = useState<string | null>(null);
@@ -106,19 +107,29 @@ export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({ hook
     setConfiguring(null);
   };
 
-  const testConnection = (id: string) => {
+  const testConnection = async (id: string) => {
+    const integration = integrations.find(i => i.id === id);
+    if (!integration?.config.target) {
+      setTestStatus(prev => ({ ...prev, [id]: 'error' }));
+      setTimeout(() => setTestStatus(prev => ({ ...prev, [id]: null })), 3000);
+      return;
+    }
+
     setTestStatus(prev => ({ ...prev, [id]: null }));
-    setTimeout(() => {
-      const integration = integrations.find(i => i.id === id);
-      if (integration?.config.target) {
-        setTestStatus(prev => ({ ...prev, [id]: 'success' }));
-      } else {
+
+    if (onTestConnection) {
+      try {
+        const result = await onTestConnection(integration.type, integration.config.target);
+        setTestStatus(prev => ({ ...prev, [id]: result.success ? 'success' : 'error' }));
+      } catch {
         setTestStatus(prev => ({ ...prev, [id]: 'error' }));
       }
-      setTimeout(() => {
-        setTestStatus(prev => ({ ...prev, [id]: null }));
-      }, 3000);
-    }, 500);
+    } else {
+      // Fallback: basic validation if no callback provided
+      setTestStatus(prev => ({ ...prev, [id]: integration.config.target ? 'success' : 'error' }));
+    }
+
+    setTimeout(() => setTestStatus(prev => ({ ...prev, [id]: null })), 3000);
   };
 
   const getIntegrationIcon = (type: IntegrationConfig['type']) => {

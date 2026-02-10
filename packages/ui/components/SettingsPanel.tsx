@@ -7,6 +7,7 @@ import { IntegrationsSettings } from './IntegrationsSettings';
 import { CategoryManager } from './CategoryManager';
 import { NewTemplateModal } from './NewTemplateModal';
 import { ConfirmModal } from './ConfirmModal';
+import { testTelegramConnection } from '../../api/telegram';
 
 const BoxingGloveIcon = ({ className }: { className?: string }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor">
@@ -1521,7 +1522,15 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             <CollaborationSettings />
           </div>
         ) : activeTab === 'integracoes' ? (
-          <IntegrationsSettings hooks={hooks} />
+          <IntegrationsSettings
+            hooks={hooks}
+            onTestConnection={async (type, target) => {
+              if (type === 'telegram') {
+                return testTelegramConnection(target);
+              }
+              return { success: !!target };
+            }}
+          />
         ) : (
           <>
             <CategoryContent category={activeTab} />
