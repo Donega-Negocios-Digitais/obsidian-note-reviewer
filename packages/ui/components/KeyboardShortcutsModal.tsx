@@ -188,7 +188,7 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
               </button>
               <button
                 onClick={onClose}
-                className="p-1.5 rounded-md hover:bg-destructive/15 text-muted-foreground hover:text-destructive transition-colors"
+                className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                 title={t('keyboardShortcutsModal.close')}
               >
                 <svg
@@ -339,7 +339,7 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
               {/* Clear button */}
               <button
                 onClick={handleClearKey}
-                className="w-full text-xs text-muted-foreground hover:text-destructive transition-colors py-2"
+                className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors py-2"
               >
                 {t('keyboardShortcutsModal.clearKey') || 'Limpar tecla'}
               </button>

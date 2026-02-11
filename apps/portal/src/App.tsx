@@ -9,22 +9,49 @@ import { ResetPasswordPage } from './pages/reset-password'
 import { WelcomePage } from './pages/welcome'
 import { SharedDocument } from './pages/SharedDocument'
 import { CollaborationPreview } from './pages/preview/CollaborationPreview'
+import { Pricing } from './pages/Pricing'
+import { CheckoutSuccess } from './pages/CheckoutSuccess'
+import { CheckoutCancel } from './pages/CheckoutCancel'
 
 /**
  * Protected Route Component
- * TEMPORARILY DISABLED - allows access without authentication
  */
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  // Auth temporarily disabled - allow direct access
+  const { user, loading } = useAuth()
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-muted-foreground">Carregando...</div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return <Navigate to="/auth/login" replace />
+  }
+
   return <>{children}</>
 }
 
 /**
  * Public Route Component
- * TEMPORARILY DISABLED - allows access without authentication
  */
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  // Auth temporarily disabled - show page directly
+  const { user, loading } = useAuth()
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-muted-foreground">Carregando...</div>
+      </div>
+    )
+  }
+
+  if (user) {
+    return <Navigate to="/editor" replace />
+  }
+
   return <>{children}</>
 }
 
@@ -63,6 +90,9 @@ export function App() {
           />
           <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
           <Route path="/auth/callback" element={<CallbackPage />} />
+          <Route path="/pricing" element={<Pricing />} />
+          <Route path="/checkout/success" element={<CheckoutSuccess />} />
+          <Route path="/checkout/cancel" element={<CheckoutCancel />} />
 
           {/* Protected routes */}
           <Route

@@ -10,7 +10,6 @@ import {
   getProductionCSP,
   CSP_DIRECTIVES,
   type CSPDirectives,
-  type CSPOptions,
 } from '../csp';
 
 describe('getCSPDirectives', () => {
@@ -28,6 +27,7 @@ describe('getCSPDirectives', () => {
     expect(directives['img-src']).toContain('blob:');
     expect(directives['img-src']).toContain('https:');
     expect(directives['connect-src']).toContain("'self'");
+    expect(directives['frame-src']).toContain("'self'");
     expect(directives['frame-ancestors']).toContain("'none'");
     expect(directives['object-src']).toContain("'none'");
     expect(directives['base-uri']).toContain("'self'");
@@ -111,6 +111,14 @@ describe('getCSPDirectives', () => {
     expect(directives['connect-src']).toContain('https://api.example.com');
   });
 
+  test('includes additional frame sources when provided', () => {
+    const directives = getCSPDirectives({
+      additionalFrameSources: ['https://www.youtube.com'],
+    });
+
+    expect(directives['frame-src']).toContain('https://www.youtube.com');
+  });
+
   test('combines multiple options correctly', () => {
     const directives = getCSPDirectives({
       isDev: true,
@@ -144,6 +152,7 @@ describe('directivesToString', () => {
       'font-src': ["'self'"],
       'img-src': ["'self'", 'data:', 'blob:'],
       'connect-src': ["'self'"],
+      'frame-src': ["'self'"],
       'frame-ancestors': ["'none'"],
       'object-src': ["'none'"],
       'base-uri': ["'self'"],
@@ -157,6 +166,7 @@ describe('directivesToString', () => {
     expect(result).toContain("font-src 'self'");
     expect(result).toContain("img-src 'self' data: blob:");
     expect(result).toContain("connect-src 'self'");
+    expect(result).toContain("frame-src 'self'");
     expect(result).toContain("frame-ancestors 'none'");
     expect(result).toContain("object-src 'none'");
     expect(result).toContain("base-uri 'self'");
@@ -170,6 +180,7 @@ describe('directivesToString', () => {
       'font-src': ["'self'"],
       'img-src': ["'self'"],
       'connect-src': ["'self'"],
+      'frame-src': ["'self'"],
       'frame-ancestors': ["'none'"],
       'object-src': ["'none'"],
       'base-uri': ["'self'"],
@@ -179,7 +190,7 @@ describe('directivesToString', () => {
 
     // Count semicolons (should be number of directives - 1)
     const semicolonCount = (result.match(/; /g) || []).length;
-    expect(semicolonCount).toBe(8);
+    expect(semicolonCount).toBe(9);
   });
 });
 
@@ -233,6 +244,7 @@ describe('getCSPMetaContent', () => {
     expect(content).toContain('font-src');
     expect(content).toContain('img-src');
     expect(content).toContain('connect-src');
+    expect(content).toContain('frame-src');
     expect(content).toContain('object-src');
     expect(content).toContain('base-uri');
   });
@@ -245,6 +257,7 @@ describe('getHookCSP', () => {
     expect(csp).toContain("default-src 'self'");
     expect(csp).not.toContain('https://cdnjs.cloudflare.com');
     expect(csp).not.toContain('https://fonts.googleapis.com');
+    expect(csp).toContain('https://www.youtube.com');
   });
 
   test('includes development directives when isDev is true', () => {
@@ -269,12 +282,23 @@ describe('getPortalCSP', () => {
     expect(csp).toContain("default-src 'self'");
     expect(csp).toContain('https://fonts.googleapis.com');
     expect(csp).toContain('https://fonts.gstatic.com');
+    expect(csp).toContain('https://www.youtube.com');
+    expect(csp).toContain('https://js.stripe.com');
   });
 
-  test('does not include CDN sources', () => {
+  test('includes CDN sources', () => {
     const csp = getPortalCSP();
 
-    expect(csp).not.toContain('https://cdnjs.cloudflare.com');
+    expect(csp).toContain('https://cdnjs.cloudflare.com');
+  });
+
+  test('includes Stripe sources', () => {
+    const csp = getPortalCSP();
+
+    expect(csp).toContain('https://js.stripe.com');
+    expect(csp).toContain('https://api.stripe.com');
+    expect(csp).toContain('https://r.stripe.com');
+    expect(csp).toContain('https://m.stripe.network');
   });
 
   test('includes development directives when isDev is true', () => {
@@ -401,6 +425,7 @@ describe('CSP security requirements', () => {
       'font-src',
       'img-src',
       'connect-src',
+      'frame-src',
       'frame-ancestors',
       'object-src',
       'base-uri',

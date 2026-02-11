@@ -2,12 +2,11 @@
  * Sharing Functions
  *
  * Supabase operations for shareable links.
- * Stores share_hash (slug) and marks documents as public.
+ * Uses notes.share_hash (slug) and notes.is_public.
  */
 
 import { supabase } from "@obsidian-note-reviewer/security/supabase/client";
 import { generateSlug, isSlugValid, getShareUrl } from "@/lib/slugGenerator";
-import type { SharedDocument } from "./types";
 
 /**
  * Shared document result with document data
@@ -31,30 +30,28 @@ export interface SharedDocumentResult {
  * Returns: slug for the shared document
  */
 export async function createSharedLink(documentId: string): Promise<{ slug: string; url: string }> {
-  // Generate unique slug
-  const slug = generateSlug();
-
-  // Check if slug already exists (collision handling)
-  const { data: existing } = await supabase
-    .from("shared_documents")
-    .select("slug")
-    .eq("slug", slug)
-    .single();
-
-  if (existing) {
-    // Retry with new slug (extremely rare collision)
-    return createSharedLink(documentId);
+  const existingShare = await getExistingShare(documentId);
+  if (existingShare) {
+    return {
+      slug: existingShare,
+      url: getShareUrl(existingShare),
+    };
   }
 
-  // Create shared document record
+  // Generate unique slug
+  const slug = await generateUniqueSlug();
+
+  // Store sharing state on notes table (canonical sharing model)
   const { error } = await supabase
-    .from("shared_documents")
-    .insert({
-      document_id: documentId,
-      slug: slug,
+    .from("notes")
+    .update({
       is_public: true,
-      created_at: new Date().toISOString(),
-    });
+      share_hash: slug,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", documentId)
+    .select("id")
+    .single();
 
   if (error) {
     console.error("Failed to create shared link:", error);
@@ -75,21 +72,36 @@ export async function getDocumentBySlug(slug: string): Promise<SharedDocumentRes
     throw new Error("Invalid slug format");
   }
 
-  const { data, error } = await supabase
-    .from("shared_documents")
-    .select(`
-      *,
-      document:documents(*)
-    `)
-    .eq("slug", slug)
+  const { data: note, error } = await supabase
+    .from("notes")
+    .select("id, title, content, is_public, share_hash, created_at")
+    .eq("share_hash", slug)
     .eq("is_public", true)
-    .single();
+    .maybeSingle();
 
-  if (error || !data) {
+  if (error || !note) {
     throw new Error("Document not found or link expired");
   }
 
-  return data as SharedDocumentResult;
+  const { data: annotations } = await supabase
+    .from("annotations")
+    .select("*")
+    .eq("note_id", note.id)
+    .order("created_at", { ascending: true });
+
+  return {
+    id: note.id,
+    document_id: note.id,
+    slug: note.share_hash || slug,
+    is_public: note.is_public,
+    created_at: note.created_at,
+    document: {
+      id: note.id,
+      title: note.title,
+      content: note.content,
+      annotations: annotations || [],
+    },
+  };
 }
 
 /**
@@ -97,11 +109,31 @@ export async function getDocumentBySlug(slug: string): Promise<SharedDocumentRes
  */
 export async function getExistingShare(documentId: string): Promise<string | null> {
   const { data } = await supabase
-    .from("shared_documents")
-    .select("slug")
-    .eq("document_id", documentId)
+    .from("notes")
+    .select("share_hash, is_public")
+    .eq("id", documentId)
     .eq("is_public", true)
-    .single();
+    .not("share_hash", "is", null)
+    .maybeSingle();
 
-  return data?.slug || null;
+  return data?.share_hash || null;
+}
+
+async function generateUniqueSlug(attempts = 5): Promise<string> {
+  if (attempts <= 0) {
+    throw new Error("Could not generate a unique share slug");
+  }
+
+  const slug = generateSlug();
+  const { data } = await supabase
+    .from("notes")
+    .select("id")
+    .eq("share_hash", slug)
+    .maybeSingle();
+
+  if (data) {
+    return generateUniqueSlug(attempts - 1);
+  }
+
+  return slug;
 }

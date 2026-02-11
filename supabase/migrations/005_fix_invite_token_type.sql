@@ -3,6 +3,8 @@
 -- but the function parameter was declared as UUID, causing silent comparison failures.
 -- This recreates the function with the correct TEXT parameter type.
 
+DROP FUNCTION IF EXISTS accept_document_invite(UUID, UUID);
+
 CREATE OR REPLACE FUNCTION accept_document_invite(invite_token TEXT, user_uuid UUID)
 RETURNS BOOLEAN AS $$
 DECLARE
@@ -59,3 +61,5 @@ BEGIN
   RETURN TRUE;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION accept_document_invite(TEXT, UUID) TO authenticated;

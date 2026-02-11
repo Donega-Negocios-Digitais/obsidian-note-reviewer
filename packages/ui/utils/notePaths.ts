@@ -1,9 +1,11 @@
+/* eslint-disable security/detect-object-injection */
 /**
  * SISTEMA DE MAPEAMENTO DE CAMINHOS E TEMPLATES
  *
  * Define a estrutura de pastas e templates para cada tipo de nota no Obsidian.
  * Baseado na estrutura do vault Alex Donega.
  */
+import { getBuiltInCategoryOverrides, type BuiltInCategoryId } from './storage';
 
 export type TipoNota =
   // Conteúdo de Terceiros (Atlas/)
@@ -367,12 +369,27 @@ export function getDefaultConfigs(): {
 // =====================================
 
 export function getBuiltInCategories() {
-  return [
+  const defaults: Array<{ id: BuiltInCategoryId; name: string; icon: string; isBuiltIn: true }> = [
     { id: 'terceiros', name: 'Conteúdo de Terceiros', icon: 'BookOpen', isBuiltIn: true },
     { id: 'atomica', name: 'Notas Atômicas', icon: 'Atom', isBuiltIn: true },
     { id: 'organizacional', name: 'Notas Organizacionais', icon: 'Map', isBuiltIn: true },
     { id: 'alex', name: 'Conteúdo Próprio', icon: 'PenTool', isBuiltIn: true },
-  ] as const;
+  ];
+
+  const overrides = getBuiltInCategoryOverrides();
+
+  return defaults.map((category) => {
+    const override = overrides[category.id];
+    if (!override) {
+      return category;
+    }
+
+    return {
+      ...category,
+      name: override.name,
+      icon: override.icon,
+    };
+  });
 }
 
 export function getAllCategories(customCategories: Array<{ id: string; name: string; icon: string; isBuiltIn: boolean }> = []) {

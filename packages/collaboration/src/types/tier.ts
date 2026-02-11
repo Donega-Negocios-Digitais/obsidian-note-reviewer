@@ -4,16 +4,19 @@
  * Defines subscription tiers and their limits for freemium model.
  */
 
-export type SubscriptionTier = 'free' | 'pro';
+export type SubscriptionTier = 'free' | 'pro' | 'enterprise';
 
-export type SubscriptionType = 'monthly' | 'yearly' | 'lifetime';
+export type SubscriptionType = 'month' | 'year' | 'monthly' | 'yearly' | 'lifetime';
 
 export type SubscriptionStatus =
   | 'active'
   | 'past_due'
   | 'canceled'
   | 'incomplete'
-  | 'trialing';
+  | 'trialing'
+  | 'unpaid'
+  | 'incomplete_expired'
+  | 'paused';
 
 export interface TierLimits {
   maxCollaborators: number;
@@ -60,6 +63,14 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     hasVersionHistory: true,
     hasAiSuggestions: true,
   },
+  enterprise: {
+    maxCollaborators: -1,
+    maxSharedDocuments: -1,
+    hasAdvancedFeatures: true,
+    hasRealtimeCollaboration: true,
+    hasVersionHistory: true,
+    hasAiSuggestions: true,
+  },
 };
 
 /**
@@ -77,7 +88,7 @@ export function hasTierFeature(
  */
 export function canAddCollaborators(subscription: UserSubscription | null): boolean {
   if (!subscription) return false;
-  if (subscription.tier !== 'pro') return false;
+  if (subscription.tier === 'free') return false;
   if (subscription.status !== 'active') return false;
 
   const limits = TIER_LIMITS[subscription.tier];
@@ -91,6 +102,7 @@ export function getTierDisplayName(tier: SubscriptionTier): string {
   const names: Record<SubscriptionTier, string> = {
     free: 'Gratuito',
     pro: 'Pro',
+    enterprise: 'Enterprise',
   };
   return names[tier];
 }
@@ -101,6 +113,8 @@ export function getTierDisplayName(tier: SubscriptionTier): string {
 export function getSubscriptionTypeDisplayName(type: SubscriptionType | null): string {
   if (!type) return '-';
   const names: Record<SubscriptionType, string> = {
+    month: 'Mensal',
+    year: 'Anual',
     monthly: 'Mensal',
     yearly: 'Anual',
     lifetime: 'Vitalício',
@@ -118,6 +132,9 @@ export function getStatusDisplayName(status: SubscriptionStatus): string {
     canceled: 'Cancelado',
     incomplete: 'Incompleto',
     trialing: 'Teste Gratuito',
+    unpaid: 'Nao Pago',
+    incomplete_expired: 'Expirado',
+    paused: 'Pausado',
   };
   return names[status];
 }

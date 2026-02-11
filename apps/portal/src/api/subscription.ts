@@ -2,6 +2,7 @@
  * Subscription API Functions
  *
  * CRUD operations for subscriptions in Supabase.
+ * This module maps DB snake_case fields to the app's camelCase subscription model.
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -17,6 +18,23 @@ const supabase = createClient(
   import.meta.env.VITE_SUPABASE_ANON_KEY || ''
 );
 
+type BillingInterval = 'month' | 'year';
+
+type SubscriptionRow = {
+  id: string;
+  user_id: string;
+  plan_tier: SubscriptionTier;
+  billing_interval: BillingInterval | null;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  status: SubscriptionStatus;
+  current_period_start: string | null;
+  current_period_end: string | null;
+  cancel_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export interface CreateSubscriptionParams {
   userId: string;
   tier: SubscriptionTier;
@@ -31,7 +49,7 @@ export interface CreateSubscriptionParams {
 
 export interface UpdateSubscriptionParams {
   tier?: SubscriptionTier;
-  subscriptionType?: SubscriptionType;
+  subscriptionType?: SubscriptionType | null;
   stripeCustomerId?: string;
   stripeSubscriptionId?: string | null;
   status?: SubscriptionStatus;
@@ -47,18 +65,8 @@ export interface UpdateSubscriptionParams {
 export async function getUserSubscription(
   userId: string
 ): Promise<UserSubscription | null> {
-  const { data, error } = await supabase
-    .from('subscriptions')
-    .select('*')
-    .eq('user_id', userId)
-    .maybeSingle();
-
-  if (error) {
-    console.error('Error fetching subscription:', error);
-    return null;
-  }
-
-  return data as UserSubscription | null;
+  const row = await getLatestSubscriptionRow(userId);
+  return row ? toUserSubscription(row) : null;
 }
 
 /**
@@ -67,28 +75,51 @@ export async function getUserSubscription(
 export async function upsertSubscription(
   params: CreateSubscriptionParams
 ): Promise<UserSubscription | null> {
+  const existing = await getLatestSubscriptionRow(params.userId);
+
+  const payload = {
+    user_id: params.userId,
+    plan_tier: params.tier,
+    billing_interval: toBillingInterval(params.subscriptionType),
+    stripe_customer_id: params.stripeCustomerId || existing?.stripe_customer_id || `local_${params.userId}`,
+    stripe_subscription_id: params.stripeSubscriptionId || existing?.stripe_subscription_id || null,
+    status: params.status || 'active',
+    current_period_start: params.currentPeriodStart || existing?.current_period_start || null,
+    current_period_end: params.currentPeriodEnd || existing?.current_period_end || null,
+    cancel_at: params.cancelAtPeriodEnd
+      ? (params.currentPeriodEnd || existing?.current_period_end || new Date().toISOString())
+      : null,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (existing) {
+    const { data, error } = await supabase
+      .from('subscriptions')
+      .update(payload)
+      .eq('id', existing.id)
+      .select('*')
+      .single();
+
+    if (error || !data) {
+      console.error('Error updating subscription:', error);
+      return null;
+    }
+
+    return toUserSubscription(data as SubscriptionRow);
+  }
+
   const { data, error } = await supabase
     .from('subscriptions')
-    .upsert({
-      user_id: params.userId,
-      tier: params.tier,
-      subscription_type: params.subscriptionType,
-      stripe_customer_id: params.stripeCustomerId,
-      stripe_subscription_id: params.stripeSubscriptionId,
-      status: params.status || 'active',
-      current_period_start: params.currentPeriodStart,
-      current_period_end: params.currentPeriodEnd,
-      cancel_at_period_end: params.cancelAtPeriodEnd || false,
-    })
-    .select()
+    .insert(payload)
+    .select('*')
     .single();
 
-  if (error) {
-    console.error('Error upserting subscription:', error);
+  if (error || !data) {
+    console.error('Error creating subscription:', error);
     return null;
   }
 
-  return data as UserSubscription;
+  return toUserSubscription(data as SubscriptionRow);
 }
 
 /**
@@ -98,22 +129,47 @@ export async function updateUserSubscription(
   userId: string,
   updates: UpdateSubscriptionParams
 ): Promise<UserSubscription | null> {
+  const existing = await getLatestSubscriptionRow(userId);
+  if (!existing) {
+    return null;
+  }
+
+  const updatePayload: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  };
+
+  if (updates.tier !== undefined) updatePayload.plan_tier = updates.tier;
+  if (updates.subscriptionType !== undefined) updatePayload.billing_interval = toBillingInterval(updates.subscriptionType);
+  if (updates.stripeCustomerId !== undefined) updatePayload.stripe_customer_id = updates.stripeCustomerId;
+  if (updates.stripeSubscriptionId !== undefined) updatePayload.stripe_subscription_id = updates.stripeSubscriptionId;
+  if (updates.status !== undefined) updatePayload.status = updates.status;
+  if (updates.currentPeriodStart !== undefined) updatePayload.current_period_start = updates.currentPeriodStart;
+  if (updates.currentPeriodEnd !== undefined) updatePayload.current_period_end = updates.currentPeriodEnd;
+
+  if (updates.cancelAtPeriodEnd === true) {
+    updatePayload.cancel_at = updates.currentPeriodEnd || existing.current_period_end || new Date().toISOString();
+  }
+  if (updates.cancelAtPeriodEnd === false) {
+    updatePayload.cancel_at = null;
+  }
+
+  if (updates.metadata !== undefined) {
+    updatePayload.metadata = updates.metadata;
+  }
+
   const { data, error } = await supabase
     .from('subscriptions')
-    .update({
-      ...updates,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('user_id', userId)
-    .select()
+    .update(updatePayload)
+    .eq('id', existing.id)
+    .select('*')
     .single();
 
-  if (error) {
+  if (error || !data) {
     console.error('Error updating subscription:', error);
     return null;
   }
 
-  return data as UserSubscription;
+  return toUserSubscription(data as SubscriptionRow);
 }
 
 /**
@@ -126,11 +182,9 @@ export async function upgradeUserToPro(
   subscriptionType: SubscriptionType,
   currentPeriodEnd?: string
 ): Promise<UserSubscription | null> {
-  // Get current subscription
   const current = await getUserSubscription(userId);
   const fromTier = current?.tier || 'free';
 
-  // Update subscription
   const updated = await updateUserSubscription(userId, {
     tier: 'pro',
     subscriptionType,
@@ -140,7 +194,6 @@ export async function upgradeUserToPro(
     currentPeriodEnd,
   });
 
-  // Record in history
   if (updated) {
     await recordSubscriptionHistory(
       userId,
@@ -161,11 +214,9 @@ export async function downgradeUserToFree(
   userId: string,
   reason?: string
 ): Promise<UserSubscription | null> {
-  // Get current subscription
   const current = await getUserSubscription(userId);
-  const fromTier = current?.tier;
+  const fromTier = current?.tier || null;
 
-  // Update subscription
   const updated = await updateUserSubscription(userId, {
     tier: 'free',
     subscriptionType: null,
@@ -175,9 +226,15 @@ export async function downgradeUserToFree(
     cancelAtPeriodEnd: false,
   });
 
-  // Record in history
   if (updated && fromTier) {
-    await recordSubscriptionHistory(userId, fromTier, 'free', 'canceled', undefined, { reason });
+    await recordSubscriptionHistory(
+      userId,
+      fromTier,
+      'free',
+      'canceled',
+      undefined,
+      { reason }
+    );
   }
 
   return updated;
@@ -244,34 +301,34 @@ export async function getSubscriptionHistory(
 }
 
 /**
- * Check if user has active Pro subscription
+ * Check if user has active paid subscription
  */
 export async function isUserPro(userId: string): Promise<boolean> {
   const subscription = await getUserSubscription(userId);
 
   if (!subscription) return false;
-  if (subscription.tier !== 'pro') return false;
-  if (subscription.status !== 'active') return false;
+  if (subscription.tier !== 'pro' && subscription.tier !== 'enterprise') return false;
+  if (subscription.status !== 'active' && subscription.status !== 'trialing') return false;
 
   return true;
 }
 
 /**
- * Get all Pro users (admin function)
+ * Get all paid users (admin function)
  */
 export async function getAllProUsers(): Promise<UserSubscription[]> {
   const { data, error } = await supabase
     .from('subscriptions')
     .select('*')
-    .eq('tier', 'pro')
+    .in('plan_tier', ['pro', 'enterprise'])
     .eq('status', 'active');
 
   if (error) {
-    console.error('Error fetching Pro users:', error);
+    console.error('Error fetching paid users:', error);
     return [];
   }
 
-  return (data as UserSubscription[]) || [];
+  return (data || []).map((row) => toUserSubscription(row as SubscriptionRow));
 }
 
 /**
@@ -283,19 +340,16 @@ export async function manuallyUpdateTier(
   newTier: SubscriptionTier,
   reason: string
 ): Promise<UserSubscription | null> {
-  // Get current subscription
   const current = await getUserSubscription(targetUserId);
   const fromTier = current?.tier || 'free';
 
-  // Update subscription
   const updated = await updateUserSubscription(targetUserId, {
     tier: newTier,
     status: 'active',
   });
 
-  // Record in history
   if (updated) {
-    const eventType = newTier === 'pro' ? 'upgraded' : 'downgraded';
+    const eventType = newTier === 'free' ? 'downgraded' : 'upgraded';
     await recordSubscriptionHistory(
       targetUserId,
       fromTier,
@@ -322,3 +376,50 @@ export default {
   getAllProUsers,
   manuallyUpdateTier,
 };
+
+async function getLatestSubscriptionRow(userId: string): Promise<SubscriptionRow | null> {
+  const { data, error } = await supabase
+    .from('subscriptions')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error fetching subscription:', error);
+    return null;
+  }
+
+  return (data as SubscriptionRow | null) || null;
+}
+
+function toBillingInterval(type?: SubscriptionType | null): BillingInterval | null {
+  if (!type) return null;
+  if (type === 'month' || type === 'monthly') return 'month';
+  if (type === 'year' || type === 'yearly') return 'year';
+  return null;
+}
+
+function fromBillingInterval(interval: BillingInterval | null): SubscriptionType | null {
+  if (interval === 'month') return 'monthly';
+  if (interval === 'year') return 'yearly';
+  return null;
+}
+
+function toUserSubscription(row: SubscriptionRow): UserSubscription {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    tier: row.plan_tier,
+    subscriptionType: fromBillingInterval(row.billing_interval),
+    stripeCustomerId: row.stripe_customer_id,
+    stripeSubscriptionId: row.stripe_subscription_id,
+    status: row.status,
+    currentPeriodStart: row.current_period_start || row.created_at,
+    currentPeriodEnd: row.current_period_end,
+    cancelAtPeriodEnd: Boolean(row.cancel_at),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}

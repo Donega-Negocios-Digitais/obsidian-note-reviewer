@@ -29,7 +29,7 @@ export default defineConfig({
       '@obsidian-note-reviewer/security/auth': path.resolve(__dirname, '../../packages/security/src/auth/context.tsx'),
       '@obsidian-note-reviewer/security/supabase/storage': path.resolve(__dirname, '../../packages/security/src/supabase/storage.ts'),
       '@obsidian-note-reviewer/security/supabase/client': path.resolve(__dirname, '../../packages/security/src/supabase/client.ts'),
-      '@obsidian-note-reviewer/collaboration': path.resolve(__dirname, '../../packages/collaboration/src/index.ts'),
+      '@obsidian-note-reviewer/collaboration': path.resolve(__dirname, '../../packages/collaboration/src'),
       'react': path.resolve(__dirname, 'node_modules/react'),
       'react-dom': path.resolve(__dirname, 'node_modules/react-dom'),
     },

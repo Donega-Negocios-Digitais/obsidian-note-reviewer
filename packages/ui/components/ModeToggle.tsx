@@ -16,6 +16,7 @@ export function ModeToggle() {
 
   return (
     <button
+      type="button"
       onClick={toggleTheme}
       className="relative p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none overflow-hidden transition-colors"
       title={resolvedTheme === 'dark' ? 'Mudar para modo claro' : 'Mudar para modo escuro'}

@@ -624,7 +624,7 @@ export function setDisplayName(name: string): SafeSetResult {
 
 export interface IntegrationConfig {
   id: string;
-  type: 'whatsapp' | 'telegram';
+  type: 'whatsapp' | 'telegram' | 'notion' | 'obsidian';
   enabled: boolean;
   config: {
     target: string;
@@ -648,6 +648,77 @@ export function getIntegrations(): IntegrationConfig[] {
 
 export function saveIntegrations(integrations: IntegrationConfig[]): SafeLocalStorageSetResult {
   return safeLocalStorageSetItem(INTEGRATIONS_KEY, JSON.stringify(integrations));
+}
+
+// =====================================
+// Hidden Note Types (localStorage)
+// =====================================
+
+const HIDDEN_NOTE_TYPES_KEY = 'obsreview-hidden-note-types';
+
+export function getHiddenNoteTypes(): string[] {
+  const result = safeLocalStorageGetItem(HIDDEN_NOTE_TYPES_KEY);
+  if (!result.success || !result.value) return [];
+  try { return JSON.parse(result.value) as string[]; } catch { return []; }
+}
+
+export function saveHiddenNoteTypes(types: string[]): void {
+  safeLocalStorageSetItem(HIDDEN_NOTE_TYPES_KEY, JSON.stringify(types));
+}
+
+// =====================================
+// Lixeira de Templates (localStorage)
+// =====================================
+
+const TRASH_KEY = 'obsreview-template-trash';
+
+export interface TrashedTemplate {
+  tipo: string;
+  label: string;
+  icon: string;
+  deletedAt: string; // ISO timestamp
+  path?: string;
+  template?: string;
+}
+
+export function getTrashedTemplates(): TrashedTemplate[] {
+  const result = safeLocalStorageGetItem(TRASH_KEY);
+  if (!result.success || !result.value) return [];
+
+  try {
+    const trashed = JSON.parse(result.value) as TrashedTemplate[];
+    // Filtra templates com mais de 30 dias (automatically cleaned)
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    return trashed.filter(t => new Date(t.deletedAt) > thirtyDaysAgo);
+  } catch {
+    return [];
+  }
+}
+
+export function addToTrash(template: TrashedTemplate): void {
+  const trashed = getTrashedTemplates();
+  trashed.push(template);
+  safeLocalStorageSetItem(TRASH_KEY, JSON.stringify(trashed));
+}
+
+export function restoreFromTrash(tipo: string): void {
+  const trashed = getTrashedTemplates();
+  const updated = trashed.filter(t => t.tipo !== tipo);
+  safeLocalStorageSetItem(TRASH_KEY, JSON.stringify(updated));
+
+  // REMOVER de hiddenNoteTypes para o template voltar a aparecer
+  const hiddenTypes = getHiddenNoteTypes();
+  const updatedHidden = hiddenTypes.filter(t => t !== tipo);
+  safeLocalStorageSetItem(HIDDEN_NOTE_TYPES_KEY, JSON.stringify(updatedHidden));
+}
+
+export function permanentlyDeleteFromTrash(tipo: string): void {
+  restoreFromTrash(tipo); // Same implementation - removes from trash
+}
+
+export function isTemplateInTrash(tipo: string): boolean {
+  const trashed = getTrashedTemplates();
+  return trashed.some(t => t.tipo === tipo);
 }
 
 // =====================================
@@ -678,6 +749,72 @@ export function saveCustomCategories(categories: CustomCategory[]): SafeLocalSto
 }
 
 // =====================================
+// Built-in Category Overrides (localStorage)
+// =====================================
+
+const BUILT_IN_CATEGORY_OVERRIDES_KEY = 'obsidian-reviewer-built-in-category-overrides';
+
+export type BuiltInCategoryId = 'terceiros' | 'atomica' | 'organizacional' | 'alex';
+
+export interface BuiltInCategoryOverride {
+  id: BuiltInCategoryId;
+  name: string;
+  icon: string;
+}
+
+type BuiltInCategoryOverridesMap = Partial<Record<BuiltInCategoryId, { name: string; icon: string }>>;
+
+function isBuiltInCategoryId(value: string): value is BuiltInCategoryId {
+  return value === 'terceiros' || value === 'atomica' || value === 'organizacional' || value === 'alex';
+}
+
+function normalizeBuiltInCategoryOverrides(raw: unknown): BuiltInCategoryOverridesMap {
+  if (!raw || typeof raw !== 'object') return {};
+
+  const output: BuiltInCategoryOverridesMap = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!isBuiltInCategoryId(key)) continue;
+    if (!value || typeof value !== 'object') continue;
+    const override = value as Record<string, unknown>;
+    if (typeof override.name !== 'string' || typeof override.icon !== 'string') continue;
+    const name = override.name.trim();
+    const icon = override.icon.trim();
+    if (!name || !icon) continue;
+    output[key] = { name, icon };
+  }
+  return output;
+}
+
+export function getBuiltInCategoryOverrides(): BuiltInCategoryOverridesMap {
+  const result = safeLocalStorageGetItem(BUILT_IN_CATEGORY_OVERRIDES_KEY);
+  if (!result.success || !result.value) return {};
+
+  try {
+    const parsed = JSON.parse(result.value) as unknown;
+    return normalizeBuiltInCategoryOverrides(parsed);
+  } catch {
+    return {};
+  }
+}
+
+export function saveBuiltInCategoryOverrides(overrides: BuiltInCategoryOverridesMap): SafeLocalStorageSetResult {
+  const normalized = normalizeBuiltInCategoryOverrides(overrides);
+  return safeLocalStorageSetItem(BUILT_IN_CATEGORY_OVERRIDES_KEY, JSON.stringify(normalized));
+}
+
+export function setBuiltInCategoryOverride(id: BuiltInCategoryId, name: string, icon: string): SafeLocalStorageSetResult {
+  const current = getBuiltInCategoryOverrides();
+  current[id] = { name: name.trim(), icon: icon.trim() };
+  return saveBuiltInCategoryOverrides(current);
+}
+
+export function clearBuiltInCategoryOverride(id: BuiltInCategoryId): SafeLocalStorageSetResult {
+  const current = getBuiltInCategoryOverrides();
+  delete current[id];
+  return saveBuiltInCategoryOverrides(current);
+}
+
+// =====================================
 // Custom Templates (localStorage)
 // =====================================
 
@@ -691,17 +828,78 @@ export interface CustomTemplate {
 }
 
 const CUSTOM_TEMPLATES_KEY = 'obsidian-reviewer-custom-templates';
+const LEGACY_CUSTOM_TEMPLATES_KEY = 'obsreview-custom-templates';
+
+function normalizeCustomTemplate(raw: unknown, index: number): CustomTemplate | null {
+  if (!raw || typeof raw !== 'object') return null;
+
+  const value = raw as Record<string, unknown>;
+  const id = typeof value.id === 'string' && value.id.trim() ? value.id.trim() : `custom_legacy_${index}`;
+  const category = typeof value.category === 'string' && value.category.trim() ? value.category.trim() : 'terceiros';
+  const label = typeof value.label === 'string' && value.label.trim() ? value.label.trim() : `Template ${index + 1}`;
+  const icon = typeof value.icon === 'string' && value.icon.trim() ? value.icon.trim() : 'FileText';
+
+  // Backward compatibility:
+  // - current shape: templatePath/destinationPath
+  // - legacy shape: template/path
+  const templatePath = typeof value.templatePath === 'string'
+    ? value.templatePath
+    : typeof value.template === 'string'
+      ? value.template
+      : '';
+
+  const destinationPath = typeof value.destinationPath === 'string'
+    ? value.destinationPath
+    : typeof value.path === 'string'
+      ? value.path
+      : '';
+
+  return {
+    id,
+    category,
+    label,
+    icon,
+    templatePath,
+    destinationPath,
+  };
+}
 
 export function getCustomTemplates(): CustomTemplate[] {
-  const result = safeLocalStorageGetItem(CUSTOM_TEMPLATES_KEY);
-  if (!result.success || !result.value) return [];
+  const primaryResult = safeLocalStorageGetItem(CUSTOM_TEMPLATES_KEY);
+  const legacyResult = safeLocalStorageGetItem(LEGACY_CUSTOM_TEMPLATES_KEY);
+  const sourceValue = primaryResult.value || legacyResult.value;
+
+  if (!sourceValue) return [];
+
   try {
-    return JSON.parse(result.value);
+    const parsed = JSON.parse(sourceValue) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    const normalized = parsed
+      .map((item, index) => normalizeCustomTemplate(item, index))
+      .filter((item): item is CustomTemplate => item !== null);
+
+    const sourceIsLegacy = !primaryResult.value && !!legacyResult.value;
+    const wasNormalized = JSON.stringify(parsed) !== JSON.stringify(normalized);
+
+    if (sourceIsLegacy || wasNormalized) {
+      safeLocalStorageSetItem(CUSTOM_TEMPLATES_KEY, JSON.stringify(normalized));
+      safeLocalStorageRemoveItem(LEGACY_CUSTOM_TEMPLATES_KEY);
+    }
+
+    return normalized;
   } catch {
     return [];
   }
 }
 
 export function saveCustomTemplates(templates: CustomTemplate[]): SafeLocalStorageSetResult {
-  return safeLocalStorageSetItem(CUSTOM_TEMPLATES_KEY, JSON.stringify(templates));
+  const normalized = templates
+    .map((template, index) => normalizeCustomTemplate(template, index))
+    .filter((item): item is CustomTemplate => item !== null);
+
+  const result = safeLocalStorageSetItem(CUSTOM_TEMPLATES_KEY, JSON.stringify(normalized));
+  if (result.success) {
+    safeLocalStorageRemoveItem(LEGACY_CUSTOM_TEMPLATES_KEY);
+  }
+  return result;
 }

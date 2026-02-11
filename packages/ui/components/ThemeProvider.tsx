@@ -33,9 +33,6 @@ export function ThemeProvider({
   useEffect(() => {
     const root = window.document.documentElement;
 
-    // Remove light class (dark is default, no class needed)
-    root.classList.remove('light');
-
     let effectiveTheme = theme;
     if (theme === 'system') {
       effectiveTheme = window.matchMedia('(prefers-color-scheme: light)').matches
@@ -43,10 +40,8 @@ export function ThemeProvider({
         : 'dark';
     }
 
-    // Only add 'light' class when in light mode
-    if (effectiveTheme === 'light') {
-      root.classList.add('light');
-    }
+    root.classList.toggle('light', effectiveTheme === 'light');
+    root.setAttribute('data-theme', effectiveTheme);
   }, [theme]);
 
   useEffect(() => {
@@ -64,10 +59,8 @@ export function ThemeProvider({
     const mediaQuery = window.matchMedia('(prefers-color-scheme: light)');
     const handleChange = () => {
       const root = window.document.documentElement;
-      root.classList.remove('light');
-      if (mediaQuery.matches) {
-        root.classList.add('light');
-      }
+      root.classList.toggle('light', mediaQuery.matches);
+      root.setAttribute('data-theme', mediaQuery.matches ? 'light' : 'dark');
     };
 
     mediaQuery.addEventListener('change', handleChange);
@@ -91,10 +84,16 @@ export function ThemeProvider({
           startViewTransition?: (updateCallback: () => void) => { finished: Promise<void> };
         };
 
-        doc.startViewTransition?.(() => {
-          flushSync(() => setThemeState(newTheme));
-        });
-        return;
+        try {
+          const transition = doc.startViewTransition?.(() => {
+            flushSync(() => setThemeState(newTheme));
+          });
+          if (transition) {
+            return;
+          }
+        } catch (error) {
+          console.warn('Theme transition failed, applying theme directly:', error);
+        }
       }
 
       if (!prefersReducedMotion) {

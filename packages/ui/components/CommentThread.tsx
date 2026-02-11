@@ -194,7 +194,7 @@ const CommentThreadItem: React.FC<CommentThreadItemProps> = ({
                 <span className="text-muted-foreground">·</span>
                 <button
                   onClick={handleDeleteComment}
-                  className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Excluir
                 </button>

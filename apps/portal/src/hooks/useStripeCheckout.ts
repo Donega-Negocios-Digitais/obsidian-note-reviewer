@@ -32,6 +32,9 @@ export interface CheckoutOptions {
 
 export interface UseStripeCheckoutReturn {
   redirectToCheckout: (options: CheckoutOptions) => Promise<boolean>;
+  subscribeMonthly: () => Promise<boolean>;
+  subscribeYearly: () => Promise<boolean>;
+  purchaseLifetime: () => Promise<boolean>;
   isLoading: boolean;
   error: string | null;
 }
@@ -105,10 +108,6 @@ export function useStripeCheckout(): UseStripeCheckoutReturn {
     purchaseLifetime,
     isLoading: false,
     error: null,
-  } as UseStripeCheckoutReturn & {
-    subscribeMonthly: () => Promise<boolean>;
-    subscribeYearly: () => Promise<boolean>;
-    purchaseLifetime: () => Promise<boolean>;
   };
 }
 

@@ -392,18 +392,11 @@ serve(async (req) => {
       validatedUpdateData = validation.validatedData;
     }
 
-    // SECURITY: Validate data for tag operation to prevent mass assignment attacks.
-    // Only the 'tags' field is extracted; all other fields are ignored and logged.
-    let validatedTags: string[] | null = null;
     if (operation === 'tag') {
-      const tagValidation = validateTagData(data as Record<string, unknown> | undefined, user.id, noteIds);
-      if (!tagValidation.isValid) {
-        return new Response(
-          JSON.stringify({ error: tagValidation.error }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      validatedTags = tagValidation.tags;
+      return new Response(
+        JSON.stringify({ error: 'Tag operation is not supported by current notes schema' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     for (const chunk of chunks) {
@@ -442,25 +435,13 @@ serve(async (req) => {
               .update({
                 is_archived: true,
                 archived_at: new Date().toISOString(),
-                archived_by: user.id,
               })
               .in('id', chunk);
             results.success += chunk.length;
             break;
 
           case 'tag':
-            // SECURITY: Use validatedTags instead of raw data.tags to prevent
-            // injection of any fields other than 'tags'. Validation already
-            // performed before the loop; validatedTags is guaranteed non-null here.
-            await supabase
-              .from('notes')
-              .update({
-                tags: validatedTags!,
-                updated_at: new Date().toISOString(),
-              })
-              .in('id', chunk);
-            results.success += chunk.length;
-            break;
+            throw new Error('Tag operation is not supported by current notes schema');
 
           default:
             throw new Error(`Unknown operation: ${operation}`);

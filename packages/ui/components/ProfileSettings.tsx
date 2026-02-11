@@ -10,6 +10,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@obsidian-note-reviewer/security/auth'
+import { supabase } from '@obsidian-note-reviewer/security/supabase/client'
 import { uploadAvatar, getAvatarUrl } from '@obsidian-note-reviewer/security/supabase/storage'
 import { Camera, Key, User, Check, X, ChevronDown, ChevronRight, IdCard, Zap } from 'lucide-react'
 import { getIdentity, getAnonymousIdentity, regenerateIdentity } from '../utils/identity'
@@ -40,6 +41,14 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
   const { t } = useTranslation()
   const { user, updateProfile } = useAuth()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const authProvider = (user?.app_metadata?.provider as string | undefined) || 'email'
+  const isOAuthUser = authProvider !== 'email'
+  const authProviderLabel =
+    authProvider === 'google'
+      ? 'Google'
+      : authProvider === 'github'
+        ? 'GitHub'
+        : 'OAuth'
 
   // Profile state
   const [displayName, setDisplayName] = useState('')
@@ -153,7 +162,7 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
   const validatePassword = (): boolean => {
     const errors: PasswordErrors = {}
 
-    if (!passwordForm.currentPassword) {
+    if (!isOAuthUser && !passwordForm.currentPassword) {
       errors.current = 'Senha atual é obrigatória'
     }
 
@@ -181,20 +190,25 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
     setPasswordErrors({})
 
     try {
-      // First verify current password
-      const { error: signInError } = await (window as any).supabase?.auth?.signInWithPassword?.({
-        email: user?.email,
-        password: passwordForm.currentPassword,
-      })
-
-      if (signInError) {
-        setPasswordErrors({ current: 'Senha atual incorreta' })
-        setSavingPassword(false)
+      if (!user?.email) {
+        setPasswordErrors({ general: 'Usuário inválido para alteração de senha.' })
         return
       }
 
-      // Update password
-      const { error: updateError } = await (window as any).supabase?.auth?.updateUser?.({
+      if (!isOAuthUser) {
+        // Verify current password for email/password users.
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: user.email,
+          password: passwordForm.currentPassword,
+        })
+
+        if (signInError) {
+          setPasswordErrors({ current: 'Senha atual incorreta' })
+          return
+        }
+      }
+
+      const { error: updateError } = await supabase.auth.updateUser({
         password: passwordForm.newPassword,
       })
 
@@ -335,6 +349,12 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
               {t('settings.profile.changePassword')}
             </h3>
 
+            {isOAuthUser && (
+              <div className="p-3 rounded-md bg-blue-500/10 text-blue-700 dark:text-blue-300 text-xs">
+                Você entrou com {authProviderLabel}. Aqui você pode definir uma senha para entrar também com e-mail/senha.
+              </div>
+            )}
+
             {passwordSuccess && (
               <div className="p-3 rounded-md bg-green-500/15 text-green-600 dark:text-green-400 text-sm flex items-center gap-2">
                 <Check className="w-4 h-4" />
@@ -342,41 +362,43 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
               </div>
             )}
 
-            <div>
-              <label htmlFor="currentPassword" className="block text-sm font-medium mb-1.5">
-                {t('settings.profile.currentPassword')}
-              </label>
-              <div className="relative">
-                <input
-                  id="currentPassword"
-                  type={showPassword ? 'text' : 'password'}
-                  value={passwordForm.currentPassword}
-                  onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
-                  className={`w-full px-3 py-2 pr-10 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-background ${
-                    passwordErrors.current ? 'border-destructive' : 'border-input'
-                  }`}
-                  placeholder={t('settings.profile.currentPasswordPlaceholder')}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  tabIndex={-1}
-                >
-                  {showPassword ? (
-                    <X className="w-5 h-5" />
-                  ) : (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                  )}
-                </button>
+            {!isOAuthUser && (
+              <div>
+                <label htmlFor="currentPassword" className="block text-sm font-medium mb-1.5">
+                  {t('settings.profile.currentPassword')}
+                </label>
+                <div className="relative">
+                  <input
+                    id="currentPassword"
+                    type={showPassword ? 'text' : 'password'}
+                    value={passwordForm.currentPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                    className={`w-full px-3 py-2 pr-10 border rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-background ${
+                      passwordErrors.current ? 'border-destructive' : 'border-input'
+                    }`}
+                    placeholder={t('settings.profile.currentPasswordPlaceholder')}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? (
+                      <X className="w-5 h-5" />
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+                {passwordErrors.current && (
+                  <p className="text-xs text-destructive mt-1">{passwordErrors.current}</p>
+                )}
               </div>
-              {passwordErrors.current && (
-                <p className="text-xs text-destructive mt-1">{passwordErrors.current}</p>
-              )}
-            </div>
+            )}
 
             <div>
               <label htmlFor="newPassword" className="block text-sm font-medium mb-1.5">

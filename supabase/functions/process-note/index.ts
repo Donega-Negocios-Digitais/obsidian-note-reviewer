@@ -96,7 +96,6 @@ serve(async (req) => {
       .from('notes')
       .update({
         content: processedContent,
-        metadata: { ...note.metadata, ...metadata },
         updated_at: new Date().toISOString(),
       })
       .eq('id', noteId);

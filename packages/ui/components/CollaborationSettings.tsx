@@ -393,7 +393,7 @@ export function CollaborationSettings({
         onClick={() => handleToggleStatus(collaborator.id)}
         className={`p-2 rounded-md transition-colors ${
           isActive
-            ? 'text-muted-foreground hover:text-destructive hover:bg-destructive/10'
+            ? 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
             : 'text-green-600 hover:text-green-700 hover:bg-green-500/10'
         }`}
         title={isActive ? t('settings.collaboration.deactivate') : t('settings.collaboration.activate')}
@@ -519,7 +519,7 @@ export function CollaborationSettings({
                     setInviteEmail('')
                     setInviteError(null)
                   }}
-                  className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/15 transition-colors rounded-md"
+                  className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors rounded-md"
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -666,7 +666,7 @@ export function CollaborationSettings({
                           e.stopPropagation();
                           handleRemoveCollaborator(collaborator.id);
                         }}
-                        className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors"
+                        className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-md transition-colors"
                         aria-label={t('settings.collaboration.removeCollaborator')}
                       >
                         <Trash2 className="w-4 h-4" />
@@ -688,7 +688,7 @@ export function CollaborationSettings({
               <h3 className="text-lg font-semibold text-foreground">Editar Colaborador</h3>
               <button
                 onClick={() => setEditingCollaborator(null)}
-                className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/15 transition-colors rounded-md"
+                className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors rounded-md"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />

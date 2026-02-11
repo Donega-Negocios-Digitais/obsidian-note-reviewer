@@ -22,7 +22,9 @@
       "@/*": ["./src/*"],
       "@obsidian-note-reviewer/ui/*": ["../../packages/ui/*"],
       "@obsidian-note-reviewer/editor": ["../../packages/editor/App.tsx"],
-      "@obsidian-note-reviewer/editor/*": ["../../packages/editor/*"]
+      "@obsidian-note-reviewer/editor/*": ["../../packages/editor/*"],
+      "@obsidian-note-reviewer/collaboration": ["../../packages/collaboration/src/index.ts"],
+      "@obsidian-note-reviewer/collaboration/*": ["../../packages/collaboration/src/*"]
     },
     "allowImportingTsExtensions": true,
     "noEmit": true

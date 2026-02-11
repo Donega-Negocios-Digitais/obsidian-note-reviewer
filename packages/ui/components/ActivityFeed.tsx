@@ -18,6 +18,7 @@ export type ActivityType =
 export interface Activity {
   id: string;
   type: ActivityType;
+  orgId?: string;
   userId: string;
   userName: string;
   userAvatar?: string;
@@ -32,6 +33,19 @@ interface ActivityFeedProps {
   noteId?: string;
   limit?: number;
   realtime?: boolean;
+}
+
+interface ActivityRow {
+  id: string;
+  type: ActivityType;
+  org_id: string;
+  user_id: string;
+  user_name: string;
+  user_avatar: string | null;
+  target_id: string | null;
+  target_title: string | null;
+  metadata: Record<string, any> | null;
+  timestamp: number | string;
 }
 
 export function ActivityFeed({ orgId, noteId, limit = 50, realtime: enableRealtime = true }: ActivityFeedProps) {
@@ -56,7 +70,7 @@ export function ActivityFeed({ orgId, noteId, limit = 50, realtime: enableRealti
 
       let query = supabase
         .from('activities')
-        .select('*')
+        .select('id, type, org_id, user_id, user_name, user_avatar, target_id, target_title, metadata, timestamp')
         .eq('org_id', orgId)
         .order('timestamp', { ascending: false })
         .limit(limit);
@@ -69,7 +83,7 @@ export function ActivityFeed({ orgId, noteId, limit = 50, realtime: enableRealti
 
       if (error) throw error;
 
-      setActivities(data || []);
+      setActivities((data || []).map((row: ActivityRow) => mapRowToActivity(row)));
     } catch (error) {
       log.error('Failed to load activities', error);
     } finally {
@@ -217,19 +231,37 @@ function getTimeAgo(timestamp: number): string {
 export class ActivityLogger {
   static async log(activity: Omit<Activity, 'id' | 'timestamp'>): Promise<void> {
     try {
+      const resolvedOrgId = activity.orgId || (typeof activity.metadata?.orgId === 'string' ? activity.metadata.orgId : undefined);
+      if (!resolvedOrgId) {
+        log.warn('Activity ignored because orgId is missing', { type: activity.type });
+        return;
+      }
+
       const fullActivity: Activity = {
         ...activity,
+        orgId: resolvedOrgId,
         id: crypto.randomUUID(),
         timestamp: Date.now(),
       };
 
       // Save to database
-      await supabase.from('activities').insert(fullActivity);
+      await supabase.from('activities').insert({
+        id: fullActivity.id,
+        type: fullActivity.type,
+        org_id: fullActivity.orgId,
+        user_id: fullActivity.userId,
+        user_name: fullActivity.userName,
+        user_avatar: fullActivity.userAvatar || null,
+        target_id: fullActivity.targetId || null,
+        target_title: fullActivity.targetTitle || null,
+        metadata: fullActivity.metadata || {},
+        timestamp: fullActivity.timestamp,
+      });
 
       // Broadcast real-time
       const channelName = activity.targetId
         ? `activities:note:${activity.targetId}`
-        : `activities:org:${(activity as any).orgId}`;
+        : `activities:org:${resolvedOrgId}`;
 
       await realtime.broadcast(channelName, 'activity', fullActivity);
 
@@ -242,17 +274,19 @@ export class ActivityLogger {
   static async logNoteCreated(userId: string, userName: string, noteId: string, noteTitle: string, orgId: string): Promise<void> {
     await this.log({
       type: 'note:created',
+      orgId,
       userId,
       userName,
       targetId: noteId,
       targetTitle: noteTitle,
-      metadata: { orgId },
+      metadata: {},
     });
   }
 
-  static async logNoteUpdated(userId: string, userName: string, noteId: string, noteTitle: string, preview: string): Promise<void> {
+  static async logNoteUpdated(userId: string, userName: string, noteId: string, noteTitle: string, preview: string, orgId?: string): Promise<void> {
     await this.log({
       type: 'note:updated',
+      orgId,
       userId,
       userName,
       targetId: noteId,
@@ -261,9 +295,10 @@ export class ActivityLogger {
     });
   }
 
-  static async logAnnotationCreated(userId: string, userName: string, noteId: string, noteTitle: string, text: string): Promise<void> {
+  static async logAnnotationCreated(userId: string, userName: string, noteId: string, noteTitle: string, text: string, orgId?: string): Promise<void> {
     await this.log({
       type: 'annotation:created',
+      orgId,
       userId,
       userName,
       targetId: noteId,
@@ -271,4 +306,19 @@ export class ActivityLogger {
       metadata: { preview: text },
     });
   }
+}
+
+function mapRowToActivity(row: ActivityRow): Activity {
+  return {
+    id: row.id,
+    type: row.type,
+    orgId: row.org_id,
+    userId: row.user_id,
+    userName: row.user_name,
+    userAvatar: row.user_avatar || undefined,
+    targetId: row.target_id || undefined,
+    targetTitle: row.target_title || undefined,
+    metadata: row.metadata || undefined,
+    timestamp: typeof row.timestamp === 'string' ? Number(row.timestamp) : row.timestamp,
+  };
 }

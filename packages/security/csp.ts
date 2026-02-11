@@ -18,6 +18,18 @@ const TRUSTED_SOURCES = {
   googleFonts: 'https://fonts.googleapis.com',
   /** Google Fonts static assets */
   googleFontsStatic: 'https://fonts.gstatic.com',
+  /** YouTube embeds for in-app help videos */
+  youtube: 'https://www.youtube.com',
+  /** Privacy-friendly YouTube embeds */
+  youtubeNoCookie: 'https://www.youtube-nocookie.com',
+  /** Stripe.js loader */
+  stripeJs: 'https://js.stripe.com',
+  /** Stripe API endpoint */
+  stripeApi: 'https://api.stripe.com',
+  /** Stripe telemetry endpoint */
+  stripeTelemetry: 'https://r.stripe.com',
+  /** Stripe network endpoint */
+  stripeNetwork: 'https://m.stripe.network',
 } as const;
 
 /**
@@ -30,6 +42,7 @@ export interface CSPDirectives {
   'font-src': string[];
   'img-src': string[];
   'connect-src': string[];
+  'frame-src': string[];
   'frame-ancestors': string[];
   'object-src': string[];
   'base-uri': string[];
@@ -51,6 +64,8 @@ export interface CSPOptions {
   additionalStyleSources?: string[];
   /** Additional trusted connect sources */
   additionalConnectSources?: string[];
+  /** Additional trusted frame sources (iframes) */
+  additionalFrameSources?: string[];
 }
 
 /**
@@ -76,6 +91,9 @@ function getBaseDirectives(): CSPDirectives {
     // Connections: allow self (extended for WebSocket in dev)
     'connect-src': ["'self'"],
 
+    // Frames: self by default, extended for trusted embeds
+    'frame-src': ["'self'"],
+
     // Prevent clickjacking
     'frame-ancestors': ["'none'"],
 
@@ -98,6 +116,7 @@ export function getCSPDirectives(options: CSPOptions = {}): CSPDirectives {
     additionalScriptSources = [],
     additionalStyleSources = [],
     additionalConnectSources = [],
+    additionalFrameSources = [],
   } = options;
 
   const directives = getBaseDirectives();
@@ -135,6 +154,10 @@ export function getCSPDirectives(options: CSPOptions = {}): CSPDirectives {
 
   if (additionalConnectSources.length > 0) {
     directives['connect-src'].push(...additionalConnectSources);
+  }
+
+  if (additionalFrameSources.length > 0) {
+    directives['frame-src'].push(...additionalFrameSources);
   }
 
   return directives;
@@ -184,6 +207,10 @@ export function getHookCSP(isDev = false): string {
     isDev,
     allowCDN: false,
     allowGoogleFonts: false,
+    additionalFrameSources: [
+      TRUSTED_SOURCES.youtube,
+      TRUSTED_SOURCES.youtubeNoCookie,
+    ],
   });
 }
 
@@ -197,9 +224,20 @@ export function getPortalCSP(isDev = false): string {
     isDev,
     allowCDN: true,
     allowGoogleFonts: true,
+    additionalScriptSources: [
+      TRUSTED_SOURCES.stripeJs,
+    ],
     additionalConnectSources: [
       'https://*.supabase.co',
       'https://supabase.com',
+      TRUSTED_SOURCES.stripeApi,
+      TRUSTED_SOURCES.stripeTelemetry,
+      TRUSTED_SOURCES.stripeNetwork,
+      TRUSTED_SOURCES.stripeJs,
+    ],
+    additionalFrameSources: [
+      TRUSTED_SOURCES.youtube,
+      TRUSTED_SOURCES.youtubeNoCookie,
     ],
   });
 }
@@ -237,12 +275,56 @@ export const CSP_DIRECTIVES = {
   development: getCSPDirectives({ isDev: true }),
   production: getCSPDirectives({ isDev: false }),
   hook: {
-    development: getCSPDirectives({ isDev: true }),
-    production: getCSPDirectives({ isDev: false }),
+    development: getCSPDirectives({
+      isDev: true,
+      additionalFrameSources: [
+        TRUSTED_SOURCES.youtube,
+        TRUSTED_SOURCES.youtubeNoCookie,
+      ],
+    }),
+    production: getCSPDirectives({
+      isDev: false,
+      additionalFrameSources: [
+        TRUSTED_SOURCES.youtube,
+        TRUSTED_SOURCES.youtubeNoCookie,
+      ],
+    }),
   },
   portal: {
-    development: getCSPDirectives({ isDev: true, allowGoogleFonts: true }),
-    production: getCSPDirectives({ isDev: false, allowGoogleFonts: true }),
+    development: getCSPDirectives({
+      isDev: true,
+      allowGoogleFonts: true,
+      additionalScriptSources: [
+        TRUSTED_SOURCES.stripeJs,
+      ],
+      additionalConnectSources: [
+        TRUSTED_SOURCES.stripeApi,
+        TRUSTED_SOURCES.stripeTelemetry,
+        TRUSTED_SOURCES.stripeNetwork,
+        TRUSTED_SOURCES.stripeJs,
+      ],
+      additionalFrameSources: [
+        TRUSTED_SOURCES.youtube,
+        TRUSTED_SOURCES.youtubeNoCookie,
+      ],
+    }),
+    production: getCSPDirectives({
+      isDev: false,
+      allowGoogleFonts: true,
+      additionalScriptSources: [
+        TRUSTED_SOURCES.stripeJs,
+      ],
+      additionalConnectSources: [
+        TRUSTED_SOURCES.stripeApi,
+        TRUSTED_SOURCES.stripeTelemetry,
+        TRUSTED_SOURCES.stripeNetwork,
+        TRUSTED_SOURCES.stripeJs,
+      ],
+      additionalFrameSources: [
+        TRUSTED_SOURCES.youtube,
+        TRUSTED_SOURCES.youtubeNoCookie,
+      ],
+    }),
   },
   marketing: {
     development: getCSPDirectives({ isDev: true, allowCDN: true, allowGoogleFonts: true }),

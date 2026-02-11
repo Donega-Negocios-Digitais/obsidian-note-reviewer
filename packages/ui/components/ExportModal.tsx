@@ -57,7 +57,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'annotations.diff';
+    a.download = 'annotations-revisao.txt';
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -87,7 +87,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               </span>
               <button
                 onClick={onClose}
-                className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -119,7 +119,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              {t('exportModal.rawDiff')}
+              Relatório de Revisão
             </button>
           </div>
 
@@ -130,16 +130,17 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 <label className="block text-xs font-medium text-muted-foreground mb-2">
                   {t('exportModal.shareableUrl')}
                 </label>
-                <div className="relative group">
-                  <textarea
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
                     readOnly
                     value={shareUrl}
-                    className="w-full h-32 bg-muted rounded-lg p-3 pr-20 text-xs font-mono resize-none focus:outline-none focus:ring-2 focus:ring-accent/50"
-                    onClick={e => (e.target as HTMLTextAreaElement).select()}
+                    className="flex-1 bg-muted rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-accent/50 min-w-0"
+                    onClick={e => (e.target as HTMLInputElement).select()}
                   />
                   <button
                     onClick={() => handleCopyUrl(shareUrl)}
-                    className={`absolute top-2 right-2 px-2 py-1 rounded text-xs font-medium bg-background/80 hover:bg-background border border-border/50 transition-colors flex items-center gap-1 ${urlAnimationClass} ${urlButtonClass}`}
+                    className={`px-3 py-2 rounded-lg text-xs font-medium bg-background hover:bg-muted border border-border transition-colors flex items-center gap-1.5 flex-shrink-0 ${urlAnimationClass} ${urlButtonClass}`}
                   >
                     {urlCopied ? (
                       <>
@@ -157,10 +158,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                       </>
                     )}
                   </button>
-                  <div className="absolute bottom-2 right-2 text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                    {shareUrlSize}
-                  </div>
                 </div>
+                <p className="text-[10px] text-muted-foreground mt-1.5">{shareUrlSize}</p>
               </div>
 
               <p className="text-xs text-muted-foreground">
@@ -168,9 +167,14 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               </p>
             </div>
           ) : (
-            <pre className="bg-muted rounded-lg p-4 text-xs font-mono leading-relaxed overflow-x-auto whitespace-pre-wrap">
-              {diffOutput}
-            </pre>
+            <>
+              <p className="text-xs text-muted-foreground mb-3">
+                Resumo das alterações solicitadas, pronto para copiar e enviar ao autor
+              </p>
+              <pre className="bg-muted rounded-lg p-4 text-xs font-mono leading-relaxed overflow-x-auto whitespace-pre-wrap">
+                {diffOutput}
+              </pre>
+            </>
           )}
         </div>
 
@@ -187,7 +191,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               onClick={handleDownloadDiff}
               className="px-3 py-1.5 rounded-md text-xs font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
             >
-              {t('exportModal.downloadDiff')}
+              Baixar Relatório
             </button>
           </div>
         )}

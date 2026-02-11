@@ -1,4 +1,5 @@
-﻿import React, { useState, useEffect, useMemo, useRef } from 'react';
+﻿/* eslint-disable @typescript-eslint/no-unused-vars, no-console, react-hooks/exhaustive-deps */
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import '@obsidian-note-reviewer/ui/i18n/config'; // Initialize i18n
 import { parseMarkdownToBlocks, exportDiff } from '@obsidian-note-reviewer/ui/utils/parser';
@@ -13,6 +14,7 @@ import { ModeToggle } from '@obsidian-note-reviewer/ui/components/ModeToggle';
 import { ModeSwitcher } from '@obsidian-note-reviewer/ui/components/ModeSwitcher';
 import { SettingsPanel } from '@obsidian-note-reviewer/ui/components/SettingsPanel';
 import { KeyboardShortcutsModal } from '@obsidian-note-reviewer/ui/components/KeyboardShortcutsModal';
+import { HowItWorksModal } from '@obsidian-note-reviewer/ui/components/HowItWorksModal';
 import { useSharing } from '@obsidian-note-reviewer/ui/hooks/useSharing';
 import {
   storage,
@@ -409,6 +411,32 @@ FROM annotations;
 
 *Última atualização: 07/02/2026 às 19:35*
 `;
+type SettingsTab =
+  | 'caminhos'
+  | 'regras'
+  | 'idioma'
+  | 'atalhos'
+  | 'hooks'
+  | 'perfil'
+  | 'colaboracao'
+  | 'integracoes';
+
+const SETTINGS_PANEL_OPEN_KEY = 'obsidian-reviewer-settings-open';
+const SETTINGS_PANEL_TAB_KEY = 'obsidian-reviewer-settings-tab';
+const VALID_SETTINGS_TABS: SettingsTab[] = [
+  'caminhos',
+  'regras',
+  'idioma',
+  'atalhos',
+  'hooks',
+  'perfil',
+  'colaboracao',
+  'integracoes',
+];
+
+function isSettingsTab(value: string | null): value is SettingsTab {
+  return value !== null && VALID_SETTINGS_TABS.includes(value as SettingsTab);
+}
 
 const App: React.FC = () => {
   const { t } = useTranslation();
@@ -431,8 +459,11 @@ const App: React.FC = () => {
   const [showGlobalCommentModal, setShowGlobalCommentModal] = useState(false);
   const [showHelpVideo, setShowHelpVideo] = useState(false);
   const [isPanelOpen, setIsPanelOpen] = useState(true);
-  const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
-  const [settingsInitialTab, setSettingsInitialTab] = useState<'caminhos' | 'regras' | 'idioma' | 'atalhos' | 'hooks' | 'perfil' | 'colaboracao' | 'integracoes'>('caminhos');
+  const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(() => storage.getItem(SETTINGS_PANEL_OPEN_KEY) === '1');
+  const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab>(() => {
+    const savedTab = storage.getItem(SETTINGS_PANEL_TAB_KEY);
+    return isSettingsTab(savedTab) ? savedTab : 'caminhos';
+  });
   const [editorMode, setEditorMode] = useState<EditorMode>('selection');
 
   const [isApiMode, setIsApiMode] = useState(false);
@@ -532,6 +563,14 @@ const App: React.FC = () => {
     observer.observe(headerRef.current);
     return () => observer.disconnect();
   }, [isSettingsPanelOpen]);
+
+  useEffect(() => {
+    storage.setItem(SETTINGS_PANEL_OPEN_KEY, isSettingsPanelOpen ? '1' : '0');
+  }, [isSettingsPanelOpen]);
+
+  useEffect(() => {
+    storage.setItem(SETTINGS_PANEL_TAB_KEY, settingsInitialTab);
+  }, [settingsInitialTab]);
 
 
   // Check if we're in API mode (served from Bun hook server)
@@ -1012,6 +1051,7 @@ const App: React.FC = () => {
             onNotePathChange={handleNotePathChange}
             onNoteNameChange={handleNoteNameChange}
             initialTab={settingsInitialTab}
+            onTabChange={setSettingsInitialTab}
           />
         ) : (
           <>
@@ -1316,7 +1356,7 @@ const App: React.FC = () => {
                   onUpdateAnnotation={handleUpdateAnnotation}
                   onSelectAnnotation={setSelectedAnnotationId}
                   selectedAnnotationId={selectedAnnotationId}
-                  mode={editorMode}
+                  mode={showExport ? 'selection' : editorMode}
                   onBlockChange={setBlocks}
                 />
               )}
@@ -1354,44 +1394,7 @@ const App: React.FC = () => {
         />
 
         {/* Help Video Modal */}
-        {showHelpVideo && (
-          <div
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4"
-            onClick={() => setShowHelpVideo(false)}
-          >
-            <div
-              className="bg-card border border-border rounded-xl w-full max-w-2xl shadow-2xl relative"
-              onClick={e => e.stopPropagation()}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="help-video-title"
-            >
-              <div className="flex items-center justify-between p-4 border-b border-border">
-                <h3 id="help-video-title" className="font-semibold text-sm">Como o Obsidian Note Reviewer Funciona</h3>
-                <button
-                  onClick={() => setShowHelpVideo(false)}
-                  className="p-1.5 rounded-md hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <div className="aspect-video">
-                <iframe
-                  width="100%"
-                  height="100%"
-                  src="https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=0&rel=0"
-                  title="Como o Obsidian Note Reviewer Funciona"
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                  referrerPolicy="strict-origin-when-cross-origin"
-                />
-              </div>
-            </div>
-          </div>
-        )}
+        <HowItWorksModal isOpen={showHelpVideo} onClose={() => setShowHelpVideo(false)} />
 
         {/* Feedback prompt dialog */}
         {showFeedbackPrompt && (

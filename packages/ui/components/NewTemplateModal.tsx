@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+﻿/* eslint-disable security/detect-object-injection, @typescript-eslint/no-explicit-any */
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import * as LucideIcons from 'lucide-react';
 import { getCustomCategories, getCustomTemplates, saveCustomTemplates, type CustomTemplate } from '../utils/storage';
@@ -7,6 +8,8 @@ import { getBuiltInCategories } from '../utils/notePaths';
 interface NewTemplateModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialTemplate?: CustomTemplate | null;
+  initialCategory?: string;
   onTemplateCreated?: (template: CustomTemplate) => void;
   showSuccessToast?: (message: string) => void;
 }
@@ -29,6 +32,8 @@ function getLucideIcon(iconName: string): React.ComponentType<{ className?: stri
 export const NewTemplateModal: React.FC<NewTemplateModalProps> = ({
   isOpen,
   onClose,
+  initialTemplate,
+  initialCategory,
   onTemplateCreated,
   showSuccessToast,
 }) => {
@@ -43,13 +48,32 @@ export const NewTemplateModal: React.FC<NewTemplateModalProps> = ({
   const customCategories = getCustomCategories();
   const allCategories = [...builtInCategories, ...customCategories];
 
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (initialTemplate) {
+      setName(initialTemplate.label);
+      setCategory(initialTemplate.category);
+      setIcon(initialTemplate.icon || 'FileText');
+      setTemplatePath(initialTemplate.templatePath || '');
+      setDestinationPath(initialTemplate.destinationPath || '');
+      return;
+    }
+
+    setName('');
+    setCategory(initialCategory || '');
+    setIcon('FileText');
+    setTemplatePath('');
+    setDestinationPath('');
+  }, [isOpen, initialTemplate, initialCategory]);
+
   if (!isOpen) return null;
 
   const handleCreate = () => {
     if (!name.trim() || !category || !destinationPath.trim()) return;
 
-    const newTemplate: CustomTemplate = {
-      id: `custom_${Date.now()}`,
+    const baseTemplate: CustomTemplate = {
+      id: initialTemplate?.id || `custom_${Date.now()}`,
       category,
       label: name.trim(),
       icon,
@@ -58,11 +82,15 @@ export const NewTemplateModal: React.FC<NewTemplateModalProps> = ({
     };
 
     const existing = getCustomTemplates();
-    saveCustomTemplates([...existing, newTemplate]);
-    onTemplateCreated?.(newTemplate);
+    const updatedTemplates = initialTemplate
+      ? existing.map((template) => template.id === initialTemplate.id ? baseTemplate : template)
+      : [...existing, baseTemplate];
+
+    saveCustomTemplates(updatedTemplates);
+    onTemplateCreated?.(baseTemplate);
 
     // Show success feedback
-    showSuccessToast?.(t('settings.newTemplate.created'));
+    showSuccessToast?.(initialTemplate ? 'Template atualizado com sucesso!' : t('settings.newTemplate.created'));
 
     resetAndClose();
   };
@@ -92,7 +120,7 @@ export const NewTemplateModal: React.FC<NewTemplateModalProps> = ({
           </div>
           <button
             onClick={resetAndClose}
-            className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/15 transition-colors rounded-md"
+            className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors rounded-md"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -208,7 +236,7 @@ export const NewTemplateModal: React.FC<NewTemplateModalProps> = ({
             disabled={!isValid}
             className="flex-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {t('settings.actions.create')}
+            {initialTemplate ? 'Salvar' : t('settings.actions.create')}
           </button>
         </div>
       </div>

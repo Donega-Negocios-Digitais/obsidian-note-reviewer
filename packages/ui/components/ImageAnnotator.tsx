@@ -246,7 +246,7 @@ export const ImageAnnotator: React.FC<ImageAnnotatorProps> = ({
       />
 
       {/* Container da imagem */}
-      <div className="relative">
+      <div className="relative group">
         <img
           ref={imageRef}
           src={src}
@@ -264,6 +264,16 @@ export const ImageAnnotator: React.FC<ImageAnnotatorProps> = ({
             className="absolute top-0 left-0 w-full h-full touch-none"
             style={{ cursor: TOOL_CONFIG[drawing.tool].cursor }}
           />
+        )}
+
+        {/* Hover hint — shown only when no strokes exist */}
+        {drawing.strokes.length === 0 && (
+          <div className="absolute inset-0 flex items-end justify-center pb-3 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <div className="bg-background/80 backdrop-blur-sm border border-border rounded-md px-2 py-1 text-xs text-muted-foreground flex items-center gap-1.5">
+              <Pencil className="w-3 h-3" />
+              Clique para anotar
+            </div>
+          </div>
         )}
       </div>
     </div>
@@ -386,7 +396,7 @@ const DrawingToolbar: React.FC<DrawingToolbarProps> = ({
               <button
                 onClick={onClear}
                 disabled={strokeCount === 0}
-                className="p-1.5 rounded-md transition-all hover:bg-destructive/10 text-muted-foreground hover:text-destructive disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-1.5 rounded-md transition-all hover:bg-muted/50 text-muted-foreground hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Limpar tudo (Ctrl+Shift+X)"
               >
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

@@ -21,6 +21,21 @@ const supabase = createClient(
   import.meta.env.VITE_SUPABASE_ANON_KEY || ''
 );
 
+type SubscriptionRow = {
+  id: string;
+  user_id: string;
+  plan_tier: SubscriptionTier;
+  billing_interval: 'month' | 'year' | null;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  status: UserSubscription['status'];
+  current_period_start: string | null;
+  current_period_end: string | null;
+  cancel_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export interface UseSubscriptionReturn {
   subscription: UserSubscription | null;
   tier: SubscriptionTier;
@@ -71,7 +86,7 @@ export function useSubscription(): UseSubscriptionReturn {
         return;
       }
 
-      setSubscription(data);
+      setSubscription(data ? mapSubscriptionRow(data as SubscriptionRow) : null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch subscription');
       console.error('Subscription fetch error:', err);
@@ -109,7 +124,7 @@ export function useSubscription(): UseSubscriptionReturn {
         },
         (payload) => {
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            setSubscription(payload.new as UserSubscription);
+            setSubscription(mapSubscriptionRow(payload.new as SubscriptionRow));
           } else if (payload.eventType === 'DELETE') {
             setSubscription(null);
           }
@@ -126,7 +141,7 @@ export function useSubscription(): UseSubscriptionReturn {
    * Computed values
    */
   const tier = subscription?.tier || 'free';
-  const isPro = tier === 'pro';
+  const isPro = tier === 'pro' || tier === 'enterprise';
   const isFree = tier === 'free';
   const isActive = subscription?.status === 'active' || !subscription;
   const canAddCollabs = checkCanAddCollaborators(subscription);
@@ -184,3 +199,26 @@ export function useCanCollaborate(): { canCollaborate: boolean; reason?: string 
 }
 
 export default useSubscription;
+
+function mapBillingIntervalToType(interval: SubscriptionRow['billing_interval']): UserSubscription['subscriptionType'] {
+  if (interval === 'month') return 'monthly';
+  if (interval === 'year') return 'yearly';
+  return null;
+}
+
+function mapSubscriptionRow(row: SubscriptionRow): UserSubscription {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    tier: row.plan_tier || 'free',
+    subscriptionType: mapBillingIntervalToType(row.billing_interval),
+    stripeCustomerId: row.stripe_customer_id,
+    stripeSubscriptionId: row.stripe_subscription_id,
+    status: row.status,
+    currentPeriodStart: row.current_period_start || row.created_at,
+    currentPeriodEnd: row.current_period_end,
+    cancelAtPeriodEnd: Boolean(row.cancel_at),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}

@@ -1,9 +1,19 @@
-import React, { useState } from 'react';
+/* eslint-disable security/detect-object-injection, @typescript-eslint/no-explicit-any */
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Edit, Trash2, FolderOpen, Tag, ArrowUp, ArrowDown } from 'lucide-react';
+import { Plus, Edit, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { ConfirmationDialog } from './ConfirmationDialog';
-import { getCustomCategories, saveCustomCategories, type CustomCategory } from '../utils/storage';
+import {
+  getCustomCategories,
+  saveCustomCategories,
+  getCustomTemplates,
+  saveCustomTemplates,
+  setBuiltInCategoryOverride,
+  type CustomCategory,
+  type BuiltInCategoryId
+} from '../utils/storage';
+import { getBuiltInCategories } from '../utils/notePaths';
 
 interface CategoryManagerProps {
   isOpen: boolean;
@@ -32,12 +42,20 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({
   onCategoriesChange,
 }) => {
   const { t } = useTranslation();
+  const builtInCategories = getBuiltInCategories();
   const [customCategories, setCustomCategories] = useState<CustomCategory[]>(getCustomCategories());
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingIsBuiltIn, setEditingIsBuiltIn] = useState(false);
   const [formName, setFormName] = useState('');
   const [formIcon, setFormIcon] = useState('Briefcase');
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setCustomCategories(getCustomCategories());
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -62,6 +80,13 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({
   const handleSave = () => {
     if (!formName.trim()) return;
 
+    if (editingId && editingIsBuiltIn) {
+      setBuiltInCategoryOverride(editingId as BuiltInCategoryId, formName.trim(), formIcon);
+      onCategoriesChange?.();
+      resetForm();
+      return;
+    }
+
     let updated: CustomCategory[];
     if (editingId) {
       updated = customCategories.map(c =>
@@ -83,8 +108,9 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({
     resetForm();
   };
 
-  const handleEdit = (cat: CustomCategory) => {
+  const handleEdit = (cat: { id: string; name: string; icon: string; isBuiltIn: boolean }) => {
     setEditingId(cat.id);
+    setEditingIsBuiltIn(cat.isBuiltIn);
     setFormName(cat.name);
     setFormIcon(cat.icon);
     setShowForm(true);
@@ -95,6 +121,21 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({
     const updated = customCategories.filter(c => c.id !== deleteId);
     setCustomCategories(updated);
     saveCustomCategories(updated);
+
+    const templates = getCustomTemplates();
+    let changed = false;
+    const normalizedTemplates = templates.map((template) => {
+      if (template.category === deleteId) {
+        changed = true;
+        return { ...template, category: '__sem_categoria__' };
+      }
+      return template;
+    });
+
+    if (changed) {
+      saveCustomTemplates(normalizedTemplates);
+    }
+
     onCategoriesChange?.();
     setDeleteId(null);
   };
@@ -102,6 +143,7 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({
   const resetForm = () => {
     setShowForm(false);
     setEditingId(null);
+    setEditingIsBuiltIn(false);
     setFormName('');
     setFormIcon('Briefcase');
   };
@@ -130,10 +172,42 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
-          {/* Categories List */}
+          {/* Built-in categories */}
           <div>
             <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
-              Categorias ({customCategories.length})
+              Categorias padrão ({builtInCategories.length})
+            </h4>
+            <div className="space-y-2">
+              {builtInCategories.map((cat) => {
+                const IconComp = getLucideIcon(cat.icon);
+                return (
+                  <div key={cat.id} className="flex items-center gap-3 p-3 rounded-lg bg-card/50 border border-border/50 hover:border-border/80 transition-colors">
+                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                      <IconComp className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{cat.name}</p>
+                    </div>
+                    <button
+                      onClick={() => handleEdit(cat)}
+                      className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-md transition-colors"
+                      title="Editar categoria"
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-[11px] text-muted-foreground/70 mt-2">
+              Categorias padrão podem ser renomeadas e ter ícone alterado, mas não podem ser excluídas.
+            </p>
+          </div>
+
+          {/* Custom categories list */}
+          <div>
+            <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
+              Categorias personalizadas ({customCategories.length})
             </h4>
             {customCategories.length === 0 ? (
               <p className="text-sm text-muted-foreground/60 text-center py-4">
@@ -186,7 +260,7 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({
                         </button>
                         <button
                           onClick={() => setDeleteId(cat.id)}
-                          className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors"
+                          className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
                           title="Deletar"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -203,7 +277,11 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({
           {showForm ? (
             <div className="p-4 rounded-xl border border-primary/30 bg-primary/5 space-y-3">
               <h4 className="text-sm font-semibold text-foreground">
-                {editingId ? t('settings.categoryManager.editCategory') : t('settings.categoryManager.addCategory')}
+                {editingId
+                  ? editingIsBuiltIn
+                    ? 'Editar categoria padrão'
+                    : t('settings.categoryManager.editCategory')
+                  : t('settings.categoryManager.addCategory')}
               </h4>
               <div className="space-y-3">
                 <div>

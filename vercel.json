@@ -1,5 +1,5 @@
 {
-  "buildCommand": "bun run build",
+  "buildCommand": "bun run build:portal",
   "installCommand": "bun install",
   "outputDirectory": "apps/portal/dist",
   "framework": null,
