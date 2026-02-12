@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { getIdentity, regenerateIdentity } from '../utils/identity';
 import {
@@ -16,7 +15,30 @@ import {
   type TipoNota
 } from '../utils/notePaths';
 import { ConfigEditor } from './ConfigEditor';
+import { BaseModal } from './BaseModal';
 import * as LucideIcons from 'lucide-react';
+
+const LEGACY_SETTINGS_DIALOG_OPEN_KEY = 'obsreview-legacy-settings-dialog-open';
+
+function readLocalFlag(key: string): boolean {
+  try {
+    return localStorage.getItem(key) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeLocalFlag(key: string, value: boolean): void {
+  try {
+    if (value) {
+      localStorage.setItem(key, '1');
+    } else {
+      localStorage.removeItem(key);
+    }
+  } catch {
+    // ignore persistence errors
+  }
+}
 
 interface SettingsProps {
   onIdentityChange?: (oldIdentity: string, newIdentity: string) => void;
@@ -42,7 +64,7 @@ export const Settings: React.FC<SettingsProps> = ({
   onIdentityChange,
   onNotePathChange
 }) => {
-  const [showDialog, setShowDialog] = useState(false);
+  const [showDialog, setShowDialog] = useState(() => readLocalFlag(LEGACY_SETTINGS_DIALOG_OPEN_KEY));
   const [identity, setIdentity] = useState('');
   const [notePaths, setNotePaths] = useState<Record<string, string>>({});
   const [noteTemplates, setNoteTemplates] = useState<Record<string, string>>({});
@@ -85,6 +107,10 @@ export const Settings: React.FC<SettingsProps> = ({
       }
     }
   }, [showDialog, onNotePathChange]);
+
+  useEffect(() => {
+    writeLocalFlag(LEGACY_SETTINGS_DIALOG_OPEN_KEY, showDialog);
+  }, [showDialog]);
 
   const handleRegenerateIdentity = () => {
     const oldIdentity = identity;
@@ -198,14 +224,19 @@ export const Settings: React.FC<SettingsProps> = ({
         <span className="hidden sm:inline">Configurações</span>
       </button>
 
-      {showDialog && createPortal(
-        <div
-          ref={dialogRef}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="settings-dialog-title"
-          className="fixed inset-0 bg-background z-50 flex flex-col overflow-hidden"
-        >
+      <BaseModal
+        isOpen={showDialog}
+        onRequestClose={() => setShowDialog(false)}
+        closeOnBackdropClick={false}
+        overlayClassName="z-50 p-0 items-stretch justify-start bg-background backdrop-blur-none"
+        contentClassName="w-full h-full flex flex-col overflow-hidden"
+        contentProps={{
+          ref: dialogRef,
+          role: 'dialog',
+          'aria-modal': true,
+          'aria-labelledby': 'settings-dialog-title',
+        }}
+      >
             {/* Header */}
             <div className="px-6 py-4 border-b border-border flex items-center justify-between">
               <div className="flex-1">
@@ -226,7 +257,7 @@ export const Settings: React.FC<SettingsProps> = ({
                 </button>
                 <button
                   onClick={() => setShowDialog(false)}
-                  className="text-muted-foreground hover:text-foreground transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rounded-md p-1"
+                  className="text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rounded-md p-1"
                   aria-label="Fechar"
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -331,9 +362,7 @@ export const Settings: React.FC<SettingsProps> = ({
                 Fechar
               </button>
             </div>
-        </div>,
-        document.body
-      )}
+      </BaseModal>
     </>
   );
 };

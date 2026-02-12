@@ -1,13 +1,18 @@
-import React from 'react';
+/* eslint-disable security/detect-object-injection, @typescript-eslint/no-explicit-any */
+import React, { useMemo, useState } from 'react';
 import * as LucideIcons from 'lucide-react';
-import type { TrashedTemplate } from '../utils/storage';
+import type { TrashedCategory, TrashedTemplate } from '../utils/storage';
+import { BaseModal } from './BaseModal';
 
 interface TrashModalProps {
   isOpen: boolean;
   onClose: () => void;
   trashedTemplates: TrashedTemplate[];
-  onRestore: (item: TrashedTemplate) => void;
-  onPermanentDelete: (tipo: string, label: string) => void;
+  trashedCategories: TrashedCategory[];
+  onRestoreTemplate: (item: TrashedTemplate) => void;
+  onRestoreCategory: (item: TrashedCategory) => void;
+  onPermanentDeleteTemplate: (tipo: string, label: string) => void;
+  onPermanentDeleteCategory: (categoryId: string, label: string) => void;
 }
 
 function getLucideIcon(iconName: string): React.ComponentType<{ className?: string }> {
@@ -34,17 +39,30 @@ export const TrashModal: React.FC<TrashModalProps> = ({
   isOpen,
   onClose,
   trashedTemplates,
-  onRestore,
-  onPermanentDelete,
+  trashedCategories,
+  onRestoreTemplate,
+  onRestoreCategory,
+  onPermanentDeleteTemplate,
+  onPermanentDeleteCategory,
 }) => {
+  const [activeTab, setActiveTab] = useState<'templates' | 'categories'>('templates');
+
+  const totalItems = useMemo(
+    () => trashedTemplates.length + trashedCategories.length,
+    [trashedTemplates.length, trashedCategories.length],
+  );
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
-      <div
-        className="bg-card border border-border rounded-lg shadow-lg w-full max-w-lg max-h-[75vh] flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-200"
-        onClick={e => e.stopPropagation()}
-      >
+    <BaseModal
+      isOpen={isOpen}
+      onRequestClose={onClose}
+      closeOnBackdropClick={false}
+      overlayClassName="z-[70]"
+      contentClassName="bg-card border border-border rounded-lg shadow-lg w-full max-w-lg max-h-[75vh] flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-200"
+    >
+      <div className="h-full flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div className="flex items-start gap-2">
@@ -54,20 +72,20 @@ export const TrashModal: React.FC<TrashModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-semibold text-foreground">Lixeira</h3>
-                {trashedTemplates.length > 0 && (
+                {totalItems > 0 && (
                   <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-muted/50 text-muted-foreground">
-                    {trashedTemplates.length}
+                    {totalItems}
                   </span>
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
-                Templates deletados são removidos automaticamente após 30 dias
+                Itens deletados são removidos automaticamente após 30 dias
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors rounded-md"
+            className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors rounded-md"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -75,15 +93,42 @@ export const TrashModal: React.FC<TrashModalProps> = ({
           </button>
         </div>
 
+        <div className="px-4 pt-4 pb-2 border-b border-border bg-muted/10">
+          <div className="flex gap-2">
+            <button
+              onClick={() => setActiveTab('templates')}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                activeTab === 'templates'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted'
+              }`}
+            >
+              Lixeira de Templates ({trashedTemplates.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('categories')}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                activeTab === 'categories'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted'
+              }`}
+            >
+              Lixeira de Categorias ({trashedCategories.length})
+            </button>
+          </div>
+        </div>
+
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-4">
-          {trashedTemplates.length === 0 ? (
+          {activeTab === 'templates' && trashedTemplates.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 text-center">
               <LucideIcons.Trash2 className="w-10 h-10 text-muted-foreground/30 mb-3" />
               <p className="text-sm font-medium text-foreground mb-1">Nenhum template na lixeira</p>
               <p className="text-xs text-muted-foreground">Templates deletados aparecem aqui por 30 dias</p>
             </div>
-          ) : (
+          ) : null}
+
+          {activeTab === 'templates' && trashedTemplates.length > 0 ? (
             <div className="grid grid-cols-1 gap-3">
               {trashedTemplates.map((tt) => {
                 const Icon = getLucideIcon(tt.icon);
@@ -120,15 +165,15 @@ export const TrashModal: React.FC<TrashModalProps> = ({
                     {/* Row 2: action buttons */}
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => onRestore(tt)}
+                        onClick={() => onRestoreTemplate(tt)}
                         className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-md transition-colors"
                       >
                         <LucideIcons.RotateCcw className="w-3.5 h-3.5" />
                         Restaurar
                       </button>
                       <button
-                        onClick={() => onPermanentDelete(tt.tipo, tt.label)}
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-md transition-colors"
+                        onClick={() => onPermanentDeleteTemplate(tt.tipo, tt.label)}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-md transition-colors"
                       >
                         <LucideIcons.Trash2 className="w-3.5 h-3.5" />
                         Deletar agora
@@ -138,7 +183,72 @@ export const TrashModal: React.FC<TrashModalProps> = ({
                 );
               })}
             </div>
-          )}
+          ) : null}
+
+          {activeTab === 'categories' && trashedCategories.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 text-center">
+              <LucideIcons.FolderX className="w-10 h-10 text-muted-foreground/30 mb-3" />
+              <p className="text-sm font-medium text-foreground mb-1">Nenhuma categoria na lixeira</p>
+              <p className="text-xs text-muted-foreground">Categorias deletadas aparecem aqui por 30 dias</p>
+            </div>
+          ) : null}
+
+          {activeTab === 'categories' && trashedCategories.length > 0 ? (
+            <div className="grid grid-cols-1 gap-3">
+              {trashedCategories.map((category) => {
+                const Icon = getLucideIcon(category.icon);
+                const deletedDate = new Date(category.deletedAt);
+                const daysLeft = getDaysLeft(category.deletedAt);
+                const badgeClass = getDaysBadgeClass(daysLeft);
+                const relatedTemplatesCount = category.templates?.length || 0;
+
+                return (
+                  <div
+                    key={category.id}
+                    className="bg-muted/30 rounded-lg border border-border/50 p-3"
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-7 h-7 rounded-md bg-muted/50 flex items-center justify-center text-muted-foreground flex-shrink-0">
+                          <Icon className="w-3.5 h-3.5" />
+                        </div>
+                        <h4 className="font-medium text-sm text-foreground truncate">{category.name}</h4>
+                      </div>
+                      <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${badgeClass}`}>
+                        {daysLeft}d
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-muted-foreground mb-1">
+                      Deletada em {deletedDate.toLocaleDateString('pt-BR')}
+                    </p>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      {relatedTemplatesCount} template(s) relacionado(s)
+                    </p>
+
+                    <div className="border-t border-border/30 mb-2" />
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => onRestoreCategory(category)}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-md transition-colors"
+                      >
+                        <LucideIcons.RotateCcw className="w-3.5 h-3.5" />
+                        Restaurar
+                      </button>
+                      <button
+                        onClick={() => onPermanentDeleteCategory(category.id, category.name)}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-md transition-colors"
+                      >
+                        <LucideIcons.Trash2 className="w-3.5 h-3.5" />
+                        Deletar agora
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
         </div>
 
         {/* Footer */}
@@ -148,6 +258,6 @@ export const TrashModal: React.FC<TrashModalProps> = ({
           </p>
         </div>
       </div>
-    </div>
+    </BaseModal>
   );
 };

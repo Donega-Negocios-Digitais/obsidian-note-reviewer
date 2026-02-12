@@ -1,5 +1,28 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { BaseModal } from './BaseModal';
+
+const BULK_DELETE_MODAL_KEY = 'obsreview-bulk-delete-confirm-open';
+
+function readLocalFlag(key: string): boolean {
+  try {
+    return localStorage.getItem(key) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeLocalFlag(key: string, value: boolean): void {
+  try {
+    if (value) {
+      localStorage.setItem(key, '1');
+    } else {
+      localStorage.removeItem(key);
+    }
+  } catch {
+    // ignore persistence errors
+  }
+}
 
 export interface BulkActionsBarProps {
   selectedCount: number;
@@ -13,7 +36,17 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
   onExportSelected,
 }) => {
   const { t } = useTranslation();
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(() => readLocalFlag(BULK_DELETE_MODAL_KEY));
+
+  React.useEffect(() => {
+    if (selectedCount === 0 && showDeleteConfirm) {
+      setShowDeleteConfirm(false);
+    }
+  }, [selectedCount, showDeleteConfirm]);
+
+  React.useEffect(() => {
+    writeLocalFlag(BULK_DELETE_MODAL_KEY, showDeleteConfirm);
+  }, [showDeleteConfirm]);
 
   // Don't render if nothing is selected
   if (selectedCount === 0) {
@@ -73,14 +106,14 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
 
       {/* Delete Confirmation Dialog */}
       {showDeleteConfirm && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4"
-          onClick={handleCancelDelete}
+        <BaseModal
+          isOpen={showDeleteConfirm}
+          onRequestClose={handleCancelDelete}
+          closeOnBackdropClick={true}
+          overlayClassName="z-[100]"
+          contentClassName="bg-card border border-border rounded-xl w-full max-w-sm shadow-2xl p-6"
         >
-          <div
-            className="bg-card border border-border rounded-xl w-full max-w-sm shadow-2xl p-6"
-            onClick={e => e.stopPropagation()}
-          >
+          <div>
             {/* Dialog Header */}
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 rounded-full bg-destructive/10">
@@ -116,7 +149,7 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </BaseModal>
       )}
     </>
   );

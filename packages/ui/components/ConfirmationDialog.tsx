@@ -5,7 +5,8 @@
  * Follows the modal pattern established in GlobalCommentInput.tsx and ExportModal.tsx.
  */
 
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect } from 'react';
+import { BaseModal } from './BaseModal';
 
 export interface ConfirmationDialogProps {
   /** Whether the dialog is currently visible */
@@ -36,45 +37,41 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
   cancelLabel = 'Cancelar',
   destructive = false,
 }) => {
-  // Handle keyboard events: Escape to close, Enter to confirm
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      onClose();
-    }
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      onConfirm();
-    }
-  }, [onClose, onConfirm]);
-
   useEffect(() => {
-    if (isOpen) {
-      document.addEventListener('keydown', handleKeyDown);
-      return () => {
-        document.removeEventListener('keydown', handleKeyDown);
-      };
-    }
-  }, [isOpen, handleKeyDown]);
+    if (!isOpen) return;
+
+    const handleEnterKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      onConfirm();
+    };
+
+    window.addEventListener('keydown', handleEnterKey);
+    return () => window.removeEventListener('keydown', handleEnterKey);
+  }, [isOpen, onConfirm]);
 
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4"
-      onClick={onClose}
+    <BaseModal
+      isOpen={isOpen}
+      onRequestClose={onClose}
+      closeOnBackdropClick={true}
+      overlayClassName="z-[120]"
+      contentClassName="bg-card border border-border rounded-xl w-full max-w-md shadow-2xl"
+      contentProps={{
+        role: 'dialog',
+        'aria-modal': true,
+      }}
     >
-      <div
-        className="bg-card border border-border rounded-xl w-full max-w-md shadow-2xl"
-        onClick={e => e.stopPropagation()}
-      >
+      <div>
         {/* Header */}
         <div className="p-4 border-b border-border">
           <div className="flex justify-between items-center">
             <h3 className="font-semibold text-sm">{title}</h3>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              className="p-1.5 rounded-md hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -110,6 +107,6 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </BaseModal>
   );
 };

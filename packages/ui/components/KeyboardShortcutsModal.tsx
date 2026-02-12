@@ -6,7 +6,7 @@
  * Now supports editing shortcuts by clicking on them.
  */
 
-import React, { useEffect, useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   CATEGORY_LABELS,
@@ -18,19 +18,12 @@ import {
   type Shortcut,
   type ShortcutCategory,
 } from '../utils/shortcuts';
+import { EditShortcutModal, type EditingState } from './EditShortcutModal';
+import { BaseModal } from './BaseModal';
 
 interface KeyboardShortcutsModalProps {
   isOpen: boolean;
   onClose: () => void;
-}
-
-interface EditingState {
-  shortcut: Shortcut;
-  category: ShortcutCategory;
-  newKey: string;
-  newModCtrl: boolean;
-  newModShift: boolean;
-  newModAlt: boolean;
 }
 
 export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
@@ -39,57 +32,6 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const [editing, setEditing] = useState<EditingState | null>(null);
-  const [shortcutsVersion, setShortcutsVersion] = useState(0);
-
-  // Handle Escape key to close
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        if (editing) {
-          setEditing(null);
-        } else {
-          onClose();
-        }
-      }
-    },
-    [onClose, editing]
-  );
-
-  // Handle key capture when editing
-  useEffect(() => {
-    if (!editing) return;
-
-    const handleKeyCapture = (e: KeyboardEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-
-      // Ignore modifier-only keys
-      if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) return;
-
-      setEditing((prev) =>
-        prev
-          ? {
-              ...prev,
-              newKey: e.key.toUpperCase(),
-              newModCtrl: e.ctrlKey || e.metaKey,
-              newModShift: e.shiftKey,
-              newModAlt: e.altKey,
-            }
-          : null
-      );
-    };
-
-    window.addEventListener('keydown', handleKeyCapture, true);
-    return () => window.removeEventListener('keydown', handleKeyCapture, true);
-  }, [editing]);
-
-  useEffect(() => {
-    if (isOpen) {
-      window.addEventListener('keydown', handleKeyDown);
-      return () => window.removeEventListener('keydown', handleKeyDown);
-    }
-  }, [isOpen, handleKeyDown]);
 
   const handleStartEditing = (shortcut: Shortcut, category: ShortcutCategory) => {
     setEditing({
@@ -113,19 +55,12 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
     });
 
     setEditing(null);
-    setShortcutsVersion((v) => v + 1);
   };
 
   const handleResetAll = () => {
     if (confirm(t('keyboardShortcutsModal.resetConfirm') || 'Restaurar todos os atalhos padrão?')) {
       resetShortcuts();
-      setShortcutsVersion((v) => v + 1);
     }
-  };
-
-  const handleClearKey = () => {
-    if (!editing) return;
-    setEditing({ ...editing, newKey: '', newModCtrl: false, newModShift: false, newModAlt: false });
   };
 
   if (!isOpen) return null;
@@ -138,25 +73,21 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
   );
 
   // Format the current editing shortcut
-  const formatEditingShortcut = () => {
-    if (!editing) return '';
-    const parts: string[] = [];
-    if (editing.newModCtrl) parts.push('Ctrl');
-    if (editing.newModAlt) parts.push('Alt');
-    if (editing.newModShift) parts.push('Shift');
-    if (editing.newKey) parts.push(editing.newKey);
-    return parts.join('+') || t('keyboardShortcutsModal.pressKey') || 'Pressione uma tecla...';
-  };
-
   return (
-    <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4"
-      onClick={onClose}
+    <BaseModal
+      isOpen={isOpen}
+      onRequestClose={() => {
+        if (editing) {
+          setEditing(null);
+          return;
+        }
+        onClose();
+      }}
+      closeOnBackdropClick={true}
+      overlayClassName="z-[100]"
+      contentClassName="bg-card border border-border rounded-xl w-full max-w-md shadow-2xl"
     >
-      <div
-        className="bg-card border border-border rounded-xl w-full max-w-md shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div>
         {/* Header */}
         <div className="p-4 border-b border-border">
           <div className="flex justify-between items-center">
@@ -188,7 +119,7 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
               </button>
               <button
                 onClick={onClose}
-                className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                className="p-1.5 rounded-md hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors"
                 title={t('keyboardShortcutsModal.close')}
               >
                 <svg
@@ -261,108 +192,11 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
       </div>
 
       {/* Edit Shortcut Modal */}
-      {editing && (
-        <div
-          className="fixed inset-0 z-[110] flex items-center justify-center bg-background/60 backdrop-blur-sm p-4"
-          onClick={() => setEditing(null)}
-        >
-          <div
-            className="bg-card border border-border rounded-xl w-full max-w-sm shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="p-4 border-b border-border">
-              <h3 className="font-semibold text-sm">
-                {t('keyboardShortcutsModal.editTitle') || 'Editar Atalho'}
-              </h3>
-              <p className="text-xs text-muted-foreground mt-1">
-                {editing.shortcut.label}
-              </p>
-            </div>
-
-            {/* Body */}
-            <div className="p-6 space-y-4">
-              {/* Key display */}
-              <div className="text-center">
-                <p className="text-xs text-muted-foreground mb-3">
-                  {t('keyboardShortcutsModal.pressNewKey') || 'Pressione a nova combinação de teclas'}
-                </p>
-                <div
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-muted border-2 border-accent/30 rounded-lg min-h-[3rem] justify-center"
-                >
-                  {formatEditingShortcut() ? (
-                    <kbd className="text-lg font-mono font-bold text-accent">
-                      {formatEditingShortcut()}
-                    </kbd>
-                  ) : (
-                    <span className="text-sm text-muted-foreground">
-                      {t('keyboardShortcutsModal.waitingForKey') || 'Aguardando...'}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Modifier toggles */}
-              <div className="flex items-center justify-center gap-2">
-                <button
-                  onClick={() => setEditing({ ...editing, newModCtrl: !editing.newModCtrl })}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                    editing.newModCtrl
-                      ? 'bg-accent text-accent-foreground'
-                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                  }`}
-                >
-                  Ctrl
-                </button>
-                <button
-                  onClick={() => setEditing({ ...editing, newModAlt: !editing.newModAlt })}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                    editing.newModAlt
-                      ? 'bg-accent text-accent-foreground'
-                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                  }`}
-                >
-                  Alt
-                </button>
-                <button
-                  onClick={() => setEditing({ ...editing, newModShift: !editing.newModShift })}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                    editing.newModShift
-                      ? 'bg-accent text-accent-foreground'
-                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                  }`}
-                >
-                  Shift
-                </button>
-              </div>
-
-              {/* Clear button */}
-              <button
-                onClick={handleClearKey}
-                className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors py-2"
-              >
-                {t('keyboardShortcutsModal.clearKey') || 'Limpar tecla'}
-              </button>
-            </div>
-
-            {/* Footer */}
-            <div className="p-4 border-t border-border flex justify-end gap-2">
-              <button
-                onClick={() => setEditing(null)}
-                className="px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted rounded-lg transition-colors"
-              >
-                {t('common.cancel') || 'Cancelar'}
-              </button>
-              <button
-                onClick={handleSave}
-                className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 rounded-lg transition-opacity"
-              >
-                {t('common.save') || 'Salvar'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+        <EditShortcutModal
+          editing={editing}
+          setEditing={setEditing}
+          onSave={handleSave}
+        />
+    </BaseModal>
   );
 };

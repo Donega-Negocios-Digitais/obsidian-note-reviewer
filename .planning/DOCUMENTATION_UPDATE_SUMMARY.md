@@ -1,12 +1,24 @@
 # Documentation Update Summary
 
-**Date:** 2026-02-08
+**Date:** 2026-02-08 (historical snapshot)
 **Project:** Obsidian Note Reviewer
-**Status:** ✅ Complete
+**Status:** Historical summary + active addendum
 
 ## Overview
 
 This document summarizes all documentation updates made to reflect recent code changes and feature implementations in the Obsidian Note Reviewer project.
+
+## Addendum (2026-02-12)
+
+Environment documentation and secret-handling policy were standardized in `.planning`:
+
+- Added `.planning/README.md` as planning index
+- Added `.planning/SETUP.md` with local setup and troubleshooting
+- Added `.planning/ENVIRONMENT.md` as canonical environment and security reference
+- Updated `.planning/PROJECT.md`, `.planning/codebase/INTEGRATIONS.md`, and `.planning/codebase/STACK.md` to enforce canonical variable names
+- Removed Next.js-style `NEXT_PUBLIC_*` examples from environment docs in favor of Vite-compatible naming
+- Added explicit rule: do not share real `.env` files over WhatsApp; share `.env.example` only
+- Added explicit rule: `SUPABASE_SERVICE_ROLE_KEY` is server-side only (never frontend)
 
 ## Files Updated
 
@@ -219,6 +231,6 @@ The documentation now provides complete coverage of:
 
 ---
 
-**Documentation Status:** ✅ COMPLETE
-**Project Status:** 🎉 PRODUCTION READY
-**Last Updated:** 2026-02-08
+**Documentation Status:** Updated with 2026-02-12 environment/security addendum
+**Snapshot Base Date:** 2026-02-08
+**Last Updated:** 2026-02-12

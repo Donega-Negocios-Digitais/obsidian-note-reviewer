@@ -211,38 +211,41 @@ obsidian-note-reviewer/
 - Marketing app: 3002 (landing page)
 - Portal API proxy: 3002 (via dev-server.ts)
 
-**Environment Variables Required:**
+**Environment Variables Required (canonical names):**
 ```bash
-# Supabase (Primary Backend)
+# Frontend (Vite - exposed in client build)
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
-
-# Liveblocks (Real-time Collaboration)
 VITE_LIVEBLOCKS_PUBLIC_KEY=
-LIVEBLOCKS_SECRET_KEY=
-
-# Stripe (Payments)
 VITE_STRIPE_PUBLISHABLE_KEY=
-STRIPE_SECRET_KEY=
-STRIPE_WEBHOOK_SECRET=
 VITE_STRIPE_PRICE_PRO_MONTHLY=
 VITE_STRIPE_PRICE_PRO_YEARLY=
 VITE_STRIPE_PRICE_LIFETIME=
+VITE_APP_URL=
 
-# Upstash (Rate Limiting - Production)
+# Server / Edge / Dev Server (never expose in frontend)
+LIVEBLOCKS_SECRET_KEY=
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
 UPSTASH_REDIS_URL=
 UPSTASH_REDIS_TOKEN=
-
-# Supabase Edge Functions
 SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
 SUPABASE_PROJECT_REF=
 SUPABASE_ACCESS_TOKEN=
+RESEND_API_KEY=
 
 # Optional
 OBSIDIAN_PLAN_DIRS=
 ALLOWED_ORIGINS=
 ```
+
+**Environment policy:**
+- Never share a real `.env` with secrets on WhatsApp.
+- Share `.env.example` only, and send sensitive values via a secure channel.
+- `SUPABASE_SERVICE_ROLE_KEY` is server-only (Edge Functions/backend), never in frontend app code.
+- Restart the app after creating or changing `.env` / `.env.local`.
+- Canonical references: `.planning/ENVIRONMENT.md`, `.planning/SETUP.md`.
 
 ## Next Steps Priority
 
@@ -265,5 +268,5 @@ ALLOWED_ORIGINS=
 4. Performance otimizada (React.memo, virtual scrolling)
 
 ---
-*Last updated: 2026-02-08*
+*Last updated: 2026-02-12*
 *Overall progress: 66.7% (30/45 requirements)*

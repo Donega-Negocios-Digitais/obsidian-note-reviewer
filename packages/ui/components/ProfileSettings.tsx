@@ -12,8 +12,8 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '@obsidian-note-reviewer/security/auth'
 import { supabase } from '@obsidian-note-reviewer/security/supabase/client'
 import { uploadAvatar, getAvatarUrl } from '@obsidian-note-reviewer/security/supabase/storage'
-import { Camera, Key, User, Check, X, ChevronDown, ChevronRight, IdCard, Zap } from 'lucide-react'
-import { getIdentity, getAnonymousIdentity, regenerateIdentity } from '../utils/identity'
+import { Camera, Key, User, Check, X, LogOut } from 'lucide-react'
+import { BaseModal } from './BaseModal'
 
 interface ProfileSettingsProps {
   onSave?: () => void
@@ -32,14 +32,59 @@ type PasswordErrors = {
   general?: string
 }
 
+const LOGOUT_THANKS_SNAPSHOT_KEY = 'obsreview-logout-thanks-snapshot'
+const POST_LOGOUT_REDIRECT_KEY = 'obsreview-post-logout-redirect'
+const LOGOUT_CONFIRM_OPEN_KEY = 'obsreview-profile-logout-confirm-open'
+
+function readLocalFlag(key: string): boolean {
+  try {
+    return localStorage.getItem(key) === '1'
+  } catch {
+    return false
+  }
+}
+
+function writeLocalFlag(key: string, value: boolean): void {
+  try {
+    if (value) {
+      localStorage.setItem(key, '1')
+    } else {
+      localStorage.removeItem(key)
+    }
+  } catch {
+    // ignore persistence errors
+  }
+}
+
+type AffiliateSummaryRow = {
+  affiliate_code?: string
+  commission_rate?: number | string
+  total_commission_cents?: number | string
+  total_under_review_cents?: number | string
+  referred_buyers_count?: number | string
+}
+
 function getInitials(name: string): string {
   if (!name.trim()) return '?'
   return name.trim().split(/\s+/).map(w => w[0].toUpperCase()).slice(0, 2).join('')
 }
 
+function toSafeNumber(value: unknown, fallback = 0): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  return fallback
+}
+
+function buildFallbackAffiliateCode(userId: string): string {
+  return `ref-${userId.replace(/-/g, '').toLowerCase()}`
+}
+
 export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactElement {
   const { t } = useTranslation()
-  const { user, updateProfile } = useAuth()
+  const { user, updateProfile, signOut } = useAuth()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const authProvider = (user?.app_metadata?.provider as string | undefined) || 'email'
   const isOAuthUser = authProvider !== 'email'
@@ -67,11 +112,8 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
   const [savingPassword, setSavingPassword] = useState(false)
   const [passwordErrors, setPasswordErrors] = useState<PasswordErrors>({})
   const [passwordSuccess, setPasswordSuccess] = useState(false)
-
-  // Identity state
-  const [identityOpen, setIdentityOpen] = useState(false)
-  const [identity, setIdentity] = useState('')
-  const [anonymousIdentity, setAnonymousIdentity] = useState('')
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(() => readLocalFlag(LOGOUT_CONFIRM_OPEN_KEY))
+  const [loggingOut, setLoggingOut] = useState(false)
 
   // General state
   const [savedField, setSavedField] = useState<string | null>(null)
@@ -84,8 +126,6 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
       const existingAvatar = getAvatarUrl(user)
       setAvatarUrl(existingAvatar)
     }
-    setIdentity(getIdentity() || '')
-    setAnonymousIdentity(getAnonymousIdentity() || '')
   }, [user])
 
   // Auto-hide save feedback
@@ -95,6 +135,10 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
       return () => clearTimeout(timer)
     }
   }, [savedField])
+
+  useEffect(() => {
+    writeLocalFlag(LOGOUT_CONFIRM_OPEN_KEY, logoutConfirmOpen)
+  }, [logoutConfirmOpen])
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -233,6 +277,69 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
 
   const displayAvatar = previewUrl || avatarUrl
 
+  const prepareLogoutThanksSnapshot = async () => {
+    if (!user) return
+
+    let affiliateCode = buildFallbackAffiliateCode(user.id)
+    let commissionRate = 0.6
+    let totalCommissionCents = 0
+    let totalUnderReviewCents = 0
+    let referredBuyersCount = 0
+
+    try {
+      const { data: ensuredCode } = await supabase.rpc('ensure_affiliate_profile')
+      if (typeof ensuredCode === 'string' && ensuredCode.trim()) {
+        affiliateCode = ensuredCode.trim().toLowerCase()
+      }
+    } catch (error) {
+      console.warn('[ProfileSettings] Failed to ensure affiliate profile before logout:', error)
+    }
+
+    try {
+      const { data: summaryData } = await supabase.rpc('get_affiliate_summary')
+      const summary = (Array.isArray(summaryData) ? summaryData[0] : summaryData) as AffiliateSummaryRow | null
+
+      if (summary) {
+        if (typeof summary.affiliate_code === 'string' && summary.affiliate_code.trim()) {
+          affiliateCode = summary.affiliate_code.trim().toLowerCase()
+        }
+        commissionRate = toSafeNumber(summary.commission_rate, 0.6)
+        totalCommissionCents = Math.round(toSafeNumber(summary.total_commission_cents, 0))
+        totalUnderReviewCents = Math.round(toSafeNumber(summary.total_under_review_cents, 0))
+        referredBuyersCount = Math.max(0, Math.round(toSafeNumber(summary.referred_buyers_count, 0)))
+      }
+    } catch (error) {
+      console.warn('[ProfileSettings] Failed to fetch affiliate summary before logout:', error)
+    }
+
+    sessionStorage.setItem(LOGOUT_THANKS_SNAPSHOT_KEY, JSON.stringify({
+      affiliateCode,
+      commissionRate,
+      totalCommissionCents,
+      totalUnderReviewCents,
+      referredBuyersCount,
+      generatedAt: new Date().toISOString(),
+    }))
+  }
+
+  const handleLogout = async () => {
+    setLoggingOut(true)
+    setPasswordErrors({})
+
+    try {
+      await prepareLogoutThanksSnapshot()
+      sessionStorage.setItem(POST_LOGOUT_REDIRECT_KEY, '/logout-thanks')
+      await signOut()
+      window.location.assign('/logout-thanks')
+    } catch (error: any) {
+      sessionStorage.removeItem(POST_LOGOUT_REDIRECT_KEY)
+      setPasswordErrors({ general: error?.message || 'Erro ao deslogar da conta.' })
+    } finally {
+      setLoggingOut(false)
+      setLogoutConfirmOpen(false)
+    }
+  }
+
   return (
     <div className="space-y-8 lg:space-y-0">
       {/* Desktop: Two-column layout */}
@@ -329,18 +436,9 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
             </button>
           </div>
 
-          {/* Account info */}
-          <div className="pt-6 border-t">
-            <p className="text-xs text-muted-foreground">
-              {t('settings.profile.accountEmail')}: {user?.email}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {t('settings.profile.accountId')}: {user?.id?.slice(0, 8)}...
-            </p>
-          </div>
         </div>
 
-        {/* Right Column: Password + Identity */}
+        {/* Right Column: Password Change */}
         <div className="flex-1 space-y-6">
           {/* Password Change Section */}
           <div className="space-y-4">
@@ -447,51 +545,20 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
             </button>
           </div>
 
-          {/* Identity Section (collapsible) */}
+          {/* Account Security Section */}
           <div className="pt-6 border-t">
+            <h3 className="text-sm font-medium mb-2">Conta e segurança</h3>
+            <p className="text-xs text-muted-foreground mb-3">
+              Encerrar sessão neste dispositivo e voltar para a tela de acesso.
+            </p>
             <button
-              onClick={() => setIdentityOpen(!identityOpen)}
-              className="flex items-center gap-2 w-full text-left"
+              onClick={() => setLogoutConfirmOpen(true)}
+              disabled={loggingOut}
+              className="w-full px-4 py-2 rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              {identityOpen ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
-              <span className="text-sm font-medium">{t('settings.profile.identity')}</span>
+              <LogOut className="w-4 h-4" />
+              {loggingOut ? 'Deslogando...' : 'Deslogar'}
             </button>
-
-            {identityOpen && (
-              <div className="mt-4 space-y-4">
-                {/* Current identity */}
-                <div className="flex items-center gap-2">
-                  <IdCard className="w-4 h-4 text-muted-foreground" />
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground">{t('settings.profile.activeIdentity')}</p>
-                    <p className="text-xs font-mono text-muted-foreground/70 break-all">{identity?.slice(0, 16)}...</p>
-                  </div>
-                </div>
-
-                {displayName.trim() && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground/60">{t('settings.profile.anonymousBackup')}</p>
-                    <p className="text-xs font-mono text-muted-foreground/40 break-all">{anonymousIdentity?.slice(0, 16)}...</p>
-                  </div>
-                )}
-
-                {/* Regenerate */}
-                <button
-                  onClick={() => {
-                    const newId = regenerateIdentity()
-                    setAnonymousIdentity(newId)
-                    if (!displayName.trim()) setIdentity(newId)
-                  }}
-                  className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors"
-                >
-                  <Zap className="w-3.5 h-3.5" />
-                  {t('settings.profile.generateIdentity')}
-                </button>
-                <p className="text-[10px] text-muted-foreground/60">
-                  {t('settings.profile.generateIdentityDesc')}
-                </p>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -501,6 +568,44 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
         <div className="p-3 rounded-md bg-destructive/15 text-destructive text-sm">
           {passwordErrors.general}
         </div>
+      )}
+
+      {/* Logout confirmation modal */}
+      {logoutConfirmOpen && (
+        <BaseModal
+          isOpen={logoutConfirmOpen}
+          onRequestClose={() => setLogoutConfirmOpen(false)}
+          closeOnBackdropClick={false}
+          overlayClassName="z-[80] bg-black/50"
+          contentClassName="w-full max-w-sm rounded-xl border border-border bg-card p-5 shadow-xl"
+          contentProps={{
+            role: 'dialog',
+            'aria-modal': true,
+          }}
+        >
+          <div>
+            <h4 className="text-base font-semibold text-foreground mb-2">Deseja sair da conta?</h4>
+            <p className="text-sm text-muted-foreground mb-5">
+              Você será redirecionado para uma tela de agradecimento e poderá acessar novamente quando quiser.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setLogoutConfirmOpen(false)}
+                disabled={loggingOut}
+                className="flex-1 px-4 py-2 rounded-md border border-input hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleLogout}
+                disabled={loggingOut}
+                className="flex-1 px-4 py-2 rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loggingOut ? 'Deslogando...' : 'Deslogar'}
+              </button>
+            </div>
+          </div>
+        </BaseModal>
       )}
     </div>
   )

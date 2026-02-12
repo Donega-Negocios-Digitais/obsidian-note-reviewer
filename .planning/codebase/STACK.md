@@ -91,10 +91,14 @@
 ## Configuration
 
 **Environment:**
-- `.env` file for local development (gitignored)
-- `.env.example` template in `C:\dev\tools\obsidian-note-reviewer\.env.example`
-- Vite environment variables: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
+- Frontend (portal): `apps/portal/.env.local` or `apps/portal/.env` (gitignored)
+- Workspace template: `.env.example` (without secrets)
+- Edge template: `supabase/functions/.env.example` (without secrets)
+- Vite frontend variables: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
+- Server-only variables must not use `VITE_` (example: `SUPABASE_SERVICE_ROLE_KEY`)
 - Supabase Edge Functions use `Deno.env.get()`
+- Security policy: never share a real `.env` via WhatsApp; share `.env.example` and send secrets through a secure channel
+- Canonical references: `.planning/ENVIRONMENT.md`, `.planning/SETUP.md`
 
 **Build:**
 - Vite configs: `apps/*/vite.config.ts`

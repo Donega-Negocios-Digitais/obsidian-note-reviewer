@@ -193,7 +193,7 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
   const handleSignOut = useCallback(async () => {
     setState((prev) => ({ ...prev, loading: true, error: null }))
     try {
-      const { error } = await supabase.auth.signOut()
+      const { error } = await supabase.auth.signOut({ scope: 'global' })
 
       if (error) throw error
 

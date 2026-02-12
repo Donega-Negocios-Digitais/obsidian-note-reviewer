@@ -1,5 +1,7 @@
 08-04: Production Environment Variables - Implementation Summary
 
+> Historical normalization note (2026-02-12): this summary was normalized to current environment naming and secret-handling conventions.
+
 ## Overview
 Created comprehensive environment variable documentation and configuration for production deployment.
 
@@ -75,6 +77,7 @@ VITE_APP_URL=https://your-preview-url.vercel.app
 ### Secrets Management
 - ✅ Never commit `.env` files to git
 - ✅ Use `.env.example` as template
+- ✅ Never share real `.env` secrets over WhatsApp
 - ✅ Rotate keys regularly
 - ✅ Use different keys for dev/prod
 - ✅ Enable MFA on all accounts

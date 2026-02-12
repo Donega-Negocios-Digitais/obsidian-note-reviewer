@@ -6,7 +6,10 @@
 
 import { useCallback } from 'react';
 import { loadStripe, Stripe } from '@stripe/stripe-js';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@obsidian-note-reviewer/security/auth';
 import { STRIPE_CONFIG } from '../config/stripe';
+import { encodeCheckoutClientReferenceId, getStoredReferralCode } from '../lib/referral';
 
 let stripePromise: Promise<Stripe | null>;
 
@@ -43,20 +46,34 @@ export interface UseStripeCheckoutReturn {
  * Hook for Stripe checkout
  */
 export function useStripeCheckout(): UseStripeCheckoutReturn {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
   const redirectToCheckout = useCallback(async (options: CheckoutOptions): Promise<boolean> => {
     try {
+      const buyerUserId = options.metadata?.userId || user?.id;
+      if (!buyerUserId) {
+        navigate('/auth/login');
+        return false;
+      }
+
       const stripe = await getStripe();
 
       if (!stripe) {
         throw new Error('Failed to load Stripe');
       }
 
+      const referralCode = getStoredReferralCode();
+      const clientReferenceId = encodeCheckoutClientReferenceId(buyerUserId, referralCode);
+      const successUrl = options.successUrl || `${window.location.origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`;
+      const cancelUrl = options.cancelUrl || `${window.location.origin}/checkout/cancel`;
+
       const { error } = await stripe.redirectToCheckout({
         mode: options.mode,
         lineItems: [{ price: options.priceId, quantity: 1 }],
-        successUrl: options.successUrl || `${window.location.origin}/checkout/success`,
-        cancelUrl: options.cancelUrl || `${window.location.origin}/checkout/cancel`,
-        clientReferenceId: options.metadata?.userId,
+        successUrl,
+        cancelUrl,
+        clientReferenceId,
       });
 
       if (error) {
@@ -69,7 +86,7 @@ export function useStripeCheckout(): UseStripeCheckoutReturn {
       console.error('Checkout error:', err);
       return false;
     }
-  }, []);
+  }, [navigate, user?.id]);
 
   /**
    * Redirect to monthly subscription checkout

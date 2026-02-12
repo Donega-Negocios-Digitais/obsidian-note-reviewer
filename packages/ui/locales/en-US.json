@@ -33,7 +33,7 @@
       "destinationRequiredFull": "Required",
       "templatePlaceholder": "Template path...",
       "destinationPlaceholder": "Destination folder...",
-      "tip": "💡 Tip: You can use Obsidian URLs (obsidian://...) or full file paths",
+      "tip": "💡 Tip: Use the ⏻ button to enable/disable templates. Green = Active, Red = Inactive",
       "configurePath": "Configure path and template",
       "templatePathDescription": "Path to the template file used to create this note type",
       "destinationPathDescription": "Folder where notes of this type will be saved"
@@ -190,6 +190,7 @@
       "active": "Active",
       "inactive": "Inactive",
       "removeCollaborator": "Remove collaborator",
+      "editCollaborator": "Edit Collaborator",
       "activate": "Activate",
       "deactivate": "Deactivate",
       "statusPending": "Pending",
@@ -214,14 +215,7 @@
       "updatePassword": "Change password",
       "updating": "Updating...",
       "photoUpdated": "Photo updated",
-      "maxSize": "JPG, PNG or GIF. Max 2MB.",
-      "identity": "Reviewer Identity",
-      "activeIdentity": "Active Identity",
-      "anonymousBackup": "Anonymous Backup",
-      "generateIdentity": "Generate New Identity",
-      "generateIdentityDesc": "Will create a new anonymous identity for your annotations",
-      "accountEmail": "Email",
-      "accountId": "ID"
+      "maxSize": "JPG, PNG or GIF. Max 2MB."
     }
   },
   "viewer": {
@@ -334,7 +328,15 @@
     "title": "Keyboard Shortcuts",
     "close": "Close (Esc)",
     "noShortcuts": "No shortcuts available.",
-    "pressEsc": "Press <kbd>Esc</kbd> to close"
+    "pressEsc": "Press <kbd>Esc</kbd> to close",
+    "clickToView": "Click to view demonstration",
+    "clickToEdit": "Click to edit",
+    "resetAll": "Restore",
+    "resetConfirm": "Restore all default shortcuts?",
+    "editTitle": "Edit Shortcut",
+    "pressNewKey": "Press the new key combination",
+    "waitingForKey": "Waiting...",
+    "clearKey": "Clear key"
   },
   "editor": {
     "placeholder": "Edit note content here...",
@@ -368,7 +370,12 @@
     "finish": "Finish",
     "apply": "Apply",
     "reset": "Reset",
-    "clear": "Clear"
+    "clear": "Clear",
+    "cancel": "Cancel",
+    "save": "Save",
+    "name": "Name",
+    "email": "Email",
+    "permission": "Permission"
   },
   "app": {
     "saveToObsidian": "Save to Obsidian",

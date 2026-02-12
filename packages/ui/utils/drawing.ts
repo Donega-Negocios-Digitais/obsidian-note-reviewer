@@ -3,7 +3,7 @@
  * Baseado em: https://github.com/backnotprop/plannotator
  */
 
-import { getStroke, getStrokeOutlinePoints } from 'perfect-freehand';
+import { getStroke } from 'perfect-freehand';
 import type { Point, Stroke, DrawingTool } from '../types/drawing';
 
 /**
@@ -47,8 +47,9 @@ export function renderPenStroke(
     p.pressure ?? 0.5
   ] as [number, number, number]);
 
-  // Gera o traço com perfect-freehand
-  const outline = getStrokeOutlinePoints(scaledPoints, {
+  // Gera o contorno final do traço com perfect-freehand.
+  // `getStroke` já retorna o outline em formato Vec2[] pronto para desenho.
+  const outline = getStroke(scaledPoints, {
     size: size * scale,
     thinning: 0.5,
     smoothing: 0.5,

@@ -49,10 +49,10 @@ describe('ConfirmationDialog', () => {
 
   test('chama onClose ao clicar no backdrop', () => {
     const mockOnClose = mock(() => {});
-    const { container } = render(<ConfirmationDialog {...defaultProps} onClose={mockOnClose} />);
+    render(<ConfirmationDialog {...defaultProps} onClose={mockOnClose} />);
 
-    // The backdrop is the first div with the fixed class
-    const backdrop = container.querySelector('.fixed');
+    // The backdrop is rendered in a portal attached to document.body.
+    const backdrop = document.querySelector('.fixed');
     if (backdrop) {
       fireEvent.click(backdrop);
     }

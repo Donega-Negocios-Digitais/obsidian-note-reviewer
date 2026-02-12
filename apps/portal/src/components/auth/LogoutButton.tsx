@@ -11,8 +11,13 @@
  */
 
 import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@obsidian-note-reviewer/security/auth'
+import { supabase } from '@obsidian-note-reviewer/security/supabase/client'
+import {
+  clearPostLogoutRedirect,
+  setPostLogoutRedirect,
+  writeLogoutThanksSnapshot,
+} from '../../lib/referral'
 
 export interface LogoutButtonProps {
   /**
@@ -40,17 +45,80 @@ export function LogoutButton({
 }: LogoutButtonProps): React.ReactElement {
   const [showConfirm, setShowConfirm] = useState(false)
   const [loading, setLoading] = useState(false)
-  const { signOut } = useAuth()
-  const navigate = useNavigate()
+  const { signOut, user } = useAuth()
+
+  const toSafeNumber = (value: unknown, fallback = 0) => {
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+    if (typeof value === 'string' && value.trim()) {
+      const parsed = Number(value)
+      if (Number.isFinite(parsed)) return parsed
+    }
+    return fallback
+  }
+
+  const buildFallbackAffiliateCode = (userId: string) => `ref-${userId.replace(/-/g, '').toLowerCase()}`
+
+  const prepareLogoutThanksSnapshot = async () => {
+    if (!user?.id) return
+
+    let affiliateCode = buildFallbackAffiliateCode(user.id)
+    let commissionRate = 0.6
+    let totalCommissionCents = 0
+    let totalUnderReviewCents = 0
+    let referredBuyersCount = 0
+
+    try {
+      const { data: ensuredCode } = await supabase.rpc('ensure_affiliate_profile')
+      if (typeof ensuredCode === 'string' && ensuredCode.trim()) {
+        affiliateCode = ensuredCode.trim().toLowerCase()
+      }
+    } catch (error) {
+      console.warn('[LogoutButton] Failed to ensure affiliate profile before logout:', error)
+    }
+
+    try {
+      const { data: summaryData } = await supabase.rpc('get_affiliate_summary')
+      const summary = (Array.isArray(summaryData) ? summaryData[0] : summaryData) as {
+        affiliate_code?: string
+        commission_rate?: number | string
+        total_commission_cents?: number | string
+        total_under_review_cents?: number | string
+        referred_buyers_count?: number | string
+      } | null
+
+      if (summary) {
+        if (typeof summary.affiliate_code === 'string' && summary.affiliate_code.trim()) {
+          affiliateCode = summary.affiliate_code.trim().toLowerCase()
+        }
+        commissionRate = toSafeNumber(summary.commission_rate, 0.6)
+        totalCommissionCents = Math.round(toSafeNumber(summary.total_commission_cents, 0))
+        totalUnderReviewCents = Math.round(toSafeNumber(summary.total_under_review_cents, 0))
+        referredBuyersCount = Math.max(0, Math.round(toSafeNumber(summary.referred_buyers_count, 0)))
+      }
+    } catch (error) {
+      console.warn('[LogoutButton] Failed to fetch affiliate summary before logout:', error)
+    }
+
+    writeLogoutThanksSnapshot({
+      affiliateCode,
+      commissionRate,
+      totalCommissionCents,
+      totalUnderReviewCents,
+      referredBuyersCount,
+      generatedAt: new Date().toISOString(),
+    })
+  }
 
   const handleLogout = async () => {
     setLoading(true)
 
     try {
+      await prepareLogoutThanksSnapshot()
+      setPostLogoutRedirect('/logout-thanks')
       await signOut()
-      // Redirect to login after successful logout
-      navigate('/auth/login', { replace: true })
+      window.location.assign('/logout-thanks')
     } catch (error: any) {
+      clearPostLogoutRedirect()
       console.error('Logout error:', error)
       // Show inline error (toast not used per SPA pattern from 01-03)
       setLoading(false)

@@ -1,8 +1,10 @@
 /* eslint-disable security/detect-object-injection, @typescript-eslint/no-explicit-any */
 import React, { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import * as LucideIcons from 'lucide-react';
 import type { CustomTemplate } from '../utils/storage';
 import { getBuiltInCategories } from '../utils/notePaths';
+import { BaseModal } from './BaseModal';
 
 export interface BuiltInTemplateItem {
   tipo: string;
@@ -27,14 +29,14 @@ interface TemplateManagerModalProps {
   builtInTemplates: BuiltInTemplateItem[];
   customTemplates: CustomTemplate[];
   customCategories: CategoryItem[];
-  onCreateNew: (categoryId?: string) => void;
+  templateActiveStates: Record<string, boolean>;
+  onToggleTemplateActive: (templateId: string) => void;
   onOpenBuiltIn: (tipo: string, label: string, icon: string) => void;
   onOpenCustom: (template: CustomTemplate) => void;
   onMoveBuiltIn: (tipo: string, direction: 'up' | 'down') => void;
   onMoveCustom: (templateId: string, direction: 'up' | 'down') => void;
   onDeleteBuiltIn: (tipo: string, label: string) => void;
   onDeleteCustom: (templateId: string, label: string) => void;
-  onManageCategories: () => void;
 }
 
 function getLucideIcon(iconName: string): React.ComponentType<{ className?: string }> {
@@ -57,17 +59,22 @@ export const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({
   builtInTemplates,
   customTemplates,
   customCategories,
-  onCreateNew,
+  templateActiveStates,
+  onToggleTemplateActive,
   onOpenBuiltIn,
   onOpenCustom,
   onMoveBuiltIn,
   onMoveCustom,
   onDeleteBuiltIn,
   onDeleteCustom,
-  onManageCategories,
 }) => {
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<'all' | string>('all');
+
+  // Drag and drop states
+  const [draggingItem, setDraggingItem] = useState<{ kind: 'builtIn' | 'custom'; id: string; category: string; index: number } | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   const categoryLookup = useMemo(() => {
     const map = new Map<string, CategoryItem>();
@@ -82,21 +89,33 @@ export const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({
 
   const sortedCategories = useMemo(() => {
     const builtInOrder = ['terceiros', 'atomica', 'organizacional', 'alex'];
+    const usedCategoryIds = new Set<string>();
+    builtInTemplates.forEach((item) => {
+      usedCategoryIds.add(item.category);
+    });
+    customTemplates.forEach((template) => {
+      const category = template.category || '__sem_categoria__';
+      if (category !== '__sem_categoria__') {
+        usedCategoryIds.add(category);
+      }
+    });
+
     const sections: CategoryItem[] = [];
 
     builtInOrder.forEach((id) => {
+      if (!usedCategoryIds.has(id)) return;
       const match = categoryLookup.get(id);
       if (match) sections.push(match);
     });
 
     customCategories.forEach((category) => {
-      if (!builtInOrder.includes(category.id)) {
+      if (!builtInOrder.includes(category.id) && usedCategoryIds.has(category.id)) {
         sections.push(category);
       }
     });
 
     return sections;
-  }, [categoryLookup, customCategories]);
+  }, [builtInTemplates, customTemplates, categoryLookup, customCategories]);
 
   const builtInByCategory = useMemo(() => {
     const map = new Map<string, BuiltInTemplateItem[]>();
@@ -162,17 +181,65 @@ export const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({
     );
   }, [normalizedQuery, filteredSections, filteredUnknownTemplates]);
 
+  const hasVisibleTemplates = useMemo(
+    () =>
+      filteredSections.some((section) => section.builtInItems.length > 0 || section.customItems.length > 0) ||
+      filteredUnknownTemplates.length > 0,
+    [filteredSections, filteredUnknownTemplates],
+  );
+
+  // Drag handlers
+  const handleDragStart = (kind: 'builtIn' | 'custom', id: string, category: string, index: number) => () => {
+    setDraggingItem({ kind, id, category, index });
+  };
+
+  const handleDragOver = (kind: 'builtIn' | 'custom', category: string, index: number) => (e: React.DragEvent) => {
+    e.preventDefault();
+    if (!draggingItem) return;
+    if (draggingItem.kind !== kind) return;
+    if (draggingItem.category !== category) return;
+    setDragOverIndex(index);
+  };
+
+  const handleDrop = (kind: 'builtIn' | 'custom', id: string, category: string, targetIndex: number) => () => {
+    if (!draggingItem) return;
+    if (draggingItem.kind !== kind) return;
+    if (draggingItem.category !== category) return;
+    if (draggingItem.index === targetIndex) return;
+
+    const sourceIndex = draggingItem.index;
+    const direction = targetIndex > sourceIndex ? 'down' : 'up';
+
+    // Call the appropriate move callback for each step
+    const steps = Math.abs(targetIndex - sourceIndex);
+    for (let i = 0; i < steps; i++) {
+      if (kind === 'builtIn') {
+        onMoveBuiltIn(draggingItem.id, direction);
+      } else {
+        onMoveCustom(draggingItem.id, direction);
+      }
+    }
+
+    setDraggingItem(null);
+    setDragOverIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggingItem(null);
+    setDragOverIndex(null);
+  };
+
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
-      onClick={onClose}
+    <BaseModal
+      isOpen={isOpen}
+      onRequestClose={onClose}
+      closeOnBackdropClick={false}
+      overlayClassName="z-[70]"
+      contentClassName="bg-card border border-border rounded-xl shadow-xl w-full max-w-6xl h-[80vh] max-h-[80vh] flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200"
     >
-      <div
-        className="bg-card border border-border rounded-xl shadow-xl w-full max-w-6xl max-h-[92vh] flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-200"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="h-full min-h-0 flex flex-col overflow-hidden">
         <div className="flex items-center justify-between p-5 border-b border-border">
           <div>
             <h3 className="text-lg font-semibold text-foreground">Gerenciar Templates</h3>
@@ -182,7 +249,7 @@ export const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
+            className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-md transition-colors"
             aria-label="Fechar gerenciador de templates"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -191,9 +258,9 @@ export const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5 space-y-6">
+        <div data-testid="template-manager-scroll" className="min-h-0 flex-1 overflow-y-auto p-5 space-y-6">
           <div className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-3">
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_220px_auto] gap-2">
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_220px] gap-2">
               <div className="relative">
                 <LucideIcons.Search className="w-3.5 h-3.5 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
@@ -229,17 +296,7 @@ export const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({
                 <option value="__sem_categoria__">Sem categoria</option>
               </select>
 
-              <button
-                type="button"
-                onClick={onManageCategories}
-                className="h-9 px-3 text-xs font-medium rounded-md bg-muted hover:bg-muted/80 text-foreground transition-colors"
-              >
-                Gerenciar Categorias
-              </button>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Dica: a ordenação por arrastar está disponível na tela principal de Templates.
-            </p>
           </div>
 
           {filteredSections.map(({ category, builtInItems, customItems }) => {
@@ -248,37 +305,47 @@ export const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({
             return (
               <section key={category.id} className="space-y-3">
                 <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-2">
-                  <div className="flex items-center gap-2">
-                    <CategoryIcon className="w-4 h-4 text-primary" />
-                    <h4 className="text-sm font-semibold text-foreground">{category.name}</h4>
-                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-muted/60 text-muted-foreground">
-                      {builtInItems.length + customItems.length}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => onCreateNew(category.id)}
-                    className="px-2.5 py-1 text-xs rounded-md bg-primary text-primary-foreground hover:opacity-90 transition-opacity flex items-center gap-1.5"
-                  >
-                    <LucideIcons.Plus className="w-3.5 h-3.5" />
-                    Novo
-                  </button>
+                <div className="flex items-center gap-2">
+                  <CategoryIcon className="w-4 h-4 text-primary" />
+                  <h4 className="text-sm font-semibold text-foreground">{category.name}</h4>
+                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-muted/60 text-muted-foreground">
+                    {builtInItems.length + customItems.length}
+                  </span>
+                </div>
                 </div>
 
                 {builtInItems.length === 0 && customItems.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-border/60 p-3 text-xs text-muted-foreground">
-                    Nenhum template nesta categoria ainda. Clique em <strong>Novo</strong> para adicionar.
+                    Nenhum template nesta categoria ainda.
                   </div>
                 ) : (
                   <div className="space-y-2">
                     {builtInItems.map((item, index) => {
                       const IconComp = getLucideIcon(item.icon);
+                      const isDragging = draggingItem?.kind === 'builtIn' && draggingItem.id === item.tipo;
+                      const isDragOver = dragOverIndex === index;
+                      const isActive = templateActiveStates[item.tipo] ?? true;
+
                       return (
                         <div
                           key={item.tipo}
-                          className="w-full p-3 rounded-lg border border-border/60 hover:border-primary/40 hover:bg-muted/30 transition-colors"
+                          draggable
+                          onDragStart={handleDragStart('builtIn', item.tipo, category.id, index)}
+                          onDragOver={handleDragOver('builtIn', category.id, index)}
+                          onDrop={handleDrop('builtIn', item.tipo, category.id, index)}
+                          onDragEnd={handleDragEnd}
+                          className={`w-full p-3 rounded-lg border transition-all cursor-grab ${
+                            isDragging
+                              ? 'opacity-50 ring-2 ring-primary/40 cursor-grabbing shadow-lg border-primary/40'
+                              : 'border-border/60 hover:border-primary/40 hover:bg-muted/30'
+                          } ${isDragOver && !isDragging ? 'ring-2 ring-primary/30 bg-primary/5' : ''}`}
                         >
                           <div className="flex items-center gap-3">
+                            {/* Drag handle */}
+                            <div className="cursor-grab text-muted-foreground/50 hover:text-muted-foreground flex-shrink-0">
+                              <LucideIcons.GripVertical className="w-4 h-4" />
+                            </div>
+
                             <button
                               type="button"
                               onClick={() => onOpenBuiltIn(item.tipo, item.label, item.icon)}
@@ -298,7 +365,7 @@ export const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({
                               type="button"
                               onClick={() => onMoveBuiltIn(item.tipo, 'up')}
                               disabled={index === 0}
-                              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                              className="p-1.5 rounded-md text-muted-foreground hover:text-red-500 hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                               title="Mover para cima"
                             >
                               <LucideIcons.ChevronUp className="w-3.5 h-3.5" />
@@ -307,7 +374,7 @@ export const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({
                               type="button"
                               onClick={() => onMoveBuiltIn(item.tipo, 'down')}
                               disabled={index === builtInItems.length - 1}
-                              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                              className="p-1.5 rounded-md text-muted-foreground hover:text-red-500 hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                               title="Mover para baixo"
                             >
                               <LucideIcons.ChevronDown className="w-3.5 h-3.5" />
@@ -315,20 +382,27 @@ export const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({
                             <button
                               type="button"
                               onClick={() => onDeleteBuiltIn(item.tipo, item.label)}
-                              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+                              className="p-1.5 rounded-md text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors"
                               title="Excluir"
                             >
                               <LucideIcons.Trash2 className="w-3.5 h-3.5" />
                             </button>
-                            <span
-                              className={`text-[11px] px-2 py-0.5 rounded-full flex-shrink-0 ${
-                                item.isConfigured
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                onToggleTemplateActive(item.tipo);
+                              }}
+                              className={`text-[11px] px-2 py-1 rounded-full flex-shrink-0 inline-flex items-center gap-1.5 font-medium ${
+                                isActive
                                   ? 'bg-green-500/10 text-green-600 dark:text-green-400'
-                                  : 'bg-muted/60 text-muted-foreground'
+                                  : 'bg-red-500/10 text-red-600 dark:text-red-400'
                               }`}
+                              title={isActive ? 'Inativar template' : 'Ativar template'}
                             >
-                              {item.isConfigured ? 'Configurado' : 'Inativo'}
-                            </span>
+                              <LucideIcons.Power className="w-3 h-3" />
+                              {isActive ? 'Ativado' : 'Inativado'}
+                            </button>
                           </div>
                         </div>
                       );
@@ -336,12 +410,30 @@ export const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({
 
                     {customItems.map((template, index) => {
                       const IconComp = getLucideIcon(template.icon);
+                      const isDragging = draggingItem?.kind === 'custom' && draggingItem.id === template.id;
+                      const isDragOver = dragOverIndex === index;
+                      const isActive = templateActiveStates[template.id] ?? true;
+
                       return (
                         <div
                           key={template.id}
-                          className="w-full p-3 rounded-lg border border-border/60 hover:border-primary/40 hover:bg-muted/30 transition-colors"
+                          draggable
+                          onDragStart={handleDragStart('custom', template.id, category.id, index)}
+                          onDragOver={handleDragOver('custom', category.id, index)}
+                          onDrop={handleDrop('custom', template.id, category.id, index)}
+                          onDragEnd={handleDragEnd}
+                          className={`w-full p-3 rounded-lg border transition-all cursor-grab ${
+                            isDragging
+                              ? 'opacity-50 ring-2 ring-primary/40 cursor-grabbing shadow-lg border-primary/40'
+                              : 'border-border/60 hover:border-primary/40 hover:bg-muted/30'
+                          } ${isDragOver && !isDragging ? 'ring-2 ring-primary/30 bg-primary/5' : ''}`}
                         >
                           <div className="flex items-center gap-3">
+                            {/* Drag handle */}
+                            <div className="cursor-grab text-muted-foreground/50 hover:text-muted-foreground flex-shrink-0">
+                              <LucideIcons.GripVertical className="w-4 h-4" />
+                            </div>
+
                             <button
                               type="button"
                               onClick={() => onOpenCustom(template)}
@@ -361,7 +453,7 @@ export const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({
                               type="button"
                               onClick={() => onMoveCustom(template.id, 'up')}
                               disabled={index === 0}
-                              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                              className="p-1.5 rounded-md text-muted-foreground hover:text-red-500 hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                               title="Mover para cima"
                             >
                               <LucideIcons.ChevronUp className="w-3.5 h-3.5" />
@@ -370,7 +462,7 @@ export const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({
                               type="button"
                               onClick={() => onMoveCustom(template.id, 'down')}
                               disabled={index === customItems.length - 1}
-                              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                              className="p-1.5 rounded-md text-muted-foreground hover:text-red-500 hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                               title="Mover para baixo"
                             >
                               <LucideIcons.ChevronDown className="w-3.5 h-3.5" />
@@ -378,14 +470,27 @@ export const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({
                             <button
                               type="button"
                               onClick={() => onDeleteCustom(template.id, template.label)}
-                              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+                              className="p-1.5 rounded-md text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors"
                               title="Excluir"
                             >
                               <LucideIcons.Trash2 className="w-3.5 h-3.5" />
                             </button>
-                            <span className="text-[11px] px-2 py-0.5 rounded-full flex-shrink-0 bg-primary/10 text-primary">
-                              Custom
-                            </span>
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                onToggleTemplateActive(template.id);
+                              }}
+                              className={`text-[11px] px-2 py-1 rounded-full flex-shrink-0 inline-flex items-center gap-1.5 font-medium ${
+                                isActive
+                                  ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                                  : 'bg-red-500/10 text-red-600 dark:text-red-400'
+                              }`}
+                              title={isActive ? 'Inativar template' : 'Ativar template'}
+                            >
+                              <LucideIcons.Power className="w-3 h-3" />
+                              {isActive ? 'Ativado' : 'Inativado'}
+                            </button>
                           </div>
                         </div>
                       );
@@ -396,9 +501,10 @@ export const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({
             );
           })}
 
-          {(selectedCategory === 'all' || selectedCategory === '__sem_categoria__') && (
+          {(selectedCategory === 'all' || selectedCategory === '__sem_categoria__') &&
+            (filteredUnknownTemplates.length > 0 || selectedCategory === '__sem_categoria__') && (
             <section className="space-y-3">
-              <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-2">
+              <div className="flex items-center gap-2 border-b border-border/50 pb-2">
                 <div className="flex items-center gap-2">
                   <LucideIcons.FolderX className="w-4 h-4 text-primary" />
                   <h4 className="text-sm font-semibold text-foreground">Sem categoria</h4>
@@ -406,14 +512,6 @@ export const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({
                     {filteredUnknownTemplates.length}
                   </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => onCreateNew()}
-                  className="px-2.5 py-1 text-xs rounded-md bg-primary text-primary-foreground hover:opacity-90 transition-opacity flex items-center gap-1.5"
-                >
-                  <LucideIcons.Plus className="w-3.5 h-3.5" />
-                  Novo
-                </button>
               </div>
 
               {filteredUnknownTemplates.length === 0 ? (
@@ -424,6 +522,7 @@ export const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({
                 <div className="space-y-2">
                   {filteredUnknownTemplates.map((template) => {
                     const IconComp = getLucideIcon(template.icon);
+                    const isActive = templateActiveStates[template.id] ?? true;
                     return (
                       <div
                         key={template.id}
@@ -448,10 +547,26 @@ export const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({
                           <button
                             type="button"
                             onClick={() => onDeleteCustom(template.id, template.label)}
-                            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+                            className="p-1.5 rounded-md text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors"
                             title="Excluir"
                           >
                             <LucideIcons.Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onToggleTemplateActive(template.id);
+                            }}
+                            className={`text-[11px] px-2 py-1 rounded-full flex-shrink-0 inline-flex items-center gap-1.5 font-medium ${
+                              isActive
+                                ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                                : 'bg-red-500/10 text-red-600 dark:text-red-400'
+                            }`}
+                            title={isActive ? 'Inativar template' : 'Ativar template'}
+                          >
+                            <LucideIcons.Power className="w-3 h-3" />
+                            {isActive ? 'Ativado' : 'Inativado'}
                           </button>
                         </div>
                       </div>
@@ -462,6 +577,12 @@ export const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({
             </section>
           )}
 
+          {!normalizedQuery && !hasVisibleTemplates && (
+            <div className="rounded-lg border border-dashed border-border/60 p-4 text-sm text-muted-foreground text-center">
+              Nenhum template cadastrado ainda.
+            </div>
+          )}
+
           {!hasQueryResults && (
             <div className="rounded-lg border border-dashed border-border/60 p-4 text-sm text-muted-foreground text-center">
               Nenhum template encontrado para o filtro aplicado.
@@ -469,21 +590,16 @@ export const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({
           )}
         </div>
 
-        <div className="p-5 border-t border-border flex items-center justify-end gap-2">
+        {/* Footer */}
+        <div data-testid="template-manager-footer" className="flex gap-3 p-5 border-t border-border shrink-0">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors text-sm font-medium"
+            className="flex-1 px-4 py-2.5 rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors text-sm font-medium"
           >
-            Fechar
-          </button>
-          <button
-            onClick={() => onCreateNew()}
-            className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity text-sm font-medium"
-          >
-            Novo Template
+            {t('settings.actions.close')}
           </button>
         </div>
       </div>
-    </div>
+    </BaseModal>
   );
 };

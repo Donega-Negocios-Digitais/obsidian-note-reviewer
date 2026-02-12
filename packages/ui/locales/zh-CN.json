@@ -33,7 +33,7 @@
       "destinationRequiredFull": "必需",
       "templatePlaceholder": "模板路径...",
       "destinationPlaceholder": "目标文件夹...",
-      "tip": "💡 提示：您可以使用 Obsidian URL（obsidian://...）或完整文件路径",
+      "tip": "💡 提示：使用 ⏻ 按钮启用/禁用模板。绿色 = 活跃，红色 = 非活跃",
       "configurePath": "配置路径和模板",
       "templatePathDescription": "用于创建此笔记类型的模板文件路径",
       "destinationPathDescription": "此类型笔记将保存的文件夹"
@@ -208,7 +208,13 @@
       "editorDesc": "可以添加批注和评论",
       "viewerDesc": "仅查看文档",
       "pending": "待处理",
-      "removeCollaborator": "删除协作者"
+      "removeCollaborator": "删除协作者",
+      "editCollaborator": "编辑协作者",
+      "activate": "激活",
+      "deactivate": "停用",
+      "statusPending": "待处理",
+      "statusActive": "激活",
+      "statusInactive": "未激活"
     },
     "profile": {
       "title": "个人资料",
@@ -228,14 +234,7 @@
       "updatePassword": "更改密码",
       "updating": "更新中...",
       "photoUpdated": "照片已更新",
-      "maxSize": "JPG、PNG 或 GIF。最大 2MB。",
-      "identity": "审阅者身份",
-      "activeIdentity": "当前身份",
-      "anonymousBackup": "匿名备份",
-      "generateIdentity": "生成新身份",
-      "generateIdentityDesc": "将为您的批注创建新的匿名身份",
-      "accountEmail": "电子邮件",
-      "accountId": "ID"
+      "maxSize": "JPG、PNG 或 GIF。最大 2MB。"
     }
   },
   "viewer": {
@@ -348,7 +347,15 @@
     "title": "键盘快捷键",
     "close": "关闭（Esc）",
     "noShortcuts": "没有可用的快捷键。",
-    "pressEsc": "按 <kbd>Esc</kbd> 关闭"
+    "pressEsc": "按 <kbd>Esc</kbd> 关闭",
+    "clickToView": "点击查看演示",
+    "clickToEdit": "点击编辑",
+    "resetAll": "恢复",
+    "resetConfirm": "恢复所有默认快捷键？",
+    "editTitle": "编辑快捷键",
+    "pressNewKey": "按新的组合键",
+    "waitingForKey": "等待中...",
+    "clearKey": "清除键"
   },
   "editor": {
     "placeholder": "在此编辑笔记内容...",
@@ -382,7 +389,12 @@
     "finish": "完成",
     "apply": "应用",
     "reset": "重置",
-    "clear": "清除"
+    "clear": "清除",
+    "cancel": "取消",
+    "save": "保存",
+    "name": "名称",
+    "email": "电子邮箱",
+    "permission": "权限"
   },
   "app": {
     "saveToObsidian": "保存到 Obsidian",

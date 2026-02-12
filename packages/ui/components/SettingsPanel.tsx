@@ -1,7 +1,7 @@
 ﻿/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any, security/detect-object-injection, no-alert */
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BookOpen, FolderOpen, User, Keyboard, Globe, Download, Upload, RotateCcw, Lightbulb, UserCircle, Users, Edit, Trash2, Plug, Power, Ban, Eye, FileText, Zap } from 'lucide-react';
+import { BookOpen, FolderOpen, User, Keyboard, Globe, Download, Upload, RotateCcw, Lightbulb, UserCircle, Users, Edit, Trash2, Plug, Power, Ban, Eye, FileText, Zap, Terminal, Check, X, Info, ArrowDown, ToggleRight, ArrowRight } from 'lucide-react';
 import { ProfileSettings } from './ProfileSettings';
 import { CollaborationSettings } from './CollaborationSettings';
 import { IntegrationsSettings } from './IntegrationsSettings';
@@ -10,18 +10,13 @@ import { TemplateManagerModal } from './TemplateManagerModal';
 import { NewTemplateModal } from './NewTemplateModal';
 import { TrashModal } from './TrashModal';
 import { ConfirmModal } from './ConfirmModal';
+import { BaseModal } from './BaseModal';
 import { testTelegramConnection } from '../../api/telegram';
 
-const BoxingGloveIcon = ({ className }: { className?: string }) => (
-  <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor">
-    <g transform="rotate(-90, 256, 256)">
-      <path d="M141.977 56.943q-.952.005-1.905.053c-2.903.145-5.805.58-8.7 1.326c-28.33 7.294-56.425 29.248-77.058 57.844c-20.632 28.596-33.67 63.593-33.554 95.455c.06 16.533 6.94 27.84 18.886 36.927c7.29 5.544 16.59 9.97 27.032 13.23c-1.023-14.32-.482-29.776 3.957-42.71l16.844 5.783c-15.886 57.862 18.713 102.134 69.65 142.007c-2.305-28.866 2.355-59.986 15.7-91.345c-1.265-7.76-1.14-16.392.57-25.664c4.65-25.21 20.01-56.115 49.88-93.414l14.59 11.68c-28.65 35.777-42.302 64.575-46.09 85.122c-3.79 20.548 1.342 31.848 10.048 38.176s23.24 8.047 40.315 2.526c17.073-5.522 36.13-18.136 52.42-38.405c40.154-49.957 56.8-91.026 58.064-120.484c1.265-29.46-11.115-47.414-32.752-56.937C276.602 59.067 191.21 80.82 119.7 162.938l-14.095-12.272c26.81-30.786 55.632-54.11 84.143-70.29c-15.18-14.578-31.464-23.538-47.77-23.433zm230.76 85.89c-.65-.005-1.303.005-1.956.01c-3.553 34.283-22.66 75.888-61.65 124.397c-18.358 22.844-40.163 37.666-61.237 44.48c-21.075 6.816-41.974 5.77-57.053-5.19a42 42 0 0 1-7.387-6.887c-20.753 63.805-2.12 122.793 34.906 158.587c25.613 24.76 60.005 38.354 97.472 34.727s78.5-24.527 116.943-70.998c84.462-102.102 71.214-199.61 19.823-247.646c-21.08-19.702-48.703-31.302-79.862-31.482z" />
-    </g>
-  </svg>
-);
 import { getIdentity, getAnonymousIdentity, regenerateIdentity, updateDisplayName } from '../utils/identity';
 import { getDisplayName } from '../utils/storage';
-import { CATEGORY_ORDER, CATEGORY_LABELS, getShortcutsByCategory, formatShortcutKey, resetShortcuts, updateShortcut } from '../utils/shortcuts';
+import { CATEGORY_ORDER, CATEGORY_LABELS, getShortcutsByCategory, formatShortcutKey, resetShortcuts, updateShortcut, type Shortcut, type ShortcutCategory } from '../utils/shortcuts';
+import { EditShortcutModal, type EditingState } from './EditShortcutModal';
 import {
   getNoteTypePath,
   setNoteTypePath,
@@ -38,16 +33,26 @@ import {
   saveCustomTemplates,
   getCustomCategories,
   saveCustomCategories,
+  cleanupSeedDemoContent,
   getTrashedTemplates,
+  getTrashedCategories,
   addToTrash,
+  addCategoryToTrash,
   restoreFromTrash,
+  restoreManyFromTrash,
+  restoreCategoryFromTrash,
   permanentlyDeleteFromTrash,
+  permanentlyDeleteCategoryFromTrash,
   isTemplateInTrash,
   getHiddenNoteTypes,
   saveHiddenNoteTypes,
+  getTemplateActiveStates,
+  saveTemplateActiveStates,
+  setTemplateActive,
   type CustomTemplate,
   type CustomCategory,
-  type TrashedTemplate
+  type TrashedTemplate,
+  type TrashedCategory,
 } from '../utils/storage';
 import {
   getNoteTypesByCategory,
@@ -90,6 +95,62 @@ type TemplateDragPayload = {
   category: string;
 };
 
+const SETTINGS_MODAL_KEYS = {
+  showCategoryManager: 'obsreview-settings-showCategoryManager',
+  showTemplateManager: 'obsreview-settings-showTemplateManager',
+  showNewTemplateModal: 'obsreview-settings-showNewTemplateModal',
+  editingCustomTemplate: 'obsreview-settings-editingCustomTemplate',
+  newTemplateInitialCategory: 'obsreview-settings-newTemplateInitialCategory',
+  showTrashModal: 'obsreview-settings-showTrashModal',
+  showEditPathModal: 'obsreview-settings-showEditPathModal',
+  editingPath: 'obsreview-settings-editingPath',
+  editPathData: 'obsreview-settings-editPathData',
+  showDeleteConfirm: 'obsreview-settings-showDeleteConfirm',
+  deleteTarget: 'obsreview-settings-deleteTarget',
+} as const;
+
+function readLocalFlag(key: string): boolean {
+  try {
+    return localStorage.getItem(key) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeLocalFlag(key: string, value: boolean): void {
+  try {
+    if (value) {
+      localStorage.setItem(key, '1');
+    } else {
+      localStorage.removeItem(key);
+    }
+  } catch {
+    // ignore persistence errors
+  }
+}
+
+function readLocalJSON<T>(key: string): T | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
+
+function writeLocalJSON(key: string, value: unknown | null | undefined): void {
+  try {
+    if (value === null || value === undefined) {
+      localStorage.removeItem(key);
+      return;
+    }
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // ignore persistence errors
+  }
+}
+
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   isOpen,
   onClose,
@@ -111,11 +172,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Estado para templates ativos/desativados
-  const [activeTemplates, setActiveTemplates] = useState<Set<string>>(() => {
-    const saved = localStorage.getItem('obsreview-active-templates');
-    return saved ? new Set(JSON.parse(saved)) : new Set();
-  });
+  // Estado para templates ativos/desativados (agora usa templateActiveStates)
 
   // Auto-hide save feedback after 2 seconds
   useEffect(() => {
@@ -185,13 +242,19 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   ]);
 
   // Templates and categories state
-  const [showCategoryManager, setShowCategoryManager] = useState(false);
-  const [showTemplateManager, setShowTemplateManager] = useState(false);
-  const [showNewTemplateModal, setShowNewTemplateModal] = useState(false);
-  const [editingCustomTemplate, setEditingCustomTemplate] = useState<CustomTemplate | null>(null);
-  const [newTemplateInitialCategory, setNewTemplateInitialCategory] = useState<string | undefined>(undefined);
+  const [showCategoryManager, setShowCategoryManager] = useState(() => readLocalFlag(SETTINGS_MODAL_KEYS.showCategoryManager));
+  const [showTemplateManager, setShowTemplateManager] = useState(() => readLocalFlag(SETTINGS_MODAL_KEYS.showTemplateManager));
+  const [showNewTemplateModal, setShowNewTemplateModal] = useState(() => readLocalFlag(SETTINGS_MODAL_KEYS.showNewTemplateModal));
+  const [editingCustomTemplate, setEditingCustomTemplate] = useState<CustomTemplate | null>(() =>
+    readLocalJSON<CustomTemplate>(SETTINGS_MODAL_KEYS.editingCustomTemplate),
+  );
+  const [newTemplateInitialCategory, setNewTemplateInitialCategory] = useState<string | undefined>(() =>
+    readLocalJSON<string>(SETTINGS_MODAL_KEYS.newTemplateInitialCategory) || undefined,
+  );
   const [customTemplates, setCustomTemplates] = useState<CustomTemplate[]>([]);
   const [customCategories, setCustomCategories] = useState<CustomCategory[]>(() => getCustomCategories());
+  const [templateActiveStates, setTemplateActiveStates] = useState<Record<string, boolean>>(() => getTemplateActiveStates());
+  const [templateCategoryFilter, setTemplateCategoryFilter] = useState<'all' | string>('all');
   const [builtInTemplateOrder, setBuiltInTemplateOrder] = useState<Record<string, number>>(() => {
     const raw = localStorage.getItem(BUILT_IN_ORDER_STORAGE_KEY);
     if (!raw) return {};
@@ -210,18 +273,65 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   }, [builtInTemplateOrder]);
 
   // Add hook modal state
-  const [showShortcutModal, setShowShortcutModal] = useState(false);
-  const [editingShortcut, setEditingShortcut] = useState<{ category: string; id: string; label: string; key: string } | null>(null);
-  const [newShortcutKey, setNewShortcutKey] = useState('');
+  const [editingShortcut, setEditingShortcut] = useState<EditingState | null>(null);
+  const [shortcutsVersion, setShortcutsVersion] = useState(0);
   const [showAddHookModal, setShowAddHookModal] = useState(false);
-  const [newHook, setNewHook] = useState({ name: '', description: '', trigger: '' });
+  const [newHook, setNewHook] = useState({ name: '', description: '', trigger: '', enabled: true });
+
+  // Persistência do modal de adicionar hook
+  useEffect(() => {
+    if (showAddHookModal) {
+      // Salvar estado ao abrir
+      localStorage.setItem('obsreview-addHookModal', 'true');
+      localStorage.setItem('obsreview-newHook', JSON.stringify(newHook));
+    } else {
+      // Limpar ao fechar
+      localStorage.removeItem('obsreview-addHookModal');
+      localStorage.removeItem('obsreview-newHook');
+    }
+  }, [showAddHookModal, newHook]);
+
+  useEffect(() => {
+    // Restaurar estado ao montar
+    const savedModal = localStorage.getItem('obsreview-addHookModal');
+    const savedHook = localStorage.getItem('obsreview-newHook');
+    if (savedModal === 'true' && savedHook) {
+      try {
+        setShowAddHookModal(true);
+        setNewHook(JSON.parse(savedHook));
+      } catch {
+        localStorage.removeItem('obsreview-addHookModal');
+        localStorage.removeItem('obsreview-newHook');
+      }
+    }
+
+    const savedEditModal = localStorage.getItem('obsreview-editHookModal');
+    const savedEditingHook = localStorage.getItem('obsreview-editingHook');
+    const savedEditHookData = localStorage.getItem('obsreview-editHookData');
+    if (savedEditModal === 'true' && savedEditingHook && savedEditHookData) {
+      try {
+        setShowEditHookModal(true);
+        setEditingHook(JSON.parse(savedEditingHook));
+        setEditHookData(JSON.parse(savedEditHookData));
+      } catch {
+        localStorage.removeItem('obsreview-editHookModal');
+        localStorage.removeItem('obsreview-editingHook');
+        localStorage.removeItem('obsreview-editHookData');
+      }
+    }
+  }, []);
 
   // Edit template/path modal state
-  const [showEditPathModal, setShowEditPathModal] = useState(false);
-  const [editingPath, setEditingPath] = useState<{ tipo: string; label: string; icon: string } | null>(null);
-  const [editPathData, setEditPathData] = useState({
-    template: '',
-    path: '',
+  const [showEditPathModal, setShowEditPathModal] = useState(() => readLocalFlag(SETTINGS_MODAL_KEYS.showEditPathModal));
+  const [editingPath, setEditingPath] = useState<{ tipo: string; label: string; icon: string } | null>(() =>
+    readLocalJSON<{ tipo: string; label: string; icon: string }>(SETTINGS_MODAL_KEYS.editingPath),
+  );
+  const [editPathData, setEditPathData] = useState(() => {
+    const saved = readLocalJSON<{ template?: string; path?: string }>(SETTINGS_MODAL_KEYS.editPathData);
+    return {
+      template: saved?.template || '',
+      path: saved?.path || '',
+    };
   });
 
   // Edit hook modal state
@@ -233,17 +343,106 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     trigger: '',
   });
 
+  useEffect(() => {
+    if (showEditHookModal && editingHook) {
+      localStorage.setItem('obsreview-editHookModal', 'true');
+      localStorage.setItem('obsreview-editingHook', JSON.stringify(editingHook));
+      localStorage.setItem('obsreview-editHookData', JSON.stringify(editHookData));
+      return;
+    }
+
+    localStorage.removeItem('obsreview-editHookModal');
+    localStorage.removeItem('obsreview-editingHook');
+    localStorage.removeItem('obsreview-editHookData');
+  }, [showEditHookModal, editingHook, editHookData]);
+
   // Delete confirmation modal state
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<{ tipo: string; label: string } | null>(null);
-  const [showTrashModal, setShowTrashModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(() => readLocalFlag(SETTINGS_MODAL_KEYS.showDeleteConfirm));
+  const [deleteTarget, setDeleteTarget] = useState<{ tipo: string; label: string } | null>(() =>
+    readLocalJSON<{ tipo: string; label: string }>(SETTINGS_MODAL_KEYS.deleteTarget),
+  );
+  const [showTrashModal, setShowTrashModal] = useState(() => readLocalFlag(SETTINGS_MODAL_KEYS.showTrashModal));
   const [trashedTemplates, setTrashedTemplates] = useState(() => getTrashedTemplates());
+  const [trashedCategories, setTrashedCategories] = useState(() => getTrashedCategories());
   const [hiddenNoteTypes, setHiddenNoteTypes] = useState<string[]>(() => getHiddenNoteTypes());
+
+  // Persistência dos modais de templates/categorias para sobreviver a troca de janela/reload
+  useEffect(() => {
+    writeLocalFlag(SETTINGS_MODAL_KEYS.showCategoryManager, showCategoryManager);
+    writeLocalFlag(SETTINGS_MODAL_KEYS.showTemplateManager, showTemplateManager);
+    writeLocalFlag(SETTINGS_MODAL_KEYS.showNewTemplateModal, showNewTemplateModal);
+    writeLocalJSON(SETTINGS_MODAL_KEYS.editingCustomTemplate, editingCustomTemplate);
+    writeLocalJSON(SETTINGS_MODAL_KEYS.newTemplateInitialCategory, newTemplateInitialCategory);
+    writeLocalFlag(SETTINGS_MODAL_KEYS.showTrashModal, showTrashModal);
+    writeLocalFlag(SETTINGS_MODAL_KEYS.showEditPathModal, showEditPathModal);
+    writeLocalJSON(SETTINGS_MODAL_KEYS.editingPath, editingPath);
+    writeLocalJSON(SETTINGS_MODAL_KEYS.editPathData, editPathData);
+    writeLocalFlag(SETTINGS_MODAL_KEYS.showDeleteConfirm, showDeleteConfirm);
+    writeLocalJSON(SETTINGS_MODAL_KEYS.deleteTarget, deleteTarget);
+  }, [
+    showCategoryManager,
+    showTemplateManager,
+    showNewTemplateModal,
+    editingCustomTemplate,
+    newTemplateInitialCategory,
+    showTrashModal,
+    showEditPathModal,
+    editingPath,
+    editPathData,
+    showDeleteConfirm,
+    deleteTarget,
+  ]);
 
   // Language state
   const [currentLanguage, setCurrentLanguage] = useState(() => {
     return localStorage.getItem('app-language') || 'pt-BR';
   });
+
+  const removeTemplateStateLinks = (templateIds: string[]) => {
+    if (templateIds.length === 0) return;
+    setTemplateActiveStates((prev) => {
+      const next = { ...prev };
+      templateIds.forEach((templateId) => {
+        delete next[templateId];
+      });
+      saveTemplateActiveStates(next);
+      return next;
+    });
+  };
+
+  const isTemplateWithoutNotes = (template: CustomTemplate): boolean => {
+    const destination = (template.destinationPath || '').trim();
+    const sourceTemplate = (template.templatePath || '').trim();
+    return destination === '' && sourceTemplate === '';
+  };
+
+  const normalizeCustomTemplateForRestore = (template: CustomTemplate): CustomTemplate => {
+    const categoryExists = customCategories.some((category) => category.id === template.category);
+    if (categoryExists) return template;
+    return { ...template, category: '__sem_categoria__' };
+  };
+
+  const syncCustomTemplatesWithCleanup = (templates: CustomTemplate[]): CustomTemplate[] => {
+    const emptyTemplateIds = templates
+      .filter(isTemplateWithoutNotes)
+      .map((template) => template.id);
+
+    if (emptyTemplateIds.length === 0) {
+      setCustomTemplates(templates);
+      return templates;
+    }
+
+    const validTemplates = templates.filter((template) => !emptyTemplateIds.includes(template.id));
+    saveCustomTemplates(validTemplates);
+    setCustomTemplates(validTemplates);
+    removeTemplateStateLinks(emptyTemplateIds);
+    return validTemplates;
+  };
+
+  const refreshCustomTemplates = () => {
+    const templates = getCustomTemplates();
+    return syncCustomTemplatesWithCleanup(templates);
+  };
 
   // Load saved configuration on mount and when panel opens
   useEffect(() => {
@@ -283,9 +482,27 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           }
         }
 
-        // Load custom templates and categories
-        setCustomTemplates(getCustomTemplates());
-        setCustomCategories(getCustomCategories());
+        // Run seed/demo cleanup migration before loading template/category data.
+        const cleanupResult = cleanupSeedDemoContent();
+        if (cleanupResult.removedTemplateIds.length > 0) {
+          removeTemplateStateLinks(cleanupResult.removedTemplateIds);
+        }
+
+        // Load custom templates and remove empty entries automatically
+        const loadedCustomTemplates = cleanupResult.templates;
+        const emptyTemplateIds = loadedCustomTemplates
+          .filter(isTemplateWithoutNotes)
+          .map((template) => template.id);
+        const validCustomTemplates = loadedCustomTemplates.filter((template) => !emptyTemplateIds.includes(template.id));
+        if (emptyTemplateIds.length > 0) {
+          saveCustomTemplates(validCustomTemplates);
+          removeTemplateStateLinks(emptyTemplateIds);
+        }
+        setCustomTemplates(validCustomTemplates);
+        setCustomCategories(cleanupResult.categories);
+        setTemplateActiveStates(getTemplateActiveStates());
+        setTrashedTemplates(getTrashedTemplates());
+        setTrashedCategories(getTrashedCategories());
 
         const defaultOrder: Record<string, number> = {};
         let orderIndex = 0;
@@ -541,21 +758,23 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
   const addHook = () => {
     if (!newHook.name || !newHook.description || !newHook.trigger) return;
-    
+
     const hook: Hook = {
       id: `hook-${Date.now()}`,
       name: newHook.name,
       description: newHook.description,
       trigger: newHook.trigger,
-      enabled: true,
+      enabled: newHook.enabled ?? true,
     };
-    
+
     const updatedHooks = [...hooks, hook];
     setHooks(updatedHooks);
     localStorage.setItem('obsreview-hooks', JSON.stringify(updatedHooks));
 
     setShowAddHookModal(false);
-    setNewHook({ name: '', description: '', trigger: '' });
+    setNewHook({ name: '', description: '', trigger: '', enabled: true });
+    localStorage.removeItem('obsreview-addHookModal');
+    localStorage.removeItem('obsreview-newHook');
   };
 
   const openEditHookModal = (hook: Hook) => {
@@ -623,79 +842,136 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   };
 
   const confirmDelete = () => {
-    if (deleteTarget) {
-      // Se estiver na lixeira, deleta permanentemente
-      if (isTemplateInTrash(deleteTarget.tipo)) {
-        permanentlyDeleteFromTrash(deleteTarget.tipo);
-        setTrashedTemplates(getTrashedTemplates());
-        showSuccessToast(`"${deleteTarget.label}" deletado permanentemente!`);
-        setShowDeleteConfirm(false);
-        setDeleteTarget(null);
-        return;
-      }
+    if (!deleteTarget) return;
 
-      // Check if it's a hook (id starts with 'hook-')
-      if (deleteTarget.tipo.startsWith('hook-')) {
-        const updatedHooks = hooks.filter(h => h.id !== deleteTarget.tipo);
-        setHooks(updatedHooks);
-        localStorage.setItem('obsreview-hooks', JSON.stringify(updatedHooks));
-      }
-      // Check if it's a custom template (id starts with 'custom_')
-      else if (deleteTarget.tipo.startsWith('custom_')) {
-        const templates = getCustomTemplates();
-        const updatedTemplates = templates.filter(t => t.id !== deleteTarget.tipo);
-        saveCustomTemplates(updatedTemplates);
-        setCustomTemplates(updatedTemplates);
-        const nextActive = new Set(activeTemplates);
-        nextActive.delete(deleteTarget.tipo);
-        setActiveTemplates(nextActive);
-        localStorage.setItem('obsreview-active-templates', JSON.stringify([...nextActive]));
-        showSuccessToast(`"${deleteTarget.label}" deletado com sucesso!`);
-        setShowDeleteConfirm(false);
-        setDeleteTarget(null);
-        return;
-      }
-      // Built-in template - MOVE TO TRASH instead of hiding
-      else {
-        // Salva dados antes de "deletar"
-        const trashedItem = {
-          tipo: deleteTarget.tipo,
-          label: deleteTarget.label,
-          icon: noteTypes[Object.keys(noteTypes).find(k =>
-            (noteTypes as any)[k]?.some((t: any) => t.tipo === deleteTarget.tipo)
-          )]?.find((t: any) => t.tipo === deleteTarget.tipo)?.icon || 'File',
+    const TRASH_TEMPLATE_PREFIX = '__trash_template__:';
+    const TRASH_CATEGORY_PREFIX = '__trash_category__:';
+
+    if (deleteTarget.tipo.startsWith(TRASH_TEMPLATE_PREFIX)) {
+      const templateId = deleteTarget.tipo.slice(TRASH_TEMPLATE_PREFIX.length);
+      permanentlyDeleteFromTrash(templateId);
+      setTrashedTemplates(getTrashedTemplates());
+      showSuccessToast(`"${deleteTarget.label}" deletado permanentemente da lixeira.`);
+      setShowDeleteConfirm(false);
+      setDeleteTarget(null);
+      return;
+    }
+
+    if (deleteTarget.tipo.startsWith(TRASH_CATEGORY_PREFIX)) {
+      const categoryId = deleteTarget.tipo.slice(TRASH_CATEGORY_PREFIX.length);
+      permanentlyDeleteCategoryFromTrash(categoryId);
+      setTrashedCategories(getTrashedCategories());
+      showSuccessToast(`"${deleteTarget.label}" deletada permanentemente da lixeira.`);
+      setShowDeleteConfirm(false);
+      setDeleteTarget(null);
+      return;
+    }
+
+    // Se estiver na lixeira antiga (compatibilidade), deleta permanentemente
+    if (isTemplateInTrash(deleteTarget.tipo)) {
+      permanentlyDeleteFromTrash(deleteTarget.tipo);
+      setTrashedTemplates(getTrashedTemplates());
+      showSuccessToast(`"${deleteTarget.label}" deletado permanentemente!`);
+      setShowDeleteConfirm(false);
+      setDeleteTarget(null);
+      return;
+    }
+
+    // Hook customizado
+    if (deleteTarget.tipo.startsWith('hook-')) {
+      const updatedHooks = hooks.filter((hook) => hook.id !== deleteTarget.tipo);
+      setHooks(updatedHooks);
+      localStorage.setItem('obsreview-hooks', JSON.stringify(updatedHooks));
+      showSuccessToast(`"${deleteTarget.label}" deletado com sucesso!`);
+      setShowDeleteConfirm(false);
+      setDeleteTarget(null);
+      return;
+    }
+
+    // Template customizado -> mover para lixeira de templates
+    if (deleteTarget.tipo.startsWith('custom_')) {
+      const templates = getCustomTemplates();
+      const targetTemplate = templates.find((template) => template.id === deleteTarget.tipo);
+      const updatedTemplates = templates.filter((template) => template.id !== deleteTarget.tipo);
+      saveCustomTemplates(updatedTemplates);
+      setCustomTemplates(updatedTemplates);
+      removeTemplateStateLinks([deleteTarget.tipo]);
+
+      if (targetTemplate) {
+        addToTrash({
+          tipo: targetTemplate.id,
+          label: targetTemplate.label,
+          icon: targetTemplate.icon || 'FileText',
           deletedAt: new Date().toISOString(),
-          path: notePaths[deleteTarget.tipo] || '',
-          template: noteTemplates[deleteTarget.tipo] || '',
-        };
-        addToTrash(trashedItem);
-        setTrashedTemplates(getTrashedTemplates());
-
-        // Oculta o card da lista principal
-        const updated = [...hiddenNoteTypes, deleteTarget.tipo];
-        setHiddenNoteTypes(updated);
-        saveHiddenNoteTypes(updated);
-
-        // Limpa os paths
-        setNotePaths(prev => ({ ...prev, [deleteTarget.tipo]: '' }));
-        setNoteTemplates(prev => ({ ...prev, [deleteTarget.tipo]: '' }));
-        setNoteTypePath(deleteTarget.tipo, '');
-        setNoteTypeTemplate(deleteTarget.tipo, '');
+          path: targetTemplate.destinationPath || '',
+          template: targetTemplate.templatePath || '',
+          isCustom: true,
+          customTemplate: targetTemplate,
+          sourceCategoryId: targetTemplate.category,
+          sourceCategoryName: getCategoryLabel(targetTemplate.category),
+        });
       }
 
+      setTrashedTemplates(getTrashedTemplates());
       showSuccessToast(`"${deleteTarget.label}" movido para a lixeira!`);
       setShowDeleteConfirm(false);
       setDeleteTarget(null);
+      return;
     }
+
+    // Template built-in -> mover para lixeira de templates
+    const builtInIcon = noteTypes[Object.keys(noteTypes).find((key) =>
+      (noteTypes as any)[key]?.some((item: any) => item.tipo === deleteTarget.tipo),
+    )]?.find((item: any) => item.tipo === deleteTarget.tipo)?.icon || 'File';
+
+    addToTrash({
+      tipo: deleteTarget.tipo,
+      label: deleteTarget.label,
+      icon: builtInIcon,
+      deletedAt: new Date().toISOString(),
+      path: notePaths[deleteTarget.tipo] || '',
+      template: noteTemplates[deleteTarget.tipo] || '',
+      isCustom: false,
+    });
+    setTrashedTemplates(getTrashedTemplates());
+
+    // Oculta o card da lista principal
+    const updatedHidden = [...hiddenNoteTypes, deleteTarget.tipo];
+    setHiddenNoteTypes(updatedHidden);
+    saveHiddenNoteTypes(updatedHidden);
+
+    // Limpa os paths
+    setNotePaths((prev) => ({ ...prev, [deleteTarget.tipo]: '' }));
+    setNoteTemplates((prev) => ({ ...prev, [deleteTarget.tipo]: '' }));
+    setNoteTypePath(deleteTarget.tipo, '');
+    setNoteTypeTemplate(deleteTarget.tipo, '');
+
+    showSuccessToast(`"${deleteTarget.label}" movido para a lixeira!`);
+    setShowDeleteConfirm(false);
+    setDeleteTarget(null);
   };
 
   const showSuccessToast = (message: string) => {
     setToastMessage(message);
   };
 
-  const handleRestore = (item: TrashedTemplate) => {
+  const handleRestoreTemplate = (item: TrashedTemplate) => {
     restoreFromTrash(item.tipo);
     setTrashedTemplates(getTrashedTemplates());
+
+    if (item.isCustom && item.customTemplate) {
+      const currentTemplates = getCustomTemplates();
+      const restoredTemplate = normalizeCustomTemplateForRestore(item.customTemplate);
+      const existingIndex = currentTemplates.findIndex((template) => template.id === restoredTemplate.id);
+      const mergedTemplates =
+        existingIndex === -1
+          ? [...currentTemplates, restoredTemplate]
+          : currentTemplates.map((template) => (template.id === restoredTemplate.id ? restoredTemplate : template));
+
+      syncCustomTemplatesWithCleanup(mergedTemplates);
+      showSuccessToast(`"${item.label}" restaurado com sucesso!`);
+      return;
+    }
 
     if (item.path) setNoteTypePath(item.tipo, item.path);
     if (item.template) setNoteTypeTemplate(item.tipo, item.template);
@@ -710,16 +986,50 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     showSuccessToast(`"${item.label}" restaurado com sucesso!`);
   };
 
-  // Função para ativar/desativar template
-  const toggleTemplateActive = (tipo: string) => {
-    const newActive = new Set(activeTemplates);
-    if (newActive.has(tipo)) {
-      newActive.delete(tipo);
-    } else {
-      newActive.add(tipo);
+  const handleRestoreCategory = (category: TrashedCategory) => {
+    const categoryExists = customCategories.some((item) => item.id === category.id);
+    if (!categoryExists) {
+      const updatedCategories = [
+        ...customCategories,
+        {
+          id: category.id,
+          name: category.name,
+          icon: category.icon,
+          isBuiltIn: false,
+        },
+      ];
+      saveCustomCategories(updatedCategories);
+      setCustomCategories(updatedCategories);
     }
-    setActiveTemplates(newActive);
-    localStorage.setItem('obsreview-active-templates', JSON.stringify([...newActive]));
+
+    const categoryTemplates = (category.templates || []).map((template) => ({
+      ...template,
+      category: category.id,
+    }));
+
+    if (categoryTemplates.length > 0) {
+      const currentTemplates = getCustomTemplates();
+      const currentTemplateIds = new Set(currentTemplates.map((template) => template.id));
+      const templatesToRestore = categoryTemplates.filter((template) => !currentTemplateIds.has(template.id));
+      const mergedTemplates = [...currentTemplates, ...templatesToRestore];
+      syncCustomTemplatesWithCleanup(mergedTemplates);
+      restoreManyFromTrash(categoryTemplates.map((template) => template.id));
+      setTrashedTemplates(getTrashedTemplates());
+    }
+
+    restoreCategoryFromTrash(category.id);
+    setTrashedCategories(getTrashedCategories());
+    showSuccessToast(`Categoria "${category.name}" restaurada com sucesso!`);
+  };
+
+  // Função para ativar/desativar template
+  const handleToggleTemplateActive = (tipo: string) => {
+    setTemplateActiveStates((prev) => {
+      const currentState = prev[tipo] ?? true;
+      const newState = !currentState;
+      setTemplateActive(tipo, newState);
+      return { ...prev, [tipo]: newState };
+    });
   };
 
   // Funções para templates customizados
@@ -770,12 +1080,21 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   };
 
   const noteTypes = getNoteTypesByCategory();
+  const hasUserConfiguredBuiltInTemplate = (tipo: string) => {
+    const destinationPath = (notePaths[tipo] || '').trim();
+    const templatePath = (noteTemplates[tipo] || '').trim();
+    return destinationPath !== '' || templatePath !== '';
+  };
+
   const visibleBuiltInTemplates = [
     ...noteTypes.terceiros,
     ...noteTypes.atomica,
     ...noteTypes.organizacional,
     ...noteTypes.alex,
-  ].filter(({ tipo }) => !isTemplateInTrash(tipo) && !hiddenNoteTypes.includes(tipo));
+  ].filter(
+    ({ tipo }) =>
+      hasUserConfiguredBuiltInTemplate(tipo) && !isTemplateInTrash(tipo) && !hiddenNoteTypes.includes(tipo),
+  );
 
   const customCategoryMap = new Map(customCategories.map((category) => [category.id, category]));
   const builtInCategoryMap = new Map(getBuiltInCategories().map((category) => [category.id, category]));
@@ -927,22 +1246,54 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   };
 
   const deleteCategory = (categoryId: string) => {
-    const exists = customCategoryMap.has(categoryId);
-    if (!exists) return;
+    const category = customCategoryMap.get(categoryId);
+    if (!category) return;
+
+    const relatedTemplates = customTemplates.filter((template) => template.category === categoryId);
+    const deletedAt = new Date().toISOString();
+
+    relatedTemplates.forEach((template) => {
+      addToTrash({
+        tipo: template.id,
+        label: template.label,
+        icon: template.icon || 'FileText',
+        deletedAt,
+        path: template.destinationPath || '',
+        template: template.templatePath || '',
+        isCustom: true,
+        customTemplate: template,
+        sourceCategoryId: categoryId,
+        sourceCategoryName: category.name,
+      });
+    });
+
+    addCategoryToTrash({
+      id: category.id,
+      name: category.name,
+      icon: category.icon,
+      deletedAt,
+      templates: relatedTemplates,
+    });
 
     const updatedCategories = customCategories.filter((category) => category.id !== categoryId);
     saveCustomCategories(updatedCategories);
     setCustomCategories(updatedCategories);
 
-    const updatedTemplates = customTemplates.map((template) => {
-      if (template.category === categoryId) {
-        return { ...template, category: '__sem_categoria__' };
-      }
-      return template;
-    });
+    const updatedTemplates = customTemplates.filter((template) => template.category !== categoryId);
     saveCustomTemplates(updatedTemplates);
     setCustomTemplates(updatedTemplates);
-    showSuccessToast('Categoria removida. Templates ficaram em "Sem categoria".');
+    removeTemplateStateLinks(relatedTemplates.map((template) => template.id));
+    setTrashedTemplates(getTrashedTemplates());
+    setTrashedCategories(getTrashedCategories());
+
+    if (relatedTemplates.length === 0) {
+      showSuccessToast(`Categoria "${category.name}" movida para a lixeira.`);
+      return;
+    }
+
+    showSuccessToast(
+      `Categoria "${category.name}" movida para a lixeira com ${relatedTemplates.length} template(s).`,
+    );
   };
 
   const builtInTemplatesForManager = visibleBuiltInTemplates
@@ -972,7 +1323,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     { id: 'caminhos', Icon: FolderOpen, label: 'Templates' },
     { id: 'atalhos', Icon: Keyboard, label: t('settings.tabs.atalhos') },
     { id: 'regras', Icon: BookOpen, label: t('settings.tabs.regras') },
-    { id: 'hooks', Icon: BoxingGloveIcon, label: t('settings.tabs.hooks') },
+    { id: 'hooks', Icon: Terminal, label: t('settings.tabs.hooks') },
     { id: 'colaboracao', Icon: Users, label: t('settings.tabs.colaboracao') },
     { id: 'integracoes', Icon: Plug, label: t('settings.integrations.title') },
   ];
@@ -1104,12 +1455,25 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
   // New component for unified paths and templates with 3-column grid (same design as Collaborators)
   const AllPathsAndTemplates = () => {
-    const builtInSections = BUILT_IN_CATEGORY_ORDER.map((id) => ({
-      id,
-      icon: getCategoryIcon(id),
-      label: getCategoryLabel(id),
-      canDelete: false,
-    }));
+    const builtInTemplateCountByCategory = builtInTemplatesForManager.reduce<Record<string, number>>((acc, template) => {
+      acc[template.category] = (acc[template.category] || 0) + 1;
+      return acc;
+    }, {});
+
+    const builtInSections = getBuiltInCategories()
+      .filter((category) => BUILT_IN_CATEGORY_ORDER.includes(category.id as typeof BUILT_IN_CATEGORY_ORDER[number]))
+      .filter((category) => (builtInTemplateCountByCategory[category.id] || 0) > 0)
+      .sort(
+        (a, b) =>
+          BUILT_IN_CATEGORY_ORDER.indexOf(a.id as typeof BUILT_IN_CATEGORY_ORDER[number]) -
+          BUILT_IN_CATEGORY_ORDER.indexOf(b.id as typeof BUILT_IN_CATEGORY_ORDER[number]),
+      )
+      .map((category) => ({
+        id: category.id,
+        icon: category.icon,
+        label: category.name,
+        canDelete: false,
+      }));
 
     const customSections = customCategories
       .filter((category) => !BUILT_IN_CATEGORY_ORDER.includes(category.id as typeof BUILT_IN_CATEGORY_ORDER[number]))
@@ -1121,7 +1485,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       }));
 
     const knownCategoryIds = new Set([
-      ...BUILT_IN_CATEGORY_ORDER,
+      ...builtInSections.map((section) => section.id),
       ...customCategories.map((category) => category.id),
       '__sem_categoria__',
     ]);
@@ -1141,6 +1505,25 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       });
     }
 
+    const getItemsForSection = (sectionId: string) => {
+      const builtInItems =
+        sectionId === '__sem_categoria__'
+          ? []
+          : builtInTemplatesForManager.filter((item) => item.category === sectionId);
+      const customItems =
+        sectionId === '__sem_categoria__'
+          ? uncategorizedCustomTemplates
+          : customTemplates.filter((template) => template.category === sectionId);
+      return { builtInItems, customItems };
+    };
+
+    const availableCategoryIds = new Set(['all', ...sectionList.map((section) => section.id)]);
+    const normalizedCategoryFilter = availableCategoryIds.has(templateCategoryFilter) ? templateCategoryFilter : 'all';
+    const filteredSectionList =
+      normalizedCategoryFilter === 'all'
+        ? sectionList
+        : sectionList.filter((section) => section.id === normalizedCategoryFilter);
+
     return (
       <div className="p-5 space-y-6 overflow-y-auto">
         {/* Header with action buttons */}
@@ -1152,7 +1535,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowTemplateManager(true)}
-              className="px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted rounded-lg transition-colors"
+              className="px-3 py-1.5 text-xs font-medium text-primary-foreground bg-primary hover:opacity-90 rounded-lg transition-opacity"
             >
               Gerenciar Templates
             </button>
@@ -1174,21 +1557,53 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 </span>
               )}
             </button>
-            <button
-              onClick={() => openCreateTemplateModal()}
-              className="px-3 py-1.5 text-xs font-medium text-primary-foreground bg-primary hover:opacity-90 rounded-lg transition-opacity"
-            >
-              {t('settings.newTemplate.newTemplate')}
-            </button>
           </div>
         </div>
 
-        {sectionList.map((section) => {
+        <div className="rounded-xl border border-border/50 bg-muted/20 p-3 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Categorias
+            </p>
+            <span className="text-[11px] text-muted-foreground">
+              {filteredSectionList.length} de {sectionList.length}
+            </span>
+          </div>
+          <div className="overflow-x-auto pb-1">
+            <div className="inline-flex min-w-full sm:min-w-0 gap-2">
+              <button
+                onClick={() => setTemplateCategoryFilter('all')}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors whitespace-nowrap ${
+                  normalizedCategoryFilter === 'all'
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-background border-border text-muted-foreground hover:text-foreground hover:bg-muted'
+                }`}
+              >
+                Todas
+              </button>
+              {sectionList.map((section) => {
+                const { builtInItems, customItems } = getItemsForSection(section.id);
+                return (
+                  <button
+                    key={`filter-${section.id}`}
+                    onClick={() => setTemplateCategoryFilter(section.id)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors whitespace-nowrap ${
+                      normalizedCategoryFilter === section.id
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-background border-border text-muted-foreground hover:text-foreground hover:bg-muted'
+                    }`}
+                  >
+                    {section.label} ({builtInItems.length + customItems.length})
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {filteredSectionList.map((section) => {
           const CategoryIcon = getLucideIcon(section.icon);
-          const builtInItems = builtInTemplatesForManager.filter((item) => item.category === section.id);
-          const customItems = section.id === '__sem_categoria__'
-            ? uncategorizedCustomTemplates
-            : customTemplates.filter((template) => template.category === section.id);
+          const { builtInItems, customItems } = getItemsForSection(section.id);
 
           return (
             <div key={section.id} className="space-y-4">
@@ -1205,14 +1620,14 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   {section.canDelete && (
                     <button
                       onClick={() => deleteCategory(section.id)}
-                      className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                      className="p-1.5 rounded-md text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors"
                       title="Excluir categoria"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
                   )}
                   <button
-                    onClick={() => openCreateTemplateModal(section.id === '__sem_categoria__' ? undefined : section.id)}
+                    onClick={() => openCreateTemplateModal(section.canDelete ? section.id : undefined)}
                     className="px-2.5 py-1 text-xs font-medium text-primary-foreground bg-primary hover:opacity-90 rounded-lg transition-opacity"
                   >
                     Novo
@@ -1223,19 +1638,16 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               {/* 3-column grid for cards - MINIMALIST DESIGN */}
               {builtInItems.length === 0 && customItems.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-border/60 p-4 text-xs text-muted-foreground">
-                  Nenhum template nesta categoria ainda. Clique em <strong>Novo</strong> para adicionar.
+                  Nenhum template nesta categoria ainda.
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {builtInItems.map(({ tipo, icon: itemIcon, label: itemLabel }) => {
                   const ItemIcon = getLucideIcon(itemIcon);
-                  const hasPath = notePaths[tipo] && notePaths[tipo].trim() !== '';
-                  const hasTemplate = noteTemplates[tipo] && noteTemplates[tipo].trim() !== '';
-                  const isTemplateActive = activeTemplates.has(tipo);
-                  const isConfigured = hasPath && hasTemplate;
                   const dragPayload: TemplateDragPayload = { kind: 'builtIn', id: tipo, category: section.id };
                   const isDragging = draggingTemplate?.kind === 'builtIn' && draggingTemplate.id === tipo;
                   const isDragOver = dragOverTemplateId === tipo;
+                  const isActive = templateActiveStates[tipo] ?? true;
 
                   return (
                     <div
@@ -1250,7 +1662,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                         isDragging ? 'opacity-50 ring-2 ring-primary/30 cursor-grabbing' : ''
                       } ${isDragOver ? 'border-primary/70 bg-primary/5' : ''}`}
                     >
-                      {/* Linha superior: ícone + título + status */}
+                      {/* Linha superior: ícone + título + toggle */}
                       <div className="flex items-center justify-between gap-2 mb-3">
                         <div className="flex items-center gap-2 min-w-0">
                           <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
@@ -1260,23 +1672,23 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                             {itemLabel}
                           </h4>
                         </div>
-                        {isConfigured && isTemplateActive ? (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 flex-shrink-0" title="Template ativo - clique no ícone ⏻ para desativar">
-                            ✓ Ativo
-                          </span>
-                        ) : isConfigured ? (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-gray-500/10 text-gray-600 dark:text-gray-400 flex-shrink-0" title="Template configurado - clique no ícone ⏻ para ativar">
-                            Inativo
-                          </span>
-                        ) : hasPath ? (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 flex-shrink-0" title="Configure o template para completar">
-                            Incompleto
-                          </span>
-                        ) : (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-gray-500/10 text-gray-600 dark:text-gray-400 flex-shrink-0" title="Configure o caminho e template">
-                            Inativo
-                          </span>
-                        )}
+
+                        {/* Toggle Ativado/Inativado */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleTemplateActive(tipo);
+                          }}
+                          className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] font-medium transition-colors ${
+                            isActive
+                              ? 'bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-500/20'
+                              : 'bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20'
+                          }`}
+                          title={isActive ? 'Desativar' : 'Ativar'}
+                        >
+                          <Power className="w-3 h-3" />
+                          {isActive ? 'Ativado' : 'Inativado'}
+                        </button>
                       </div>
 
                       {/* Divisor */}
@@ -1285,37 +1697,19 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                       {/* Linha inferior: ícones de ação */}
                       <div className="flex items-center justify-end gap-3">
                         <div className="flex items-center gap-1">
-                          {/* Botão Deletar - PRIMEIRO */}
+                          {/* Botão Deletar */}
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               deactivatePath(tipo, itemLabel);
                             }}
-                            className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                            className="p-2 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors"
                             title="Deletar"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
 
-                          {/* Botão Power para ativar/desativar - MEIO */}
-                          {isConfigured && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleTemplateActive(tipo);
-                              }}
-                              className={`p-2 rounded-lg transition-all ${
-                                isTemplateActive
-                                  ? 'text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 hover:bg-green-500/10'
-                                  : 'text-muted-foreground hover:text-green-600 dark:hover:text-green-400 hover:bg-green-500/10'
-                              }`}
-                              title={isTemplateActive ? 'Desativar este template' : 'Ativar este template'}
-                            >
-                              <Power className="w-4 h-4" fill={isTemplateActive ? 'currentColor' : 'none'} />
-                            </button>
-                          )}
-
-                          {/* Botão Editar - ÚLTIMO (NO CANTO) */}
+                          {/* Botão Editar */}
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1334,13 +1728,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
                 {customItems.map((ct) => {
                   const CtIcon = getLucideIcon(ct.icon);
-                  const isCustomTemplateActive = activeTemplates.has(ct.id);
-                  const hasDestinationPath = Boolean(ct.destinationPath && ct.destinationPath.trim() !== '');
-                  const isConfigured = hasDestinationPath;
                   const sectionCategory = section.id === '__sem_categoria__' ? '__sem_categoria__' : section.id;
                   const dragPayload: TemplateDragPayload = { kind: 'custom', id: ct.id, category: sectionCategory };
                   const isDragging = draggingTemplate?.kind === 'custom' && draggingTemplate.id === ct.id;
                   const isDragOver = dragOverTemplateId === ct.id;
+                  const isActive = templateActiveStates[ct.id] ?? true;
 
                   return (
                     <div
@@ -1355,7 +1747,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                         isDragging ? 'opacity-50 ring-2 ring-primary/30 cursor-grabbing' : ''
                       } ${isDragOver ? 'border-primary/70 bg-primary/5' : ''}`}
                     >
-                      {/* Linha superior: ícone + título + status */}
+                      {/* Linha superior: ícone + título + toggle */}
                       <div className="flex items-center justify-between gap-2 mb-3">
                         <div className="flex items-center gap-2 min-w-0">
                           <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
@@ -1365,19 +1757,23 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                             {ct.label}
                           </h4>
                         </div>
-                        {isConfigured && isCustomTemplateActive ? (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 flex-shrink-0" title="Template ativo - clique no ícone ⏻ para desativar">
-                            ✓ Ativo
-                          </span>
-                        ) : isConfigured ? (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-gray-500/10 text-gray-600 dark:text-gray-400 flex-shrink-0" title="Template configurado - clique no ícone ⏻ para ativar">
-                            Inativo
-                          </span>
-                        ) : (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 flex-shrink-0" title="Configure o template para completar">
-                            Incompleto
-                          </span>
-                        )}
+
+                        {/* Toggle Ativado/Inativado */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleTemplateActive(ct.id);
+                          }}
+                          className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] font-medium transition-colors ${
+                            isActive
+                              ? 'bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-500/20'
+                              : 'bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20'
+                          }`}
+                          title={isActive ? 'Desativar' : 'Ativar'}
+                        >
+                          <Power className="w-3 h-3" />
+                          {isActive ? 'Ativado' : 'Inativado'}
+                        </button>
                       </div>
 
                       {/* Divisor */}
@@ -1386,37 +1782,19 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                       {/* Linha inferior: ícones de ação */}
                       <div className="flex items-center justify-end gap-3">
                         <div className="flex items-center gap-1">
-                          {/* Botão Deletar - PRIMEIRO */}
+                          {/* Botão Deletar */}
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               deleteCustomTemplate(ct.id, ct.label);
                             }}
-                            className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                            className="p-2 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors"
                             title="Excluir"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
 
-                          {/* Botão Power para ativar/desativar - MEIO */}
-                          {isConfigured && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleTemplateActive(ct.id);
-                              }}
-                              className={`p-2 rounded-lg transition-all ${
-                                isCustomTemplateActive
-                                  ? 'text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 hover:bg-green-500/10'
-                                  : 'text-muted-foreground hover:text-green-600 dark:hover:text-green-400 hover:bg-green-500/10'
-                              }`}
-                              title={isCustomTemplateActive ? 'Desativar este template' : 'Ativar este template'}
-                            >
-                              <Power className="w-4 h-4" fill={isCustomTemplateActive ? 'currentColor' : 'none'} />
-                            </button>
-                          )}
-
-                          {/* Botão Editar - ÚLTIMO (NO CANTO) */}
+                          {/* Botão Editar */}
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1438,18 +1816,16 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           );
         })}
 
+        {filteredSectionList.length === 0 && (
+          <div className="rounded-xl border border-dashed border-border/60 p-4 text-sm text-muted-foreground text-center">
+            Nenhuma categoria encontrada para o filtro selecionado.
+          </div>
+        )}
+
         {/* Info tip */}
         <div className="p-3 rounded-xl bg-muted/30">
           <p className="text-xs text-muted-foreground">
             {t('settings.paths.tip')}
-          </p>
-          <p className="text-xs text-muted-foreground mt-2">
-            Arraste e solte os cards dentro da mesma categoria para reordenar.
-          </p>
-          <p className="text-xs text-muted-foreground mt-2">
-            <span className="text-green-600 dark:text-green-400">💡 Dica:</span> Para ativar um template configurado, clique no botão <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-green-500/10 text-green-600 text-[10px]">
-              <Power className="w-3 h-3" />
-            </span> (Power) no card do template.
           </p>
         </div>
       </div>
@@ -1491,7 +1867,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             {onClose && (
               <button
                 onClick={onClose}
-                className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 title={t('settings.aria.closeSettings')}
                 aria-label={t('settings.aria.closeSettings')}
               >
@@ -1534,42 +1910,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               <span className="hidden lg:inline">{label}</span>
             </button>
           ))}
-
-          {/* Sidebar Actions */}
-          <div className="mt-auto pt-2 border-t border-border flex flex-col gap-0.5">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".json"
-              onChange={handleImportSettings}
-              className="hidden"
-            />
-            <button
-              onClick={handleExportSettings}
-              title={t('settings.actions.export')}
-              className="flex items-center gap-2 px-2 py-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-md transition-colors w-full focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-            >
-              <Download className="w-4 h-4 flex-shrink-0" />
-              <span className="hidden lg:inline">{t('settings.actions.export')}</span>
-            </button>
-            <button
-              onClick={handleImportClick}
-              title={t('settings.actions.import')}
-              className="flex items-center gap-2 px-2 py-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-md transition-colors w-full focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-            >
-              <Upload className="w-4 h-4 flex-shrink-0" />
-              <span className="hidden lg:inline">{t('settings.actions.import')}</span>
-            </button>
-            <button
-              onClick={handleLoadDefaults}
-              title={t('settings.actions.defaults')}
-              aria-label={t('settings.actions.defaults')}
-              className="flex items-center gap-2 px-2 py-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-md transition-colors w-full focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-            >
-              <RotateCcw className="w-4 h-4 flex-shrink-0" />
-              <span className="hidden lg:inline">{t('settings.actions.defaults')}</span>
-            </button>
-          </div>
         </div>
 
         {/* Tab Content */}
@@ -1611,49 +1951,40 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                       setCurrentLanguage(lang.code);
                       i18n.changeLanguage(lang.code);
                     }}
-                    className="bg-card/50 rounded-xl border border-border/50 p-5 transition-all hover:border-primary/30 hover:bg-accent/30 flex flex-col gap-4"
+                    className="bg-card/50 rounded-xl border border-border/50 p-4 transition-all hover:bg-card/80 flex flex-col gap-3 relative"
                   >
-                    {/* Header: Nome + Status Badge */}
-                    <div className="flex items-start justify-between gap-2">
-                      <h4 className="font-semibold text-base text-foreground">
-                        {lang.native}
-                      </h4>
-                      {isSelected && (
-                        <span className="text-xs px-2 py-0.5 rounded-md bg-green-500/10 text-green-600 dark:text-green-400 flex items-center gap-1 whitespace-nowrap">
-                          ✓ {t('settings.collaboration.statusActive')}
-                        </span>
-                      )}
-                    </div>
+                    {/* Status Badge (top-right) */}
+                    {isSelected && (
+                      <span className="absolute top-3 right-3 text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 flex items-center gap-1 whitespace-nowrap border border-green-500/20">
+                        <Check className="w-3 h-3" />
+                        {t('settings.collaboration.statusActive')}
+                      </span>
+                    )}
 
-                    {/* Descrição: Nome completo */}
-                    <p className="text-sm text-muted-foreground -mt-2">
-                      {lang.name}
-                    </p>
-
-                    {/* Bandeira + código (estilo role badge) */}
-                    <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-muted/50 w-fit font-mono text-xs">
-                      <span className="text-lg">{lang.flag}</span>
-                      <span className="text-muted-foreground">{lang.code}</span>
-                    </div>
-
-                    {/* Footer: ícone de status */}
-                    <div className="flex items-center justify-between mt-auto pt-3 border-t border-border/30">
-                      <div className="text-xs text-muted-foreground">
-                        {/* Espaço reservado */}
-                      </div>
-
-                      <div className="flex items-center gap-1">
-                        {isSelected ? (
-                          <div className="p-1.5 rounded-md bg-green-500/10 text-green-600">
-                            <Power className="w-4 h-4" />
-                          </div>
-                        ) : (
-                          <div className="p-1.5 rounded-md text-muted-foreground">
-                            <Ban className="w-4 h-4" />
-                          </div>
-                        )}
+                    {/* Flag + Name */}
+                    <div className="flex items-center gap-3">
+                      <span className="text-3xl" role="img" aria-label={`${lang.native} flag`}>
+                        {lang.flag}
+                      </span>
+                      <div className="text-left">
+                        <h4 className="font-semibold text-base text-foreground">
+                          {lang.native}
+                        </h4>
+                        <p className="text-sm text-muted-foreground">
+                          {lang.name}
+                        </p>
                       </div>
                     </div>
+
+                    {/* Language Code Badge */}
+                    <div className="self-start px-2 py-1 rounded-md bg-muted/50 font-mono text-xs text-muted-foreground w-fit">
+                      {lang.code}
+                    </div>
+
+                    {/* Selection Indicator */}
+                    {isSelected && (
+                      <div className="absolute bottom-3 right-3 w-2 h-2 rounded-full bg-green-500" />
+                    )}
                   </button>
                 );
               })}
@@ -1701,9 +2032,14 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                         key={shortcut.id}
                         className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-muted/50 transition-colors group cursor-pointer"
                         onClick={() => {
-                          setEditingShortcut({ category, id: shortcut.id, label: shortcut.label, key: shortcut.key });
-                          setNewShortcutKey(shortcut.key);
-                          setShowShortcutModal(true);
+                          setEditingShortcut({
+                            shortcut,
+                            category,
+                            newKey: shortcut.key,
+                            newModCtrl: shortcut.modCtrl || false,
+                            newModShift: shortcut.modShift || false,
+                            newModAlt: shortcut.modAlt || false,
+                          });
                         }}
                       >
                         <span className="text-xs font-medium text-foreground truncate">
@@ -1754,7 +2090,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     bg-card/50 rounded-xl border p-4 transition-all flex flex-col
                     ${hook.enabled
                       ? 'border-primary/50 bg-primary/5'
-                      : 'border-border/50 bg-muted/30'
+                      : 'border-red-500/20 bg-red-500/5'
                     }
                   `}
                 >
@@ -1770,7 +2106,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                         {t('settings.hooks.active')}
                       </span>
                     ) : (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-gray-500/10 text-gray-600 dark:text-gray-400 flex-shrink-0">
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 dark:text-red-400 flex-shrink-0">
                         {t('settings.hooks.inactive')}
                       </span>
                     )}
@@ -1778,22 +2114,20 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
                   {/* Description */}
                   <p className="text-xs text-muted-foreground mb-2 flex-1">
-                    {hook.id === 'plan-mode' ? t('settings.hooks.planMode.description') : 
-                     hook.id === 'obsidian-note' ? t('settings.hooks.obsidianNote.description') : 
+                    {hook.id === 'plan-mode' ? t('settings.hooks.planMode.description') :
+                     hook.id === 'obsidian-note' ? t('settings.hooks.obsidianNote.description') :
                      hook.description}
                   </p>
 
-                  {/* Trigger badge */}
-                  <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-muted/50 rounded-md mb-3">
-                    <BoxingGloveIcon className="w-3 h-3 text-muted-foreground" />
-                    <code className="text-[10px] font-mono text-muted-foreground">
-                      {hook.trigger}
-                    </code>
-                  </div>
-
                   {/* Actions */}
                   <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/50">
-                    <div className="text-xs text-muted-foreground"></div>
+                    {/* Trigger badge */}
+                    <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-muted/50 rounded-md">
+                      <Terminal className="w-3 h-3 text-muted-foreground" />
+                      <code className="text-[10px] font-mono text-muted-foreground">
+                        {hook.trigger}
+                      </code>
+                    </div>
 
                     {/* Action Buttons */}
                     <div className="flex items-center gap-1">
@@ -1802,12 +2136,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                         onClick={() => toggleHook(hook.id)}
                         className={`p-1.5 rounded-md transition-all ${
                           hook.enabled
-                            ? 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                            : 'text-green-600 hover:text-green-700 hover:bg-green-500/10'
+                            ? 'text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 hover:bg-green-500/10'
+                            : 'text-muted-foreground hover:text-red-500 hover:bg-red-500/10'
                         }`}
                         title={hook.enabled ? 'Desativar hook' : 'Ativar hook'}
                       >
-                        <Power className="w-3.5 h-3.5" fill={hook.enabled ? 'currentColor' : 'none'} />
+                        <Power className="w-3.5 h-3.5" fill="none" />
                       </button>
 
                       {/* Edit Button */}
@@ -1823,7 +2157,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                       {hook.id.startsWith('hook-') && (
                         <button
                           onClick={() => deleteHook(hook.id)}
-                          className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-md transition-colors"
+                          className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-md transition-colors"
                           title="Excluir hook"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -1837,87 +2171,198 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
             {/* Add Hook Modal */}
             {showAddHookModal && (
-              <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
-                <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-6 animate-in fade-in slide-in-from-bottom-4 duration-200">
+              <BaseModal
+                isOpen={showAddHookModal}
+                onRequestClose={() => {
+                  setShowAddHookModal(false);
+                  setNewHook({ name: '', description: '', trigger: '', enabled: true });
+                  localStorage.removeItem('obsreview-addHookModal');
+                  localStorage.removeItem('obsreview-newHook');
+                }}
+                closeOnBackdropClick={false}
+                overlayClassName="z-[70]"
+                contentClassName="bg-card border border-border rounded-xl shadow-xl w-full max-w-lg animate-in fade-in slide-in-from-bottom-4 duration-200 max-h-[90vh] overflow-y-auto"
+              >
+                <div>
                   {/* Header */}
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-foreground">Cadastrar Novo Hook</h3>
-                    <button
-                      onClick={() => {
-                        setShowAddHookModal(false);
-                        setNewHook({ name: '', description: '', trigger: '' });
-                      }}
-                      className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors rounded-md"
-                    >
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
+                  <div className="sticky top-0 bg-card border-b border-border px-6 py-4 z-10">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start gap-3">
+                        <div className="p-2 bg-primary/10 rounded-lg">
+                          <Zap className="w-5 h-5 text-primary" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-semibold text-foreground">Cadastrar Novo Hook</h3>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Configure automações personalizadas
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setShowAddHookModal(false);
+                          setNewHook({ name: '', description: '', trigger: '', enabled: true });
+                          localStorage.removeItem('obsreview-addHookModal');
+                          localStorage.removeItem('obsreview-newHook');
+                        }}
+                        className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors rounded-md"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Form */}
-                  <div className="space-y-4">
+                  <div className="p-6 space-y-6">
+                    {/* Bloco 1: Nome do Hook */}
                     <div>
-                      <label className="block text-sm font-medium text-foreground mb-1.5">Nome do Hook</label>
+                      <label className="block text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+                        <Edit className="w-4 h-4 text-primary" />
+                        Nome do Hook <span className="text-red-500">*</span>
+                      </label>
                       <input
                         type="text"
                         value={newHook.name}
                         onChange={(e) => setNewHook({ ...newHook, name: e.target.value })}
                         placeholder="Ex: Meu Hook Personalizado"
-                        className="w-full p-2.5 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+                        className="w-full px-4 py-3 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
                       />
                     </div>
 
+                    {/* Bloco 2: Descrição */}
                     <div>
-                      <label className="block text-sm font-medium text-foreground mb-1.5">Descrição</label>
+                      <label className="block text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-primary" />
+                        Descrição <span className="text-red-500">*</span>
+                      </label>
                       <textarea
                         value={newHook.description}
                         onChange={(e) => setNewHook({ ...newHook, description: e.target.value })}
-                        placeholder="Descreva quando este hook deve ser ativado..."
-                        rows={3}
-                        className="w-full p-2.5 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary resize-none"
+                        placeholder="Descreva quando e como este hook deve ser ativado..."
+                        rows={2}
+                        className="w-full px-4 py-3 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary resize-none transition-all"
                       />
                     </div>
 
+                    {/* Separador */}
+                    <div className="border-t border-border" />
+
+                    {/* Bloco 3: TRIGGER - Quando isso acontece */}
                     <div>
-                      <label className="block text-sm font-medium text-foreground mb-1.5">Trigger (comando)</label>
-                      <input
-                        type="text"
-                        value={newHook.trigger}
-                        onChange={(e) => setNewHook({ ...newHook, trigger: e.target.value })}
-                        placeholder="Ex: /meu-comando"
-                        className="w-full p-2.5 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary font-mono text-sm"
-                      />
+                      <div className="flex items-center gap-2 mb-3">
+                        <Terminal className="w-4 h-4 text-amber-500" />
+                        <h4 className="text-sm font-semibold text-foreground">Quando isso acontece...</h4>
+                      </div>
+
+                      <div className="bg-muted/30 rounded-lg p-4 border border-border/50">
+                        <label className="block text-xs font-medium text-muted-foreground mb-2">
+                          Trigger (comando) <span className="text-red-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={newHook.trigger}
+                            onChange={(e) => setNewHook({ ...newHook, trigger: e.target.value })}
+                            placeholder="Ex: /meu-comando"
+                            className="w-full pl-4 pr-10 py-3 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary font-mono text-sm transition-all"
+                          />
+                          <ArrowDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1.5">
+                          <Info className="w-3.5 h-3.5 text-primary" />
+                          Comando que será detectado nas mensagens para ativar o hook
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Separador com seta */}
+                    <div className="flex items-center gap-3 py-2">
+                      <div className="flex-1 h-px bg-border" />
+                      <ArrowRight className="w-5 h-5 text-muted-foreground" />
+                      <div className="flex-1 h-px bg-border" />
+                    </div>
+
+                    {/* Bloco 4: AÇÃO - Então isso será executado */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <Zap className="w-4 h-4 text-green-500" />
+                        <h4 className="text-sm font-semibold text-foreground">Então isso será executado...</h4>
+                      </div>
+
+                      <div className="bg-muted/30 rounded-lg p-4 border border-border/50">
+                        <p className="text-sm text-muted-foreground">
+                          O hook será ativado automaticamente quando o trigger for detectado.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Separador */}
+                    <div className="border-t border-border" />
+
+                    {/* Bloco 5: Status */}
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Power className="w-4 h-4 text-primary" />
+                          <label className="text-sm font-semibold text-foreground">Status</label>
+                        </div>
+                        <button
+                          onClick={() => setNewHook({ ...newHook, enabled: !newHook.enabled })}
+                          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+                            newHook.enabled
+                              ? 'bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20'
+                              : 'bg-muted/50 text-muted-foreground border border-border'
+                          }`}
+                        >
+                          <ToggleRight className={`w-5 h-5 ${newHook.enabled ? 'text-green-600 dark:text-green-400' : ''}`} />
+                          <span className="text-sm font-medium">{newHook.enabled ? 'Ativo' : 'Inativo'}</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex gap-3 mt-6">
-                    <button
-                      onClick={() => {
-                        setShowAddHookModal(false);
-                        setNewHook({ name: '', description: '', trigger: '' });
-                      }}
-                      className="flex-1 px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors text-sm font-medium"
-                    >
-                      {t('settings.actions.cancel')}
-                    </button>
-                    <button
-                      onClick={addHook}
-                      disabled={!newHook.name || !newHook.description || !newHook.trigger}
-                      className="flex-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {t('settings.actions.create')}
-                    </button>
+                  {/* Rodapé */}
+                  <div className="sticky bottom-0 bg-card border-t border-border px-6 py-4">
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => {
+                          setShowAddHookModal(false);
+                          setNewHook({ name: '', description: '', trigger: '', enabled: true });
+                          localStorage.removeItem('obsreview-addHookModal');
+                          localStorage.removeItem('obsreview-newHook');
+                        }}
+                        className="flex-1 px-4 py-3 rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                      >
+                        <X className="w-4 h-4" />
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={addHook}
+                        disabled={!newHook.name || !newHook.description || !newHook.trigger}
+                        className="flex-1 px-4 py-3 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      >
+                        <Check className="w-4 h-4" />
+                        Salvar Hook
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </BaseModal>
             )}
 
             {/* Edit Hook Modal */}
             {showEditHookModal && editingHook && (
-              <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
-                <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-6 animate-in fade-in slide-in-from-bottom-4 duration-200">
+              <BaseModal
+                isOpen={showEditHookModal && !!editingHook}
+                onRequestClose={() => {
+                  setShowEditHookModal(false);
+                  setEditingHook(null);
+                  setEditHookData({ name: '', description: '', trigger: '' });
+                }}
+                closeOnBackdropClick={false}
+                overlayClassName="z-[70]"
+                contentClassName="bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-6 animate-in fade-in slide-in-from-bottom-4 duration-200"
+              >
+                <div>
                   {/* Header */}
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-foreground">Editar Hook</h3>
@@ -1927,7 +2372,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                         setEditingHook(null);
                         setEditHookData({ name: '', description: '', trigger: '' });
                       }}
-                      className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors rounded-md"
+                      className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors rounded-md"
                     >
                       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -1992,7 +2437,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     </button>
                   </div>
                 </div>
-              </div>
+              </BaseModal>
             )}
           </div>
         ) : activeTab === 'perfil' ? (
@@ -2034,63 +2479,27 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         </div>
       </div>
 
-      {/* Shortcut Redefine Modal */}
-      {showShortcutModal && editingShortcut && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
-          <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-sm p-6 animate-in fade-in slide-in-from-bottom-4 duration-200">
-            <div className="flex items-center justify-between mb-1">
-              <h3 className="text-base font-semibold text-foreground">{t('settings.shortcuts.promptTitle')}</h3>
-              <button
-                onClick={() => { setShowShortcutModal(false); setEditingShortcut(null); }}
-                className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors rounded-md"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <p className="text-sm text-muted-foreground mb-4">
-              {t('settings.shortcuts.pressKey')} <strong>"{editingShortcut.label}"</strong>
-            </p>
-            <input
-              autoFocus
-              type="text"
-              value={newShortcutKey}
-              readOnly
-              onKeyDown={(e) => {
-                e.preventDefault();
-                // Ignore modifier/navigation keys so Alt+Tab does not overwrite the shortcut value.
-                if (['Alt', 'Shift', 'Control', 'Meta', 'Tab'].includes(e.key)) {
-                  return;
-                }
-                setNewShortcutKey(e.key);
-              }}
-              placeholder="Pressione uma tecla..."
-              className="w-full px-3 py-2 text-sm font-mono border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 mb-4"
-            />
-            <div className="flex gap-3">
-              <button
-                onClick={() => { setShowShortcutModal(false); setEditingShortcut(null); }}
-                className="flex-1 px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors text-sm font-medium"
-              >
-                {t('settings.actions.cancel')}
-              </button>
-              <button
-                onClick={() => {
-                  if (newShortcutKey && newShortcutKey !== editingShortcut.key) {
-                    updateShortcut(editingShortcut.category, editingShortcut.id, newShortcutKey);
-                  }
-                  setShowShortcutModal(false);
-                  setEditingShortcut(null);
-                }}
-                className="flex-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity text-sm font-medium"
-              >
-                {t('common.confirm')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Shortcut Edit Modal */}
+      <EditShortcutModal
+        editing={editingShortcut}
+        setEditing={(value) => {
+          setEditingShortcut(value);
+          setShortcutsVersion((v) => v + 1);
+        }}
+        onSave={() => {
+          if (!editingShortcut) return;
+          updateShortcut(editingShortcut.category, editingShortcut.shortcut.id, {
+            key: editingShortcut.newKey,
+            modCtrl: editingShortcut.newModCtrl,
+            modShift: editingShortcut.newModShift,
+            modAlt: editingShortcut.newModAlt,
+          });
+          setEditingShortcut(null);
+          setShortcutsVersion((v) => v + 1);
+        }}
+      />
+
+      {/* Template Manager Modal */}
 
       {/* Template Manager Modal */}
       <TemplateManagerModal
@@ -2099,10 +2508,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         builtInTemplates={builtInTemplatesForManager}
         customTemplates={customTemplates}
         customCategories={customCategories}
-        onCreateNew={(categoryId) => {
-          setShowTemplateManager(false);
-          openCreateTemplateModal(categoryId);
-        }}
+        templateActiveStates={templateActiveStates}
+        onToggleTemplateActive={handleToggleTemplateActive}
         onOpenBuiltIn={(tipo, label, icon) => {
           setShowTemplateManager(false);
           openEditPathModal(tipo, label, icon);
@@ -2121,19 +2528,18 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           setShowTemplateManager(false);
           deleteCustomTemplate(templateId, label);
         }}
-        onManageCategories={() => {
-          setShowTemplateManager(false);
-          setShowCategoryManager(true);
-        }}
       />
 
       {/* Category Manager Modal */}
       <CategoryManager
         isOpen={showCategoryManager}
         onClose={() => setShowCategoryManager(false)}
+        onDeleteCategory={deleteCategory}
         onCategoriesChange={() => {
           setCustomCategories(getCustomCategories());
-          setCustomTemplates(getCustomTemplates());
+          refreshCustomTemplates();
+          setTrashedTemplates(getTrashedTemplates());
+          setTrashedCategories(getTrashedCategories());
         }}
       />
 
@@ -2148,8 +2554,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         initialTemplate={editingCustomTemplate}
         initialCategory={newTemplateInitialCategory}
         onTemplateCreated={() => {
-          setCustomTemplates(getCustomTemplates());
+          refreshCustomTemplates();
           setCustomCategories(getCustomCategories());
+          setTrashedTemplates(getTrashedTemplates());
+          setTrashedCategories(getTrashedCategories());
         }}
         showSuccessToast={showSuccessToast}
       />
@@ -2159,17 +2567,32 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         isOpen={showTrashModal}
         onClose={() => setShowTrashModal(false)}
         trashedTemplates={trashedTemplates}
-        onRestore={handleRestore}
-        onPermanentDelete={(tipo, label) => {
-          setDeleteTarget({ tipo, label });
+        trashedCategories={trashedCategories}
+        onRestoreTemplate={handleRestoreTemplate}
+        onRestoreCategory={handleRestoreCategory}
+        onPermanentDeleteTemplate={(tipo, label) => {
+          setDeleteTarget({ tipo: `__trash_template__:${tipo}`, label });
+          setShowDeleteConfirm(true);
+        }}
+        onPermanentDeleteCategory={(categoryId, label) => {
+          setDeleteTarget({ tipo: `__trash_category__:${categoryId}`, label });
           setShowDeleteConfirm(true);
         }}
       />
 
       {/* Edit Path/Template Modal */}
       {showEditPathModal && editingPath && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
-          <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-6 animate-in fade-in slide-in-from-bottom-4 duration-200">
+        <BaseModal
+          isOpen={showEditPathModal && !!editingPath}
+          onRequestClose={() => {
+            setShowEditPathModal(false);
+            setEditingPath(null);
+          }}
+          closeOnBackdropClick={false}
+          overlayClassName="z-[70]"
+          contentClassName="bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-6 animate-in fade-in slide-in-from-bottom-4 duration-200"
+        >
+          <div>
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-foreground">Editar Configuração</h3>
@@ -2178,7 +2601,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   setShowEditPathModal(false);
                   setEditingPath(null);
                 }}
-                className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors rounded-md"
+                className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors rounded-md"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -2250,7 +2673,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </BaseModal>
       )}
 
       {/* Delete Confirmation Modal */}

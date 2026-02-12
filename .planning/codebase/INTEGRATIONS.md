@@ -234,7 +234,7 @@
 
 **Edge Functions Auth:**
 - `SUPABASE_URL` - Supabase project URL
-- `SUPABASE_SERVICE_ROLE_KEY` - Service role key for admin operations
+- `SUPABASE_SERVICE_ROLE_KEY` - Service role key for admin operations (server-side only, never frontend)
 - Authorization header: `Bearer {token}`
 
 ## Monitoring & Observability
@@ -295,32 +295,29 @@
 
 **Required env vars:**
 ```bash
-# Supabase (Primary Backend)
+# Frontend (Vite - client bundle)
 VITE_SUPABASE_URL=                    # Supabase project URL
 VITE_SUPABASE_ANON_KEY=               # Supabase anonymous key
-DATABASE_URL=                          # PostgreSQL connection string (if using direct connection)
-
-# Liveblocks (Real-time Collaboration)
 VITE_LIVEBLOCKS_PUBLIC_KEY=           # Liveblocks public key
-LIVEBLOCKS_SECRET_KEY=                # Liveblocks secret key (server-side)
-
-# Stripe (Payments)
 VITE_STRIPE_PUBLISHABLE_KEY=          # Stripe publishable key
-STRIPE_SECRET_KEY=                    # Stripe secret key (server-side)
-STRIPE_WEBHOOK_SECRET=                # Stripe webhook signing secret
 VITE_STRIPE_PRICE_PRO_MONTHLY=        # Price ID for pro monthly
 VITE_STRIPE_PRICE_PRO_YEARLY=         # Price ID for pro yearly
 VITE_STRIPE_PRICE_LIFETIME=           # Price ID for lifetime
+VITE_APP_URL=                         # App URL (ex: http://localhost:3001)
+VITE_GA_ID=                           # Optional Google Analytics ID
 
-# Upstash (Rate Limiting - Production)
+# Server / Edge / Dev Server (never expose in frontend)
+LIVEBLOCKS_SECRET_KEY=                # Liveblocks secret key (server-side)
+STRIPE_SECRET_KEY=                    # Stripe secret key (server-side)
+STRIPE_WEBHOOK_SECRET=                # Stripe webhook signing secret
 UPSTASH_REDIS_URL=                    # Upstash Redis endpoint
 UPSTASH_REDIS_TOKEN=                  # Upstash Redis token
-
-# Supabase Edge Functions
+DATABASE_URL=                         # PostgreSQL connection string (if using direct connection)
 SUPABASE_URL=                         # Supabase project URL
-SUPABASE_SERVICE_ROLE_KEY=            # Service role key for admin operations
+SUPABASE_SERVICE_ROLE_KEY=            # Service role key (Edge/backend only)
 SUPABASE_PROJECT_REF=                 # Project reference for CLI/MCP
 SUPABASE_ACCESS_TOKEN=                # Access token for CLI/MCP
+RESEND_API_KEY=                       # Invite email service key
 
 # Obsidian Hook (Optional)
 OBSIDIAN_PLAN_DIRS=                   # Comma-separated plan directories
@@ -328,21 +325,24 @@ OBSIDIAN_PLAN_DIRS=                   # Comma-separated plan directories
 # CORS (Edge Functions)
 ALLOWED_ORIGINS=                      # Additional origins beyond defaults
 
-# Analytics (Optional)
-NEXT_PUBLIC_GTM_ID=                   # Google Tag Manager
-NEXT_PUBLIC_GA_ID=                    # Google Analytics 4
-NEXT_PUBLIC_FACEBOOK_PIXEL_ID=        # Meta Pixel
-
 # Development (Optional)
 IMAGE_DEBUG=                          # Enable image generation debug logs
 API_LOGGING=                          # Enable API logging
 ```
 
+**Security rules:**
+- Never share a real `.env` file (with secrets) via WhatsApp.
+- Share `.env.example` only, and send sensitive values via a secure channel.
+- `SUPABASE_SERVICE_ROLE_KEY` must never be added to frontend (`VITE_*`) variables.
+- Restart applications after creating or updating `.env` / `.env.local`.
+
 **Secrets location:**
-- Local: `.env` file (gitignored)
+- Portal local frontend: `apps/portal/.env.local` (or `apps/portal/.env`)
+- Workspace template: `.env.example` (no secrets)
+- Edge Functions template: `supabase/functions/.env.example` (no secrets)
 - Production: Vercel environment variables
 - Supabase: Edge function secrets (via CLI or dashboard)
-- Example: `.env.example`, `supabase/functions/.env.example`
+- Canonical reference: `.planning/ENVIRONMENT.md`
 
 ## Webhooks & Callbacks
 

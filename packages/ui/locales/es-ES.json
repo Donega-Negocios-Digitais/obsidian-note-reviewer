@@ -33,7 +33,7 @@
       "destinationRequiredFull": "Requerido",
       "templatePlaceholder": "Ruta de la plantilla...",
       "destinationPlaceholder": "Carpeta de destino...",
-      "tip": "💡 Consejo: Puedes usar URLs de Obsidian (obsidian://...) o rutas completas de archivo",
+      "tip": "💡 Consejo: Use el botón ⏻ para activar/desactivar plantillas. Verde = Activo, Rojo = Inactivo",
       "configurePath": "Configurar ruta y plantilla",
       "templatePathDescription": "Ruta al archivo de plantilla usado para crear este tipo de nota",
       "destinationPathDescription": "Carpeta donde se guardarán las notas de este tipo"
@@ -208,7 +208,13 @@
       "editorDesc": "Puede agregar anotaciones y comentarios",
       "viewerDesc": "Solo visualización del documento",
       "pending": "Pendiente",
-      "removeCollaborator": "Eliminar colaborador"
+      "removeCollaborator": "Eliminar colaborador",
+      "editCollaborator": "Editar Colaborador",
+      "activate": "Activar",
+      "deactivate": "Desactivar",
+      "statusPending": "Pendiente",
+      "statusActive": "Activo",
+      "statusInactive": "Inactivo"
     },
     "profile": {
       "title": "Perfil",
@@ -228,14 +234,7 @@
       "updatePassword": "Cambiar contraseña",
       "updating": "Actualizando...",
       "photoUpdated": "Foto actualizada",
-      "maxSize": "JPG, PNG o GIF. Máximo 2MB.",
-      "identity": "Identidad del Revisor",
-      "activeIdentity": "Identidad Activa",
-      "anonymousBackup": "Respaldo Anónimo",
-      "generateIdentity": "Generar Nueva Identidad",
-      "generateIdentityDesc": "Creará una nueva identidad anónima para tus anotaciones",
-      "accountEmail": "Correo electrónico",
-      "accountId": "ID"
+      "maxSize": "JPG, PNG o GIF. Máximo 2MB."
     }
   },
   "viewer": {
@@ -348,7 +347,15 @@
     "title": "Atajos de Teclado",
     "close": "Cerrar (Esc)",
     "noShortcuts": "Ningún atajo disponible.",
-    "pressEsc": "Presiona <kbd>Esc</kbd> para cerrar"
+    "pressEsc": "Presiona <kbd>Esc</kbd> para cerrar",
+    "clickToView": "Haz clic para ver la demostración",
+    "clickToEdit": "Haz clic para editar",
+    "resetAll": "Restaurar",
+    "resetConfirm": "¿Restaurar todos los atajos predeterminados?",
+    "editTitle": "Editar Atajo",
+    "pressNewKey": "Presiona la nueva combinación de teclas",
+    "waitingForKey": "Esperando...",
+    "clearKey": "Limpiar tecla"
   },
   "editor": {
     "placeholder": "Edita el contenido de la nota aquí...",
@@ -382,7 +389,12 @@
     "finish": "Finalizar",
     "apply": "Aplicar",
     "reset": "Restablecer",
-    "clear": "Limpiar"
+    "clear": "Limpiar",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "name": "Nombre",
+    "email": "Correo electrónico",
+    "permission": "Permiso"
   },
   "app": {
     "saveToObsidian": "Guardar en Obsidian",

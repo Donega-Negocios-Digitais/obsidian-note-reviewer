@@ -21,12 +21,22 @@ interface ImageAnnotationContextValue {
   annotations: Annotation[];
   onAddAnnotation: (ann: Annotation) => void;
   onUpdateAnnotation?: (id: string, updates: Partial<Annotation>) => void;
+  isDrawingEnabled: boolean;
 }
 
 const ImageAnnotationContext = React.createContext<ImageAnnotationContextValue>({
   annotations: [],
   onAddAnnotation: () => {},
+  isDrawingEnabled: false,
 });
+
+function buildAnnotationId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  return `annotation-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
 
 interface ViewerProps {
   blocks: Block[];
@@ -436,7 +446,12 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(({
 
     const highlighter = new Highlighter({
       $root: containerRef.current,
-      exceptSelectors: ['.annotation-toolbar', 'button'],
+      exceptSelectors: [
+        '.annotation-toolbar',
+        'button',
+        '.image-annotator',
+        '.image-annotator *',
+      ],
       wrapTag: 'mark',
       style: { className: 'annotation-highlight' }
     });
@@ -576,7 +591,14 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(({
   };
 
   return (
-    <ImageAnnotationContext.Provider value={{ annotations, onAddAnnotation, onUpdateAnnotation }}>
+    <ImageAnnotationContext.Provider
+      value={{
+        annotations,
+        onAddAnnotation,
+        onUpdateAnnotation,
+        isDrawingEnabled: mode === 'edit',
+      }}
+    >
     <div className="relative z-50 w-full max-w-3xl">
 
       <article
@@ -780,7 +802,7 @@ const AnnotatedImage: React.FC<{
   alt: string;
   imageId: string;
 }> = ({ src, alt, imageId }) => {
-  const { annotations, onAddAnnotation, onUpdateAnnotation } = React.useContext(ImageAnnotationContext);
+  const { annotations, onAddAnnotation, onUpdateAnnotation, isDrawingEnabled } = React.useContext(ImageAnnotationContext);
   const annotationIdRef = useRef<string | null>(null);
 
   const handleAnnotationsChange = useCallback((strokes: Stroke[]) => {
@@ -791,7 +813,7 @@ const AnnotatedImage: React.FC<{
       onUpdateAnnotation(existingId, { imageStrokes: strokes });
     } else if (!existingId) {
       const newAnn: Annotation = {
-        id: crypto.randomUUID(),
+        id: buildAnnotationId(),
         blockId: '',
         startOffset: 0,
         endOffset: 0,
@@ -817,6 +839,7 @@ const AnnotatedImage: React.FC<{
       <ImageAnnotator
         src={src}
         alt={alt}
+        enabled={isDrawingEnabled}
         onAnnotationsChange={handleAnnotationsChange}
         initialStrokes={existingAnnotation?.imageStrokes ?? []}
       />
@@ -1452,7 +1475,7 @@ const CodeBlockToolbar: React.FC<{
           <button
             onClick={onClose}
             title={t('toolbar.cancel')}
-            className="p-1.5 rounded-md transition-colors text-muted-foreground hover:bg-muted"
+            className="p-1.5 rounded-md transition-colors text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -1486,7 +1509,7 @@ const CodeBlockToolbar: React.FC<{
           <button
             type="button"
             onClick={() => setStep('menu')}
-            className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            className="p-1 rounded text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />

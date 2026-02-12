@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import * as LucideIcons from 'lucide-react';
 import { getCustomCategories, getCustomTemplates, saveCustomTemplates, type CustomTemplate } from '../utils/storage';
-import { getBuiltInCategories } from '../utils/notePaths';
+import { BaseModal } from './BaseModal';
 
 interface NewTemplateModalProps {
   isOpen: boolean;
@@ -44,9 +44,8 @@ export const NewTemplateModal: React.FC<NewTemplateModalProps> = ({
   const [templatePath, setTemplatePath] = useState('');
   const [destinationPath, setDestinationPath] = useState('');
 
-  const builtInCategories = getBuiltInCategories();
   const customCategories = getCustomCategories();
-  const allCategories = [...builtInCategories, ...customCategories];
+  const allCategories = customCategories;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -61,7 +60,7 @@ export const NewTemplateModal: React.FC<NewTemplateModalProps> = ({
     }
 
     setName('');
-    setCategory(initialCategory || '');
+    setCategory(initialCategory || '__sem_categoria__');
     setIcon('FileText');
     setTemplatePath('');
     setDestinationPath('');
@@ -70,15 +69,17 @@ export const NewTemplateModal: React.FC<NewTemplateModalProps> = ({
   if (!isOpen) return null;
 
   const handleCreate = () => {
-    if (!name.trim() || !category || !destinationPath.trim()) return;
+    if (!name.trim() || !destinationPath.trim()) return;
 
     const baseTemplate: CustomTemplate = {
       id: initialTemplate?.id || `custom_${Date.now()}`,
-      category,
+      category: category || '__sem_categoria__',
       label: name.trim(),
       icon,
       templatePath: templatePath.trim(),
       destinationPath: destinationPath.trim(),
+      isSeed: false,
+      createdBy: 'user',
     };
 
     const existing = getCustomTemplates();
@@ -104,13 +105,22 @@ export const NewTemplateModal: React.FC<NewTemplateModalProps> = ({
     onClose();
   };
 
-  const isValid = name.trim() && category && destinationPath.trim();
-
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
+    <BaseModal
+      isOpen={isOpen}
+      onRequestClose={resetAndClose}
+      closeOnBackdropClick={false}
+      overlayClassName="z-[70]"
+      contentClassName="bg-card border border-border rounded-xl shadow-xl w-full max-w-md max-h-[85vh] flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-200"
+    >
       <div
-        className="bg-card border border-border rounded-xl shadow-xl w-full max-w-md max-h-[85vh] flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-200"
-        onClick={e => e.stopPropagation()}
+        className="h-full flex flex-col"
+        onKeyDown={(event) => {
+          if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+            event.preventDefault();
+            handleCreate();
+          }
+        }}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-border">
@@ -120,7 +130,7 @@ export const NewTemplateModal: React.FC<NewTemplateModalProps> = ({
           </div>
           <button
             onClick={resetAndClose}
-            className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors rounded-md"
+            className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors rounded-md"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -155,7 +165,7 @@ export const NewTemplateModal: React.FC<NewTemplateModalProps> = ({
               onChange={e => setCategory(e.target.value)}
               className="w-full p-2.5 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-sm"
             >
-              <option value="">{t('settings.newTemplate.selectCategory')}</option>
+              <option value="__sem_categoria__">Sem categoria</option>
               {allCategories.map(cat => (
                 <option key={cat.id} value={cat.id}>{cat.name}</option>
               ))}
@@ -223,23 +233,21 @@ export const NewTemplateModal: React.FC<NewTemplateModalProps> = ({
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="flex gap-3 p-5 border-t border-border">
-          <button
-            onClick={resetAndClose}
-            className="flex-1 px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors text-sm font-medium"
-          >
-            {t('settings.actions.cancel')}
-          </button>
-          <button
-            onClick={handleCreate}
-            disabled={!isValid}
-            className="flex-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {initialTemplate ? 'Salvar' : t('settings.actions.create')}
-          </button>
+        {/* Keyboard shortcuts hint */}
+        <div className="px-5 pb-4 pt-2 border-t border-border/50">
+          <p className="text-xs text-muted-foreground text-center">
+            <span className="inline-flex items-center gap-1">
+              <kbd className="px-1.5 py-0.5 rounded bg-muted/60 text-[10px] font-medium">Esc</kbd>
+              <span>para cancelar</span>
+            </span>
+            <span className="mx-2 text-muted-foreground/40">|</span>
+            <span className="inline-flex items-center gap-1">
+              <kbd className="px-1.5 py-0.5 rounded bg-muted/60 text-[10px] font-medium">Ctrl+Enter</kbd>
+              <span>para salvar</span>
+            </span>
+          </p>
         </div>
       </div>
-    </div>
+    </BaseModal>
   );
 };

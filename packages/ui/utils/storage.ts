@@ -671,6 +671,7 @@ export function saveHiddenNoteTypes(types: string[]): void {
 // =====================================
 
 const TRASH_KEY = 'obsreview-template-trash';
+const CATEGORY_TRASH_KEY = 'obsreview-category-trash';
 
 export interface TrashedTemplate {
   tipo: string;
@@ -679,6 +680,18 @@ export interface TrashedTemplate {
   deletedAt: string; // ISO timestamp
   path?: string;
   template?: string;
+  isCustom?: boolean;
+  customTemplate?: CustomTemplate;
+  sourceCategoryId?: string;
+  sourceCategoryName?: string;
+}
+
+export interface TrashedCategory {
+  id: string;
+  name: string;
+  icon: string;
+  deletedAt: string; // ISO timestamp
+  templates?: CustomTemplate[];
 }
 
 export function getTrashedTemplates(): TrashedTemplate[] {
@@ -697,8 +710,9 @@ export function getTrashedTemplates(): TrashedTemplate[] {
 
 export function addToTrash(template: TrashedTemplate): void {
   const trashed = getTrashedTemplates();
-  trashed.push(template);
-  safeLocalStorageSetItem(TRASH_KEY, JSON.stringify(trashed));
+  const updated = trashed.filter((item) => item.tipo !== template.tipo);
+  updated.push(template);
+  safeLocalStorageSetItem(TRASH_KEY, JSON.stringify(updated));
 }
 
 export function restoreFromTrash(tipo: string): void {
@@ -716,10 +730,59 @@ export function permanentlyDeleteFromTrash(tipo: string): void {
   restoreFromTrash(tipo); // Same implementation - removes from trash
 }
 
+export function restoreManyFromTrash(tipos: string[]): void {
+  if (tipos.length === 0) return;
+  const tipoSet = new Set(tipos);
+  const trashed = getTrashedTemplates();
+  const updated = trashed.filter((item) => !tipoSet.has(item.tipo));
+  safeLocalStorageSetItem(TRASH_KEY, JSON.stringify(updated));
+
+  const hiddenTypes = getHiddenNoteTypes();
+  const updatedHidden = hiddenTypes.filter((tipo) => !tipoSet.has(tipo));
+  safeLocalStorageSetItem(HIDDEN_NOTE_TYPES_KEY, JSON.stringify(updatedHidden));
+}
+
 export function isTemplateInTrash(tipo: string): boolean {
   const trashed = getTrashedTemplates();
   return trashed.some(t => t.tipo === tipo);
 }
+
+export function getTrashedCategories(): TrashedCategory[] {
+  const result = safeLocalStorageGetItem(CATEGORY_TRASH_KEY);
+  if (!result.success || !result.value) return [];
+
+  try {
+    const trashed = JSON.parse(result.value) as TrashedCategory[];
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    return trashed.filter((category) => new Date(category.deletedAt) > thirtyDaysAgo);
+  } catch {
+    return [];
+  }
+}
+
+export function addCategoryToTrash(category: TrashedCategory): void {
+  const trashed = getTrashedCategories();
+  const updated = trashed.filter((item) => item.id !== category.id);
+  updated.push(category);
+  safeLocalStorageSetItem(CATEGORY_TRASH_KEY, JSON.stringify(updated));
+}
+
+export function restoreCategoryFromTrash(categoryId: string): void {
+  const trashed = getTrashedCategories();
+  const updated = trashed.filter((category) => category.id !== categoryId);
+  safeLocalStorageSetItem(CATEGORY_TRASH_KEY, JSON.stringify(updated));
+}
+
+export function permanentlyDeleteCategoryFromTrash(categoryId: string): void {
+  restoreCategoryFromTrash(categoryId);
+}
+
+export function isCategoryInTrash(categoryId: string): boolean {
+  const trashed = getTrashedCategories();
+  return trashed.some((category) => category.id === categoryId);
+}
+
+export type TemplateCatalogOrigin = 'system' | 'user';
 
 // =====================================
 // Custom Categories (localStorage)
@@ -730,22 +793,182 @@ export interface CustomCategory {
   name: string;
   icon: string;
   isBuiltIn: boolean;
+  active?: boolean; // Category activation state
+  isSeed?: boolean;
+  createdBy?: TemplateCatalogOrigin;
 }
 
 const CUSTOM_CATEGORIES_KEY = 'obsidian-reviewer-custom-categories';
 
-export function getCustomCategories(): CustomCategory[] {
+interface ParsedCollection<T> {
+  items: T[];
+  hadSource: boolean;
+  wasNormalized: boolean;
+}
+
+function isSeedDemoEntry(entry: { isSeed?: boolean; createdBy?: TemplateCatalogOrigin | string }): boolean {
+  return entry.isSeed === true || entry.createdBy === 'system';
+}
+
+function normalizeCustomCategory(raw: unknown, index: number): CustomCategory | null {
+  if (!raw || typeof raw !== 'object') return null;
+
+  const value = raw as Record<string, unknown>;
+  const id = typeof value.id === 'string' && value.id.trim() ? value.id.trim() : `custom_category_legacy_${index}`;
+  const name = typeof value.name === 'string' && value.name.trim() ? value.name.trim() : `Categoria ${index + 1}`;
+  const icon = typeof value.icon === 'string' && value.icon.trim() ? value.icon.trim() : 'Briefcase';
+  const isBuiltIn = value.isBuiltIn === true;
+  const active = typeof value.active === 'boolean' ? value.active : undefined;
+  const isSeed = value.isSeed === true;
+  const createdBy = value.createdBy === 'system' || value.createdBy === 'user'
+    ? value.createdBy
+    : undefined;
+
+  return {
+    id,
+    name,
+    icon,
+    isBuiltIn,
+    active,
+    isSeed,
+    createdBy,
+  };
+}
+
+function parseCustomCategories(): ParsedCollection<CustomCategory> {
   const result = safeLocalStorageGetItem(CUSTOM_CATEGORIES_KEY);
-  if (!result.success || !result.value) return [];
+  if (!result.success || !result.value) {
+    return { items: [], hadSource: false, wasNormalized: false };
+  }
+
   try {
-    return JSON.parse(result.value);
+    const parsed = JSON.parse(result.value) as unknown;
+    if (!Array.isArray(parsed)) {
+      return { items: [], hadSource: true, wasNormalized: true };
+    }
+
+    const normalized = parsed
+      .map((item, index) => normalizeCustomCategory(item, index))
+      .filter((item): item is CustomCategory => item !== null);
+    const wasNormalized = JSON.stringify(parsed) !== JSON.stringify(normalized);
+
+    return { items: normalized, hadSource: true, wasNormalized };
   } catch {
-    return [];
+    return { items: [], hadSource: true, wasNormalized: true };
   }
 }
 
+interface ParsedTemplateCollection extends ParsedCollection<CustomTemplate> {
+  sourceIsLegacy: boolean;
+}
+
+export interface SeedDemoCleanupResult {
+  categories: CustomCategory[];
+  templates: CustomTemplate[];
+  removedCategoryIds: string[];
+  removedTemplateIds: string[];
+}
+
+function cleanupSeedDemoContentInternal(): SeedDemoCleanupResult {
+  const parsedCategories = parseCustomCategories();
+  const parsedTemplates = parseCustomTemplates();
+
+  const seedCategoryIds = new Set(
+    parsedCategories.items
+      .filter(isSeedDemoEntry)
+      .map((category) => category.id),
+  );
+
+  const categories = parsedCategories.items.filter((category) => !seedCategoryIds.has(category.id));
+  const removedCategoryIds = parsedCategories.items
+    .filter((category) => seedCategoryIds.has(category.id))
+    .map((category) => category.id);
+
+  const removedTemplateIds: string[] = [];
+  let templatesChanged = false;
+  const templates = parsedTemplates.items
+    .map((template) => {
+      if (isSeedDemoEntry(template)) {
+        removedTemplateIds.push(template.id);
+        templatesChanged = true;
+        return null;
+      }
+
+      if (seedCategoryIds.has(template.category)) {
+        templatesChanged = true;
+        return { ...template, category: '__sem_categoria__' };
+      }
+
+      return template;
+    })
+    .filter((template): template is CustomTemplate => template !== null);
+
+  const shouldPersistCategories = parsedCategories.hadSource && (parsedCategories.wasNormalized || removedCategoryIds.length > 0);
+  const shouldPersistTemplates =
+    (parsedTemplates.hadSource && (parsedTemplates.wasNormalized || templatesChanged)) || parsedTemplates.sourceIsLegacy;
+
+  if (shouldPersistCategories) {
+    safeLocalStorageSetItem(CUSTOM_CATEGORIES_KEY, JSON.stringify(categories));
+  }
+
+  if (shouldPersistTemplates) {
+    safeLocalStorageSetItem(CUSTOM_TEMPLATES_KEY, JSON.stringify(templates));
+    safeLocalStorageRemoveItem(LEGACY_CUSTOM_TEMPLATES_KEY);
+  }
+
+  return {
+    categories,
+    templates,
+    removedCategoryIds,
+    removedTemplateIds,
+  };
+}
+
+export function cleanupSeedDemoContent(): SeedDemoCleanupResult {
+  return cleanupSeedDemoContentInternal();
+}
+
+export function getCustomCategories(): CustomCategory[] {
+  return cleanupSeedDemoContentInternal().categories;
+}
+
 export function saveCustomCategories(categories: CustomCategory[]): SafeLocalStorageSetResult {
-  return safeLocalStorageSetItem(CUSTOM_CATEGORIES_KEY, JSON.stringify(categories));
+  const normalized = categories
+    .map((category, index) => normalizeCustomCategory(category, index))
+    .filter((item): item is CustomCategory => item !== null);
+
+  return safeLocalStorageSetItem(CUSTOM_CATEGORIES_KEY, JSON.stringify(normalized));
+}
+
+// =====================================
+// Category Active State (localStorage)
+// =====================================
+
+const CATEGORY_ACTIVE_STATE_KEY = 'obsidian-reviewer-category-active-states';
+
+export function getCategoryActiveStates(): Record<string, boolean> {
+  const result = safeLocalStorageGetItem(CATEGORY_ACTIVE_STATE_KEY);
+  if (!result.success || !result.value) return {};
+  try {
+    return JSON.parse(result.value) as Record<string, boolean>;
+  } catch {
+    return {};
+  }
+}
+
+export function saveCategoryActiveStates(states: Record<string, boolean>): SafeLocalStorageSetResult {
+  return safeLocalStorageSetItem(CATEGORY_ACTIVE_STATE_KEY, JSON.stringify(states));
+}
+
+export function isCategoryActive(categoryId: string): boolean {
+  const states = getCategoryActiveStates();
+  return states[categoryId] ?? true; // Default to active
+}
+
+export function setCategoryActive(categoryId: string, active: boolean): SafeLocalStorageSetResult {
+  const states = getCategoryActiveStates();
+  states[categoryId] = active;
+  return saveCategoryActiveStates(states);
 }
 
 // =====================================
@@ -825,6 +1048,8 @@ export interface CustomTemplate {
   icon: string;
   templatePath: string;
   destinationPath: string;
+  isSeed?: boolean;
+  createdBy?: TemplateCatalogOrigin;
 }
 
 const CUSTOM_TEMPLATES_KEY = 'obsidian-reviewer-custom-templates';
@@ -835,9 +1060,13 @@ function normalizeCustomTemplate(raw: unknown, index: number): CustomTemplate | 
 
   const value = raw as Record<string, unknown>;
   const id = typeof value.id === 'string' && value.id.trim() ? value.id.trim() : `custom_legacy_${index}`;
-  const category = typeof value.category === 'string' && value.category.trim() ? value.category.trim() : 'terceiros';
+  const category = typeof value.category === 'string' && value.category.trim() ? value.category.trim() : '__sem_categoria__';
   const label = typeof value.label === 'string' && value.label.trim() ? value.label.trim() : `Template ${index + 1}`;
   const icon = typeof value.icon === 'string' && value.icon.trim() ? value.icon.trim() : 'FileText';
+  const isSeed = value.isSeed === true;
+  const createdBy = value.createdBy === 'system' || value.createdBy === 'user'
+    ? value.createdBy
+    : undefined;
 
   // Backward compatibility:
   // - current shape: templatePath/destinationPath
@@ -861,19 +1090,25 @@ function normalizeCustomTemplate(raw: unknown, index: number): CustomTemplate | 
     icon,
     templatePath,
     destinationPath,
+    isSeed,
+    createdBy,
   };
 }
 
-export function getCustomTemplates(): CustomTemplate[] {
+function parseCustomTemplates(): ParsedTemplateCollection {
   const primaryResult = safeLocalStorageGetItem(CUSTOM_TEMPLATES_KEY);
   const legacyResult = safeLocalStorageGetItem(LEGACY_CUSTOM_TEMPLATES_KEY);
   const sourceValue = primaryResult.value || legacyResult.value;
 
-  if (!sourceValue) return [];
+  if (!sourceValue) {
+    return { items: [], hadSource: false, wasNormalized: false, sourceIsLegacy: false };
+  }
 
   try {
     const parsed = JSON.parse(sourceValue) as unknown;
-    if (!Array.isArray(parsed)) return [];
+    if (!Array.isArray(parsed)) {
+      return { items: [], hadSource: true, wasNormalized: true, sourceIsLegacy: false };
+    }
     const normalized = parsed
       .map((item, index) => normalizeCustomTemplate(item, index))
       .filter((item): item is CustomTemplate => item !== null);
@@ -881,15 +1116,19 @@ export function getCustomTemplates(): CustomTemplate[] {
     const sourceIsLegacy = !primaryResult.value && !!legacyResult.value;
     const wasNormalized = JSON.stringify(parsed) !== JSON.stringify(normalized);
 
-    if (sourceIsLegacy || wasNormalized) {
-      safeLocalStorageSetItem(CUSTOM_TEMPLATES_KEY, JSON.stringify(normalized));
-      safeLocalStorageRemoveItem(LEGACY_CUSTOM_TEMPLATES_KEY);
-    }
-
-    return normalized;
+    return {
+      items: normalized,
+      hadSource: true,
+      wasNormalized,
+      sourceIsLegacy,
+    };
   } catch {
-    return [];
+    return { items: [], hadSource: true, wasNormalized: true, sourceIsLegacy: false };
   }
+}
+
+export function getCustomTemplates(): CustomTemplate[] {
+  return cleanupSeedDemoContentInternal().templates;
 }
 
 export function saveCustomTemplates(templates: CustomTemplate[]): SafeLocalStorageSetResult {
@@ -902,4 +1141,35 @@ export function saveCustomTemplates(templates: CustomTemplate[]): SafeLocalStora
     safeLocalStorageRemoveItem(LEGACY_CUSTOM_TEMPLATES_KEY);
   }
   return result;
+}
+
+// =====================================
+// Template Active State (localStorage)
+// =====================================
+
+const TEMPLATE_ACTIVE_STATE_KEY = 'obsidian-reviewer-template-active-states';
+
+export function getTemplateActiveStates(): Record<string, boolean> {
+  const result = safeLocalStorageGetItem(TEMPLATE_ACTIVE_STATE_KEY);
+  if (!result.success || !result.value) return {};
+  try {
+    return JSON.parse(result.value) as Record<string, boolean>;
+  } catch {
+    return {};
+  }
+}
+
+export function saveTemplateActiveStates(states: Record<string, boolean>): SafeLocalStorageSetResult {
+  return safeLocalStorageSetItem(TEMPLATE_ACTIVE_STATE_KEY, JSON.stringify(states));
+}
+
+export function isTemplateActive(templateId: string): boolean {
+  const states = getTemplateActiveStates();
+  return states[templateId] ?? true; // Default to active
+}
+
+export function setTemplateActive(templateId: string, active: boolean): SafeLocalStorageSetResult {
+  const states = getTemplateActiveStates();
+  states[templateId] = active;
+  return saveTemplateActiveStates(states);
 }

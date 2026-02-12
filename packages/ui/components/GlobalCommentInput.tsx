@@ -9,6 +9,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getIdentity } from '../utils/identity';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import { BaseModal } from './BaseModal';
 
 interface GlobalCommentInputProps {
   isOpen: boolean;
@@ -65,17 +66,19 @@ export const GlobalCommentInput: React.FC<GlobalCommentInputProps> = ({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4"
-      onClick={onClose}
+    <BaseModal
+      isOpen={isOpen}
+      onRequestClose={onClose}
+      closeOnBackdropClick={true}
+      closeOnEscape={false}
+      overlayClassName="z-50"
+      contentClassName="bg-card border border-border rounded-xl w-full max-w-lg shadow-2xl"
     >
       <div
         ref={modalRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="global-comment-modal-title"
-        className="bg-card border border-border rounded-xl w-full max-w-lg shadow-2xl"
-        onClick={e => e.stopPropagation()}
       >
         {/* Header */}
         <div className="p-4 border-b border-border">
@@ -90,7 +93,7 @@ export const GlobalCommentInput: React.FC<GlobalCommentInputProps> = ({
             </div>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              className="p-1.5 rounded-md hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -158,6 +161,6 @@ export const GlobalCommentInput: React.FC<GlobalCommentInputProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </BaseModal>
   );
 };

@@ -15,6 +15,7 @@ import { ModeSwitcher } from '@obsidian-note-reviewer/ui/components/ModeSwitcher
 import { SettingsPanel } from '@obsidian-note-reviewer/ui/components/SettingsPanel';
 import { KeyboardShortcutsModal } from '@obsidian-note-reviewer/ui/components/KeyboardShortcutsModal';
 import { HowItWorksModal } from '@obsidian-note-reviewer/ui/components/HowItWorksModal';
+import { BaseModal } from '@obsidian-note-reviewer/ui/components/BaseModal';
 import { useSharing } from '@obsidian-note-reviewer/ui/hooks/useSharing';
 import {
   storage,
@@ -423,6 +424,14 @@ type SettingsTab =
 
 const SETTINGS_PANEL_OPEN_KEY = 'obsidian-reviewer-settings-open';
 const SETTINGS_PANEL_TAB_KEY = 'obsidian-reviewer-settings-tab';
+const APP_MODAL_KEYS = {
+  showExport: 'obsidian-reviewer-modal-showExport',
+  showFeedbackPrompt: 'obsidian-reviewer-modal-showFeedbackPrompt',
+  showGlobalCommentModal: 'obsidian-reviewer-modal-showGlobalCommentModal',
+  showHelpVideo: 'obsidian-reviewer-modal-showHelpVideo',
+  showShareDialog: 'obsidian-reviewer-modal-showShareDialog',
+  showShortcutsModal: 'obsidian-reviewer-modal-showShortcutsModal',
+} as const;
 const VALID_SETTINGS_TABS: SettingsTab[] = [
   'caminhos',
   'regras',
@@ -436,6 +445,26 @@ const VALID_SETTINGS_TABS: SettingsTab[] = [
 
 function isSettingsTab(value: string | null): value is SettingsTab {
   return value !== null && VALID_SETTINGS_TABS.includes(value as SettingsTab);
+}
+
+function readLocalFlag(key: string): boolean {
+  try {
+    return window.localStorage.getItem(key) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeLocalFlag(key: string, value: boolean): void {
+  try {
+    if (value) {
+      window.localStorage.setItem(key, '1');
+    } else {
+      window.localStorage.removeItem(key);
+    }
+  } catch {
+    // ignore persistence errors
+  }
 }
 
 const App: React.FC = () => {
@@ -454,10 +483,12 @@ const App: React.FC = () => {
   const [annotationHistory, setAnnotationHistory] = useState<string[]>([]);
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
   const [blocks, setBlocks] = useState<Block[]>([]);
-  const [showExport, setShowExport] = useState(false);
-  const [showFeedbackPrompt, setShowFeedbackPrompt] = useState(false);
-  const [showGlobalCommentModal, setShowGlobalCommentModal] = useState(false);
-  const [showHelpVideo, setShowHelpVideo] = useState(false);
+  const [showExport, setShowExport] = useState(() => readLocalFlag(APP_MODAL_KEYS.showExport));
+  const [showFeedbackPrompt, setShowFeedbackPrompt] = useState(() => readLocalFlag(APP_MODAL_KEYS.showFeedbackPrompt));
+  const [showGlobalCommentModal, setShowGlobalCommentModal] = useState(() => readLocalFlag(APP_MODAL_KEYS.showGlobalCommentModal));
+  const [showHelpVideo, setShowHelpVideo] = useState(() => readLocalFlag(APP_MODAL_KEYS.showHelpVideo));
+  const [showShareDialog, setShowShareDialog] = useState(() => readLocalFlag(APP_MODAL_KEYS.showShareDialog));
+  const [showShortcutsModal, setShowShortcutsModal] = useState(() => readLocalFlag(APP_MODAL_KEYS.showShortcutsModal));
   const [isPanelOpen, setIsPanelOpen] = useState(true);
   const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(() => storage.getItem(SETTINGS_PANEL_OPEN_KEY) === '1');
   const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab>(() => {
@@ -571,6 +602,30 @@ const App: React.FC = () => {
   useEffect(() => {
     storage.setItem(SETTINGS_PANEL_TAB_KEY, settingsInitialTab);
   }, [settingsInitialTab]);
+
+  useEffect(() => {
+    writeLocalFlag(APP_MODAL_KEYS.showExport, showExport);
+  }, [showExport]);
+
+  useEffect(() => {
+    writeLocalFlag(APP_MODAL_KEYS.showFeedbackPrompt, showFeedbackPrompt);
+  }, [showFeedbackPrompt]);
+
+  useEffect(() => {
+    writeLocalFlag(APP_MODAL_KEYS.showGlobalCommentModal, showGlobalCommentModal);
+  }, [showGlobalCommentModal]);
+
+  useEffect(() => {
+    writeLocalFlag(APP_MODAL_KEYS.showHelpVideo, showHelpVideo);
+  }, [showHelpVideo]);
+
+  useEffect(() => {
+    writeLocalFlag(APP_MODAL_KEYS.showShareDialog, showShareDialog);
+  }, [showShareDialog]);
+
+  useEffect(() => {
+    writeLocalFlag(APP_MODAL_KEYS.showShortcutsModal, showShortcutsModal);
+  }, [showShortcutsModal]);
 
 
   // Check if we're in API mode (served from Bun hook server)
@@ -921,11 +976,6 @@ const App: React.FC = () => {
     setIsFullEditMode(false);
     setFullEditContent('');
   };
-
-  // State for showing copy feedback toast
-  // State for share dialog
-  const [showShareDialog, setShowShareDialog] = useState(false);
-  const [showShortcutsModal, setShowShortcutsModal] = useState(false);
 
   // State for showing copy feedback toast
   const [showCopyToast, setShowCopyToast] = useState(false);
@@ -1398,8 +1448,14 @@ const App: React.FC = () => {
 
         {/* Feedback prompt dialog */}
         {showFeedbackPrompt && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-            <div className="bg-card border border-border rounded-xl w-full max-w-sm shadow-2xl p-6">
+          <BaseModal
+            isOpen={showFeedbackPrompt}
+            onRequestClose={() => setShowFeedbackPrompt(false)}
+            closeOnBackdropClick={false}
+            overlayClassName="z-50"
+            contentClassName="bg-card border border-border rounded-xl w-full max-w-sm shadow-2xl p-6"
+          >
+            <div>
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center">
                   <svg className="w-5 h-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1420,7 +1476,7 @@ const App: React.FC = () => {
                 </button>
               </div>
             </div>
-          </div>
+          </BaseModal>
         )}
 
         {/* Completion overlay - shown after approve/deny */}
@@ -1550,11 +1606,14 @@ const App: React.FC = () => {
 
         {/* Share Dialog - Simple inline implementation */}
         {showShareDialog && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50" onClick={() => setShowShareDialog(false)}>
-            <div
-              className="bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-6"
-              onClick={(e) => e.stopPropagation()}
-            >
+          <BaseModal
+            isOpen={showShareDialog}
+            onRequestClose={() => setShowShareDialog(false)}
+            closeOnBackdropClick={true}
+            overlayClassName="z-[100] bg-black/50"
+            contentClassName="bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-6"
+          >
+            <div>
               {/* Header */}
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold text-foreground">
@@ -1601,7 +1660,7 @@ const App: React.FC = () => {
                 </button>
               </div>
             </div>
-          </div>
+          </BaseModal>
         )}
       </div>
     </ThemeProvider>

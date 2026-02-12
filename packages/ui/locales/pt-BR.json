@@ -33,7 +33,7 @@
       "destinationRequiredFull": "Obrigatório",
       "templatePlaceholder": "Caminho do template...",
       "destinationPlaceholder": "Pasta de destino...",
-      "tip": "💡 Dica: Você pode usar URLs do Obsidian (obsidian://...) ou caminhos completos de arquivo",
+      "tip": "💡 Dica: Use o botão ⏻ para ativar/desativar templates. Verde = Ativado, Vermelho = Inativo",
       "configurePath": "Configure caminho e template",
       "templatePathDescription": "Caminho para o arquivo de template usado para criar este tipo de nota",
       "destinationPathDescription": "Pasta onde as notas deste tipo serão salvas"
@@ -216,6 +216,7 @@
       "ownerDesc": "Controle total do documento e permissões",
       "editorDesc": "Pode adicionar anotações e comentários",
       "viewerDesc": "Apenas visualização do documento",
+      "editCollaborator": "Editar Colaborador",
       "pending": "Pendente",
       "active": "Ativo",
       "inactive": "Desativado",
@@ -244,14 +245,7 @@
       "updatePassword": "Alterar senha",
       "updating": "Atualizando...",
       "photoUpdated": "Foto atualizada",
-      "maxSize": "JPG, PNG ou GIF. Máximo 2MB.",
-      "identity": "Identidade do Revisor",
-      "activeIdentity": "Identidade Ativa",
-      "anonymousBackup": "Backup Anônimo",
-      "generateIdentity": "Gerar Nova Identidade",
-      "generateIdentityDesc": "Criará nova identidade anônima para suas anotações",
-      "accountEmail": "Email",
-      "accountId": "ID"
+      "maxSize": "JPG, PNG ou GIF. Máximo 2MB."
     }
   },
   "viewer": {
@@ -364,7 +358,15 @@
     "title": "Atalhos de Teclado",
     "close": "Fechar (Esc)",
     "noShortcuts": "Nenhum atalho disponivel.",
-    "pressEsc": "Pressione <kbd>Esc</kbd> para fechar"
+    "pressEsc": "Pressione <kbd>Esc</kbd> para fechar",
+    "clickToView": "Clique para ver demonstração",
+    "clickToEdit": "Clique para editar",
+    "resetAll": "Restaurar",
+    "resetConfirm": "Restaurar todos os atalhos padrão?",
+    "editTitle": "Editar Atalho",
+    "pressNewKey": "Pressione a nova combinação de teclas",
+    "waitingForKey": "Aguardando...",
+    "clearKey": "Limpar tecla"
   },
   "editor": {
     "placeholder": "Edite o conteúdo da nota aqui...",
@@ -398,7 +400,12 @@
     "finish": "Finalizar",
     "apply": "Aplicar",
     "reset": "Redefinir",
-    "clear": "Limpar"
+    "clear": "Limpar",
+    "cancel": "Cancelar",
+    "save": "Salvar",
+    "name": "Nome",
+    "email": "E-mail",
+    "permission": "Permissão"
   },
   "app": {
     "saveToObsidian": "Salvar no Obsidian",

@@ -1,5 +1,7 @@
 # Phase 01: Authentication - Research
 
+> Historical normalization note (2026-02-12): environment variable examples were updated to current project naming (`VITE_*` for frontend) while keeping research context intact.
+
 **Researched:** 2026-02-04
 **Domain:** Supabase Auth with Next.js/React + OAuth (GitHub + Google)
 **Confidence:** HIGH
@@ -94,8 +96,8 @@ import { createBrowserClient } from '@supabase/ssr'
 
 export function createClient() {
   return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.VITE_SUPABASE_URL!,
+    process.env.VITE_SUPABASE_ANON_KEY!
   )
 }
 
@@ -107,8 +109,8 @@ export async function createClient() {
   const cookieStore = await cookies()
 
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.VITE_SUPABASE_URL!,
+    process.env.VITE_SUPABASE_ANON_KEY!,
     {
       cookies: {
         getAll() {
@@ -140,8 +142,8 @@ export async function updateSession(request: NextRequest) {
   })
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.VITE_SUPABASE_URL!,
+    process.env.VITE_SUPABASE_ANON_KEY!,
     {
       cookies: {
         get(name) {

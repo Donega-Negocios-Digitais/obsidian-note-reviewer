@@ -8,6 +8,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCopyFeedback } from '../hooks/useCopyFeedback';
+import { BaseModal } from './BaseModal';
 
 interface ExportModalProps {
   isOpen: boolean;
@@ -70,11 +71,18 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-      <div
-        className="bg-card border border-border rounded-xl w-full max-w-2xl flex flex-col max-h-[80vh] shadow-2xl relative"
-        onClick={e => e.stopPropagation()}
-      >
+    <BaseModal
+      isOpen={isOpen}
+      onRequestClose={onClose}
+      closeOnBackdropClick={false}
+      overlayClassName="z-50"
+      contentClassName="bg-card border border-border rounded-xl w-full max-w-2xl flex flex-col max-h-[80vh] shadow-2xl relative"
+      contentProps={{
+        role: 'dialog',
+        'aria-modal': true,
+      }}
+    >
+      <div className="h-full flex flex-col">
         {taterSprite}
 
         {/* Header */}
@@ -87,7 +95,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               </span>
               <button
                 onClick={onClose}
-                className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                className="p-1.5 rounded-md hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -196,6 +204,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           </div>
         )}
       </div>
-    </div>
+    </BaseModal>
   );
 };

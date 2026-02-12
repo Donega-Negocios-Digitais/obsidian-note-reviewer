@@ -28,20 +28,32 @@ interface ImageAnnotatorProps {
   width?: number;
   height?: number;
   className?: string;
+  enabled?: boolean;
   onAnnotationsChange?: (strokes: Stroke[]) => void;
   initialStrokes?: Stroke[];
+}
+
+function buildStrokeId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `stroke-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 export const ImageAnnotator: React.FC<ImageAnnotatorProps> = ({
   src,
   alt = '',
   className = '',
+  enabled = true,
   onAnnotationsChange,
   initialStrokes = [],
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
+  const supportsPointerEventsRef = useRef(
+    typeof window !== 'undefined' && 'PointerEvent' in window,
+  );
   const [drawing, setDrawing] = useState<DrawingState>({
     ...DEFAULT_DRAWING_STATE,
     strokes: initialStrokes,
@@ -53,11 +65,35 @@ export const ImageAnnotator: React.FC<ImageAnnotatorProps> = ({
   const drawingRef = useRef(drawing);
   useEffect(() => { drawingRef.current = drawing; }, [drawing]);
 
+  const getPointFromClient = useCallback(
+    (clientX: number, clientY: number, pressure = 0.5): Point | null => {
+      const canvas = canvasRef.current;
+      if (!canvas) return null;
+
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) {
+        return null;
+      }
+
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+
+      return {
+        x: (clientX - rect.left) * scaleX,
+        y: (clientY - rect.top) * scaleY,
+        pressure,
+      };
+    },
+    [],
+  );
+
   // Carregar imagem e configurar canvas
   useEffect(() => {
     const img = imageRef.current;
     const canvas = canvasRef.current;
     if (!img || !canvas) return;
+
+    setImageLoaded(false);
 
     const handleImageLoad = () => {
       canvas.width = img.naturalWidth;
@@ -65,14 +101,20 @@ export const ImageAnnotator: React.FC<ImageAnnotatorProps> = ({
       setImageLoaded(true);
     };
 
+    const handleImageError = () => {
+      setImageLoaded(false);
+    };
+
     if (img.complete && img.naturalWidth > 0) {
       handleImageLoad();
     } else {
       img.addEventListener('load', handleImageLoad);
+      img.addEventListener('error', handleImageError);
     }
 
     return () => {
       img.removeEventListener('load', handleImageLoad);
+      img.removeEventListener('error', handleImageError);
     };
   }, [src]);
 
@@ -85,8 +127,15 @@ export const ImageAnnotator: React.FC<ImageAnnotatorProps> = ({
     renderAllStrokes(ctx, drawing.strokes);
   }, [drawing.strokes, imageLoaded]);
 
+  const applyStrokes = useCallback((nextStrokes: Stroke[]) => {
+    setDrawing(prev => ({ ...prev, strokes: nextStrokes }));
+    onAnnotationsChange?.(nextStrokes);
+  }, [onAnnotationsChange]);
+
   // Atalhos de teclado para ferramentas de desenho
   useEffect(() => {
+    if (!enabled) return;
+
     const handleKeyDown = (e: KeyboardEvent) => {
       const tool = DRAWING_KEYBINDINGS[e.key];
       if (tool) {
@@ -95,23 +144,17 @@ export const ImageAnnotator: React.FC<ImageAnnotatorProps> = ({
       }
       if (e.key === 'z' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
-        setDrawing(prev => {
-          const newStrokes = prev.strokes.slice(0, -1);
-          onAnnotationsChange?.(newStrokes);
-          return { ...prev, strokes: newStrokes };
-        });
+        const nextStrokes = drawingRef.current.strokes.slice(0, -1);
+        applyStrokes(nextStrokes);
       }
       if (e.key === 'x' && e.ctrlKey && e.shiftKey) {
         e.preventDefault();
-        setDrawing(prev => {
-          onAnnotationsChange?.([]);
-          return { ...prev, strokes: [] };
-        });
+        applyStrokes([]);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onAnnotationsChange]);
+  }, [enabled, applyStrokes]);
 
   // Ref para o stroke em andamento (evita re-renders durante o desenho)
   const currentStrokeRef = useRef<Stroke | null>(null);
@@ -129,37 +172,36 @@ export const ImageAnnotator: React.FC<ImageAnnotatorProps> = ({
   }, []);
 
   // Handler para início do desenho
-  const handlePointerDown = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+  const finishDrawing = useCallback(() => {
+    if (!isDrawingRef.current || !currentStrokeRef.current) return;
+    isDrawingRef.current = false;
 
-    isDrawingRef.current = true;
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    const finishedStroke = currentStrokeRef.current;
+    currentStrokeRef.current = null;
 
-    const point = getCanvasPoint(e, canvas);
+    const nextStrokes = [...drawingRef.current.strokes, finishedStroke];
+    applyStrokes(nextStrokes);
+  }, [applyStrokes]);
+
+  const startDrawing = useCallback((point: Point) => {
     const current = drawingRef.current;
 
     const stroke: Stroke = {
-      id: crypto.randomUUID(),
+      id: buildStrokeId(),
       tool: current.tool,
       points: [point],
       color: current.color,
       size: current.strokeSize,
     };
 
+    isDrawingRef.current = true;
     currentStrokeRef.current = stroke;
     renderCanvas();
   }, [renderCanvas]);
 
-  // Handler para movimento durante o desenho
-  const handlePointerMove = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+  const extendDrawing = useCallback((point: Point) => {
     if (!isDrawingRef.current || !currentStrokeRef.current) return;
 
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const point = getCanvasPoint(e, canvas);
     currentStrokeRef.current = {
       ...currentStrokeRef.current,
       points: [...currentStrokeRef.current.points, point],
@@ -168,20 +210,108 @@ export const ImageAnnotator: React.FC<ImageAnnotatorProps> = ({
     renderCanvas();
   }, [renderCanvas]);
 
-  // Handler para finalizar o desenho
-  const handlePointerUp = useCallback(() => {
+  const handlePointerDown = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!enabled) return;
+    if (!imageLoaded) return;
+    e.preventDefault();
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const point = getCanvasPoint(e, canvas);
+    startDrawing(point);
+
+    try {
+      canvas.setPointerCapture(e.pointerId);
+    } catch {
+      // Pointer capture is not available in all browsers/devices.
+    }
+  }, [enabled, imageLoaded, startDrawing]);
+
+  // Handler para movimento durante o desenho
+  const handlePointerMove = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!enabled) return;
     if (!isDrawingRef.current || !currentStrokeRef.current) return;
-    isDrawingRef.current = false;
 
-    const finishedStroke = currentStrokeRef.current;
-    currentStrokeRef.current = null;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-    setDrawing(prev => {
-      const newStrokes = [...prev.strokes, finishedStroke];
-      onAnnotationsChange?.(newStrokes);
-      return { ...prev, strokes: newStrokes };
-    });
-  }, [onAnnotationsChange]);
+    const point = getCanvasPoint(e, canvas);
+    extendDrawing(point);
+  }, [enabled, extendDrawing]);
+
+  // Handler para finalizar o desenho
+  const handlePointerUp = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!enabled) return;
+    finishDrawing();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    try {
+      canvas.releasePointerCapture(e.pointerId);
+    } catch {
+      // ignore when pointer capture is not active
+    }
+  }, [enabled, finishDrawing]);
+
+  const handlePointerCancel = useCallback(() => {
+    finishDrawing();
+  }, [finishDrawing]);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!enabled) return;
+    if (!imageLoaded) return;
+    if (supportsPointerEventsRef.current) return;
+    e.preventDefault();
+
+    const point = getPointFromClient(e.clientX, e.clientY);
+    if (!point) return;
+    startDrawing(point);
+  }, [enabled, imageLoaded, getPointFromClient, startDrawing]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!enabled) return;
+    if (supportsPointerEventsRef.current) return;
+    if (!isDrawingRef.current || !currentStrokeRef.current) return;
+
+    const point = getPointFromClient(e.clientX, e.clientY);
+    if (!point) return;
+    extendDrawing(point);
+  }, [enabled, getPointFromClient, extendDrawing]);
+
+  const handleMouseUp = useCallback(() => {
+    if (!enabled) return;
+    if (supportsPointerEventsRef.current) return;
+    finishDrawing();
+  }, [enabled, finishDrawing]);
+
+  useEffect(() => {
+    if (enabled) return;
+    finishDrawing();
+  }, [enabled, finishDrawing]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    if (supportsPointerEventsRef.current) return;
+
+    const handleWindowMouseUp = () => {
+      finishDrawing();
+    };
+
+    const handleWindowMouseMove = (e: MouseEvent) => {
+      if (!isDrawingRef.current || !currentStrokeRef.current) return;
+      const point = getPointFromClient(e.clientX, e.clientY);
+      if (!point) return;
+      extendDrawing(point);
+    };
+
+    window.addEventListener('mousemove', handleWindowMouseMove);
+    window.addEventListener('mouseup', handleWindowMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleWindowMouseMove);
+      window.removeEventListener('mouseup', handleWindowMouseUp);
+    };
+  }, [enabled, finishDrawing, getPointFromClient, extendDrawing]);
 
   const setTool = (tool: DrawingTool) => {
     setDrawing(prev => ({ ...prev, tool }));
@@ -196,18 +326,12 @@ export const ImageAnnotator: React.FC<ImageAnnotatorProps> = ({
   };
 
   const undo = () => {
-    setDrawing(prev => {
-      const newStrokes = prev.strokes.slice(0, -1);
-      onAnnotationsChange?.(newStrokes);
-      return { ...prev, strokes: newStrokes };
-    });
+    const nextStrokes = drawingRef.current.strokes.slice(0, -1);
+    applyStrokes(nextStrokes);
   };
 
   const clear = () => {
-    setDrawing(prev => {
-      onAnnotationsChange?.([]);
-      return { ...prev, strokes: [] };
-    });
+    applyStrokes([]);
   };
 
   // Exporta a imagem combinada (imagem base + traços)
@@ -230,20 +354,26 @@ export const ImageAnnotator: React.FC<ImageAnnotatorProps> = ({
   };
 
   return (
-    <div ref={containerRef} className={`relative inline-block ${className}`}>
+    <div
+      ref={containerRef}
+      className={`image-annotator relative inline-block ${className}`}
+      data-drawing-enabled={enabled ? 'true' : 'false'}
+    >
       {/* Toolbar de desenho */}
-      <DrawingToolbar
-        currentTool={drawing.tool}
-        currentColor={drawing.color}
-        currentSize={drawing.strokeSize}
-        strokeCount={drawing.strokes.length}
-        onToolChange={setTool}
-        onColorChange={setColor}
-        onSizeChange={setSize}
-        onUndo={undo}
-        onClear={clear}
-        onExport={exportPNG}
-      />
+      {enabled && (
+        <DrawingToolbar
+          currentTool={drawing.tool}
+          currentColor={drawing.color}
+          currentSize={drawing.strokeSize}
+          strokeCount={drawing.strokes.length}
+          onToolChange={setTool}
+          onColorChange={setColor}
+          onSizeChange={setSize}
+          onUndo={undo}
+          onClear={clear}
+          onExport={exportPNG}
+        />
+      )}
 
       {/* Container da imagem */}
       <div className="relative group">
@@ -255,16 +385,24 @@ export const ImageAnnotator: React.FC<ImageAnnotatorProps> = ({
         />
 
         {/* Canvas overlay */}
-        {imageLoaded && (
-          <canvas
-            ref={canvasRef}
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            className="absolute top-0 left-0 w-full h-full touch-none"
-            style={{ cursor: TOOL_CONFIG[drawing.tool].cursor }}
-          />
-        )}
+        <canvas
+          ref={canvasRef}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerCancel}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          data-testid="image-annotator-canvas"
+          className="absolute top-0 left-0 z-10 block w-full h-full touch-none"
+          style={{
+            cursor: enabled && imageLoaded ? TOOL_CONFIG[drawing.tool].cursor : 'default',
+            pointerEvents: enabled && imageLoaded ? 'auto' : 'none',
+            opacity: imageLoaded ? 1 : 0,
+          }}
+        />
 
         {/* Hover hint — shown only when no strokes exist */}
         {drawing.strokes.length === 0 && (
@@ -312,7 +450,7 @@ const DrawingToolbar: React.FC<DrawingToolbarProps> = ({
 
   return (
     <div
-      className="absolute top-2 left-2 z-10"
+      className="absolute top-2 left-2 z-20"
       onMouseEnter={() => setExpanded(true)}
       onMouseLeave={() => setExpanded(false)}
     >

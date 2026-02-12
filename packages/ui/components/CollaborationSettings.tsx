@@ -17,7 +17,6 @@ import {
   removeCollaborator,
   deactivateCollaborator,
   reactivateCollaborator,
-  type Collaborator as ApiCollaborator,
   type CollaboratorRole,
 } from '@obsidian-note-reviewer/collaboration'
 import {
@@ -26,15 +25,16 @@ import {
   Mail,
   Check,
   Trash2,
-  Shield,
   Eye,
   Edit3,
   Crown,
   Loader2,
   Ban,
   Power,
-  AlertCircle
+  AlertCircle,
+  Info
 } from 'lucide-react'
+import { BaseModal } from './BaseModal'
 
 interface Collaborator {
   id: string
@@ -122,6 +122,59 @@ export function CollaborationSettings({
       return () => clearTimeout(timer)
     }
   }, [successToast])
+
+  // Persistência do modal de convite
+  useEffect(() => {
+    if (showInviteForm) {
+      localStorage.setItem('obsreview-showInviteForm', 'true')
+      localStorage.setItem('obsreview-inviteEmail', inviteEmail)
+      localStorage.setItem('obsreview-inviteRole', inviteRole)
+      localStorage.setItem('obsreview-inviteError', inviteError || '')
+    } else {
+      localStorage.removeItem('obsreview-showInviteForm')
+      localStorage.removeItem('obsreview-inviteEmail')
+      localStorage.removeItem('obsreview-inviteRole')
+      localStorage.removeItem('obsreview-inviteError')
+    }
+  }, [showInviteForm, inviteEmail, inviteRole, inviteError])
+
+  // Persistência do modal de edição
+  useEffect(() => {
+    if (editingCollaborator) {
+      localStorage.setItem('obsreview-editingCollaborator', JSON.stringify(editingCollaborator))
+      localStorage.setItem('obsreview-editRole', editRole)
+    } else {
+      localStorage.removeItem('obsreview-editingCollaborator')
+      localStorage.removeItem('obsreview-editRole')
+    }
+  }, [editingCollaborator, editRole])
+
+  // Restaurar estado ao montar
+  useEffect(() => {
+    const savedShowInvite = localStorage.getItem('obsreview-showInviteForm')
+    if (savedShowInvite === 'true') {
+      const savedEmail = localStorage.getItem('obsreview-inviteEmail') || ''
+      const savedRole = (localStorage.getItem('obsreview-inviteRole') as 'viewer' | 'editor') || 'viewer'
+      const savedError = localStorage.getItem('obsreview-inviteError') || null
+      setShowInviteForm(true)
+      setInviteEmail(savedEmail)
+      setInviteRole(savedRole)
+      setInviteError(savedError)
+    }
+
+    const savedEditing = localStorage.getItem('obsreview-editingCollaborator')
+    if (savedEditing) {
+      try {
+        const collab = JSON.parse(savedEditing) as Collaborator
+        const savedRole = (localStorage.getItem('obsreview-editRole') as 'viewer' | 'editor') || 'viewer'
+        setEditingCollaborator(collab)
+        setEditRole(savedRole)
+      } catch {
+        localStorage.removeItem('obsreview-editingCollaborator')
+        localStorage.removeItem('obsreview-editRole')
+      }
+    }
+  }, [])
 
   // Load collaborators
   useEffect(() => {
@@ -264,6 +317,12 @@ export function CollaborationSettings({
     } finally {
       setInviting(false)
     }
+  }
+
+  const closeInviteForm = () => {
+    setShowInviteForm(false)
+    setInviteEmail('')
+    setInviteError(null)
   }
 
   const handleRemoveCollaborator = async (collaboratorId: string) => {
@@ -425,6 +484,14 @@ export function CollaborationSettings({
     setEditingCollaborator(null)
   }
 
+  const closeEditCollaboratorModal = () => {
+    setEditingCollaborator(null)
+  }
+
+  const closeConfirmModal = () => {
+    setConfirmAction(null)
+  }
+
 
   const getRoleIcon = (role: PermissionRole) => {
     switch (role) {
@@ -451,11 +518,11 @@ export function CollaborationSettings({
   const getRoleDescription = (role: PermissionRole) => {
     switch (role) {
       case 'owner':
-        return 'Controle total do documento'
+        return t('settings.collaboration.ownerDesc')
       case 'editor':
-        return 'Pode adicionar anotações e comentários'
+        return t('settings.collaboration.editorDesc')
       case 'viewer':
-        return 'Apenas visualização'
+        return t('settings.collaboration.viewerDesc')
     }
   }
 
@@ -500,11 +567,14 @@ export function CollaborationSettings({
 
         {/* Invite Form Modal */}
         {showInviteForm && (
-          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
-            <div
-              className="bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-6 animate-in fade-in slide-in-from-bottom-4 duration-200"
-              onClick={e => e.stopPropagation()}
-            >
+          <BaseModal
+            isOpen={showInviteForm}
+            onRequestClose={closeInviteForm}
+            closeOnBackdropClick={false}
+            overlayClassName="z-[70]"
+            contentClassName="bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-6 animate-in fade-in slide-in-from-bottom-4 duration-200"
+          >
+            <div>
               {/* Header */}
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
@@ -514,12 +584,8 @@ export function CollaborationSettings({
                   </h3>
                 </div>
                 <button
-                  onClick={() => {
-                    setShowInviteForm(false)
-                    setInviteEmail('')
-                    setInviteError(null)
-                  }}
-                  className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors rounded-md"
+                  onClick={closeInviteForm}
+                  className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors rounded-md"
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -553,33 +619,53 @@ export function CollaborationSettings({
                 </div>
 
                 <div>
-                  <label htmlFor="inviteRole" className="block text-sm font-medium text-foreground mb-1.5">
+                  <label className="block text-sm font-semibold text-foreground mb-3">
                     {t('settings.collaboration.permission')}
                     <span className="text-red-500 ml-1">*</span>
                   </label>
-                  <select
-                    id="inviteRole"
-                    value={inviteRole}
-                    onChange={(e) => setInviteRole(e.target.value as 'viewer' | 'editor')}
-                    className="w-full p-2.5 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-sm"
-                  >
-                    <option value="viewer">{t('settings.collaboration.viewer')}</option>
-                    <option value="editor">{t('settings.collaboration.editor')}</option>
-                  </select>
-                  <p className="text-xs text-muted-foreground mt-1.5">
-                    {getRoleDescription(inviteRole)}
-                  </p>
+
+                  {/* Segmented Control - Permissões */}
+                  <div className="grid grid-cols-2 gap-2 p-1 bg-muted/30 rounded-xl">
+                    <button
+                      type="button"
+                      onClick={() => setInviteRole('viewer')}
+                      className={`flex flex-col items-center gap-2 py-3 px-4 rounded-lg transition-all ${
+                        inviteRole === 'viewer'
+                          ? 'bg-primary text-primary-foreground shadow-md'
+                          : 'bg-card/50 text-muted-foreground hover:text-foreground hover:bg-card'
+                      }`}
+                    >
+                      <Eye className={`w-5 h-5 ${inviteRole === 'viewer' ? 'text-primary-foreground' : 'text-gray-500'}`} />
+                      <span className="text-sm font-medium">{t('settings.collaboration.viewer')}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setInviteRole('editor')}
+                      className={`flex flex-col items-center gap-2 py-3 px-4 rounded-lg transition-all ${
+                        inviteRole === 'editor'
+                          ? 'bg-primary text-primary-foreground shadow-md'
+                          : 'bg-card/50 text-muted-foreground hover:text-foreground hover:bg-card'
+                      }`}
+                    >
+                      <Edit3 className={`w-5 h-5 ${inviteRole === 'editor' ? 'text-primary-foreground' : 'text-blue-500'}`} />
+                      <span className="text-sm font-medium">{t('settings.collaboration.editor')}</span>
+                    </button>
+                  </div>
+
+                  {/* Descrição da permissão selecionada */}
+                  <div className="mt-3 p-3 bg-muted/30 rounded-lg border border-border/50">
+                    <p className="text-xs text-muted-foreground flex items-start gap-2">
+                      <Info className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
+                      {getRoleDescription(inviteRole)}
+                    </p>
+                  </div>
                 </div>
               </div>
 
               {/* Actions */}
               <div className="flex gap-3 mt-6">
                 <button
-                  onClick={() => {
-                    setShowInviteForm(false)
-                    setInviteEmail('')
-                    setInviteError(null)
-                  }}
+                  onClick={closeInviteForm}
                   className="flex-1 px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors text-sm font-medium"
                 >
                   {t('settings.actions.cancel')}
@@ -603,7 +689,7 @@ export function CollaborationSettings({
                 </button>
               </div>
             </div>
-          </div>
+          </BaseModal>
         )}
 
         {/* Collaborators List */}
@@ -666,7 +752,7 @@ export function CollaborationSettings({
                           e.stopPropagation();
                           handleRemoveCollaborator(collaborator.id);
                         }}
-                        className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-md transition-colors"
+                        className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-md transition-colors"
                         aria-label={t('settings.collaboration.removeCollaborator')}
                       >
                         <Trash2 className="w-4 h-4" />
@@ -682,13 +768,19 @@ export function CollaborationSettings({
 
       {/* Edit Collaborator Modal */}
       {editingCollaborator && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
-          <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-6 animate-in fade-in slide-in-from-bottom-4 duration-200" onClick={(e) => e.stopPropagation()}>
+        <BaseModal
+          isOpen={!!editingCollaborator}
+          onRequestClose={closeEditCollaboratorModal}
+          closeOnBackdropClick={false}
+          overlayClassName="z-[70]"
+          contentClassName="bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-6 animate-in fade-in slide-in-from-bottom-4 duration-200"
+        >
+          <div>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-foreground">Editar Colaborador</h3>
+              <h3 className="text-lg font-semibold text-foreground">{t('settings.collaboration.editCollaborator')}</h3>
               <button
-                onClick={() => setEditingCollaborator(null)}
-                className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors rounded-md"
+                onClick={closeEditCollaboratorModal}
+                className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors rounded-md"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -698,28 +790,55 @@ export function CollaborationSettings({
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Nome</label>
+                <label className="block text-sm font-medium mb-1">{t('common.name')}</label>
                 <p className="text-sm text-muted-foreground">{editingCollaborator.name || editingCollaborator.email}</p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Email</label>
+                <label className="block text-sm font-medium mb-1">{t('common.email')}</label>
                 <p className="text-sm text-muted-foreground">{editingCollaborator.email}</p>
               </div>
 
               <div>
-                <label htmlFor="editRole" className="block text-sm font-medium mb-2">
-                  Permissão
+                <label className="block text-sm font-semibold text-foreground mb-3">
+                  {t('common.permission')}
                 </label>
-                <select
-                  id="editRole"
-                  value={editRole}
-                  onChange={(e) => setEditRole(e.target.value as 'viewer' | 'editor')}
-                  className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-background"
-                >
-                  <option value="viewer">Viewer - Apenas visualização</option>
-                  <option value="editor">Editor - Pode adicionar anotações</option>
-                </select>
+
+                {/* Segmented Control - Permissões */}
+                <div className="grid grid-cols-2 gap-2 p-1 bg-muted/30 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => setEditRole('viewer')}
+                    className={`flex flex-col items-center gap-2 py-3 px-4 rounded-lg transition-all ${
+                      editRole === 'viewer'
+                        ? 'bg-primary text-primary-foreground shadow-md'
+                        : 'bg-card/50 text-muted-foreground hover:text-foreground hover:bg-card'
+                    }`}
+                  >
+                    <Eye className={`w-5 h-5 ${editRole === 'viewer' ? 'text-primary-foreground' : 'text-gray-500'}`} />
+                    <span className="text-sm font-medium">{t('settings.collaboration.viewer')}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditRole('editor')}
+                    className={`flex flex-col items-center gap-2 py-3 px-4 rounded-lg transition-all ${
+                      editRole === 'editor'
+                        ? 'bg-primary text-primary-foreground shadow-md'
+                        : 'bg-card/50 text-muted-foreground hover:text-foreground hover:bg-card'
+                    }`}
+                  >
+                    <Edit3 className={`w-5 h-5 ${editRole === 'editor' ? 'text-primary-foreground' : 'text-blue-500'}`} />
+                    <span className="text-sm font-medium">{t('settings.collaboration.editor')}</span>
+                  </button>
+                </div>
+
+                {/* Descrição da permissão selecionada */}
+                <div className="mt-3 p-3 bg-muted/30 rounded-lg border border-border/50">
+                  <p className="text-xs text-muted-foreground flex items-start gap-2">
+                    <Info className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
+                    {getRoleDescription(editRole)}
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -728,57 +847,29 @@ export function CollaborationSettings({
                 onClick={handleSaveEdit}
                 className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
               >
-                Salvar
+                {t('common.save')}
               </button>
               <button
-                onClick={() => setEditingCollaborator(null)}
+                onClick={closeEditCollaboratorModal}
                 className="flex-1 px-4 py-2 border border-input rounded-md hover:bg-accent transition-colors"
               >
-                Cancelar
+                {t('common.cancel')}
               </button>
             </div>
           </div>
-        </div>
+        </BaseModal>
       )}
-
-      {/* Permissions Legend */}
-      <div className="pt-4 border-t">
-        <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
-          <Shield className="w-4 h-4" />
-          {t('settings.collaboration.permissionLevels')}
-        </h4>
-        <div className="space-y-2 text-sm">
-          <div className="flex items-start gap-2">
-            <Crown className="w-4 h-4 text-yellow-500 mt-0.5" />
-            <div>
-              <span className="font-medium">{t('settings.collaboration.owner')}:</span>
-              <span className="text-muted-foreground ml-1">{t('settings.collaboration.ownerDesc')}</span>
-            </div>
-          </div>
-          <div className="flex items-start gap-2">
-            <Edit3 className="w-4 h-4 text-blue-500 mt-0.5" />
-            <div>
-              <span className="font-medium">Editor:</span>
-              <span className="text-muted-foreground ml-1">{t('settings.collaboration.editorDesc')}</span>
-            </div>
-          </div>
-          <div className="flex items-start gap-2">
-            <Eye className="w-4 h-4 text-gray-500 mt-0.5" />
-            <div>
-              <span className="font-medium">{t('settings.collaboration.viewer')}:</span>
-              <span className="text-muted-foreground ml-1">{t('settings.collaboration.viewerDesc')}</span>
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* Confirmation Modal */}
       {confirmAction && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
-          <div
-            className="bg-card border border-border rounded-xl shadow-xl w-full max-w-sm p-6 animate-in fade-in slide-in-from-bottom-4 duration-200"
-            onClick={e => e.stopPropagation()}
-          >
+        <BaseModal
+          isOpen={!!confirmAction}
+          onRequestClose={closeConfirmModal}
+          closeOnBackdropClick={false}
+          overlayClassName="z-[70]"
+          contentClassName="bg-card border border-border rounded-xl shadow-xl w-full max-w-sm p-6 animate-in fade-in slide-in-from-bottom-4 duration-200"
+        >
+          <div>
             {/* Header */}
             <div className="flex items-center gap-3 mb-4">
               <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
@@ -818,7 +909,7 @@ export function CollaborationSettings({
             {/* Actions */}
             <div className="flex gap-3">
               <button
-                onClick={() => setConfirmAction(null)}
+                onClick={closeConfirmModal}
                 className="flex-1 px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors text-sm font-medium"
               >
                 {t('settings.actions.cancel')}
@@ -837,7 +928,7 @@ export function CollaborationSettings({
               </button>
             </div>
           </div>
-        </div>
+        </BaseModal>
       )}
 
       {/* Success Toast */}

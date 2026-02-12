@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Edit, Check, AlertCircle, Power, Zap } from 'lucide-react';
 import { getIntegrations, saveIntegrations, type IntegrationConfig } from '../utils/storage';
+import { BaseModal } from './BaseModal';
 
 // Ícone customizado do Notion (Simple Icons)
 const NotionIcon: React.FC<{ className?: string }> = ({ className }) => (
@@ -121,6 +122,39 @@ export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({ hook
     }
   }, []);
 
+  useEffect(() => {
+    if (configuring) {
+      localStorage.setItem('obsreview-integrations-configuring', configuring);
+      localStorage.setItem('obsreview-integrations-configForm', JSON.stringify(configForm));
+      return;
+    }
+
+    localStorage.removeItem('obsreview-integrations-configuring');
+    localStorage.removeItem('obsreview-integrations-configForm');
+  }, [configuring, configForm]);
+
+  useEffect(() => {
+    const savedConfiguring = localStorage.getItem('obsreview-integrations-configuring');
+    const savedForm = localStorage.getItem('obsreview-integrations-configForm');
+
+    if (!savedConfiguring) return;
+
+    setConfiguring(savedConfiguring);
+
+    if (!savedForm) return;
+    try {
+      const parsed = JSON.parse(savedForm) as typeof configForm;
+      setConfigForm({
+        target: parsed.target || '',
+        associatedHooks: Array.isArray(parsed.associatedHooks) ? parsed.associatedHooks : [],
+        customMessage: parsed.customMessage || '',
+        autoSendLink: !!parsed.autoSendLink,
+      });
+    } catch {
+      localStorage.removeItem('obsreview-integrations-configForm');
+    }
+  }, []);
+
   const toggleIntegration = (id: string) => {
     const updated = integrations.map(i =>
       i.id === id ? { ...i, enabled: !i.enabled } : i
@@ -206,7 +240,7 @@ export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({ hook
     switch (type) {
       case 'whatsapp': return t('settings.integrations.whatsappDesc');
       case 'telegram': return t('settings.integrations.telegramDesc');
-      case 'notion': return 'Exportar notas para o Notion';
+      case 'notion': return 'Enviar para o Notion';
       case 'obsidian': return 'Sincronizar com vault do Obsidian';
       default: return '';
     }
@@ -237,13 +271,14 @@ export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({ hook
               {/* Header */}
               <div className="flex items-center justify-between gap-2 mb-3">
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${integration.type === 'whatsapp' ? 'bg-green-500/10 text-green-600 dark:text-green-400' :
-                      integration.type === 'telegram' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' :
-                        integration.type === 'notion' ? 'bg-gray-700/10 text-gray-700 dark:text-gray-300 dark:bg-gray-300/10' :
-                          integration.type === 'obsidian' ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400' :
-                            'bg-blue-500/10 text-blue-600 dark:text-blue-400'
-                    }`}>
-                    <Icon className="w-4 h-4" />
+                  <div className={`rounded-lg flex items-center justify-center flex-shrink-0 ${
+                    integration.type === 'whatsapp' ? 'w-8 h-8 bg-green-500/10 text-green-600 dark:text-green-400' :
+                    integration.type === 'telegram' ? 'w-8 h-8 bg-blue-500/10 text-blue-600 dark:text-blue-400' :
+                    integration.type === 'notion' ? 'w-10 h-10 bg-white border-2 border-gray-900 text-gray-900' :
+                    integration.type === 'obsidian' ? 'w-8 h-8 bg-purple-500/10 text-purple-600 dark:text-purple-400' :
+                    'w-8 h-8 bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                  }`}>
+                    <Icon className={integration.type === 'notion' ? 'w-6 h-6' : 'w-4 h-4'} />
                   </div>
                   <h3 className="text-sm font-semibold text-foreground truncate">
                     {getIntegrationLabel(integration.type)}
@@ -323,11 +358,14 @@ export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({ hook
 
       {/* Configuration Modal */}
       {configuring && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
-          <div
-            className="bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-6 animate-in fade-in slide-in-from-bottom-4 duration-200"
-            onClick={e => e.stopPropagation()}
-          >
+        <BaseModal
+          isOpen={!!configuring}
+          onRequestClose={() => setConfiguring(null)}
+          closeOnBackdropClick={false}
+          overlayClassName="z-[70]"
+          contentClassName="bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-6 animate-in fade-in slide-in-from-bottom-4 duration-200"
+        >
+          <div>
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-foreground">
@@ -335,7 +373,7 @@ export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({ hook
               </h3>
               <button
                 onClick={() => setConfiguring(null)}
-                className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors rounded-md"
+                className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors rounded-md"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -378,43 +416,43 @@ export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({ hook
 
               {/* Associated hooks */}
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">
-                  {t('settings.integrations.associatedHook')} (múltiplos)
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  {t('settings.integrations.associatedHook')}
                 </label>
-                <div className="space-y-2 max-h-32 overflow-y-auto border border-border rounded-lg p-2 bg-background">
-                  {hooks.length === 0 ? (
-                    <p className="text-xs text-muted-foreground text-center py-2">
-                      Nenhum hook disponível
-                    </p>
-                  ) : (
-                    hooks.map(hook => (
-                      <label
+                {hooks.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-2 border border-dashed border-border rounded-lg">
+                    Nenhum hook disponível
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {hooks.map(hook => (
+                      <button
                         key={hook.id}
-                        className="flex items-center gap-2 p-2 hover:bg-muted/50 rounded cursor-pointer"
+                        type="button"
+                        onClick={() => {
+                          if (configForm.associatedHooks.includes(hook.id)) {
+                            setConfigForm({
+                              ...configForm,
+                              associatedHooks: configForm.associatedHooks.filter(h => h !== hook.id)
+                            });
+                          } else {
+                            setConfigForm({
+                              ...configForm,
+                              associatedHooks: [...configForm.associatedHooks, hook.id]
+                            });
+                          }
+                        }}
+                        className={`px-3 py-1.5 text-sm font-medium rounded-full transition-all ${
+                          configForm.associatedHooks.includes(hook.id)
+                            ? 'bg-primary text-primary-foreground shadow-sm'
+                            : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
+                        }`}
                       >
-                        <input
-                          type="checkbox"
-                          checked={configForm.associatedHooks.includes(hook.id)}
-                          onChange={e => {
-                            if (e.target.checked) {
-                              setConfigForm({
-                                ...configForm,
-                                associatedHooks: [...configForm.associatedHooks, hook.id]
-                              });
-                            } else {
-                              setConfigForm({
-                                ...configForm,
-                                associatedHooks: configForm.associatedHooks.filter(h => h !== hook.id)
-                              });
-                            }
-                          }}
-                          className="w-4 h-4 rounded border-border text-primary focus:ring-primary/50"
-                        />
-                        <span className="text-sm text-foreground">{hook.name}</span>
-                      </label>
-                    ))
-                  )}
-                </div>
+                        {hook.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Custom message */}
@@ -506,7 +544,7 @@ export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({ hook
               </button>
             </div>
           </div>
-        </div>
+        </BaseModal>
       )}
     </div>
   );

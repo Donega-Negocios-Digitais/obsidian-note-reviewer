@@ -26,7 +26,7 @@ key-files:
 key-decisions:
   - "Use @supabase/supabase-js (browser client) instead of @supabase/ssr for Vite SPA"
   - "Session persisted in localStorage (not httpOnly cookies) since no SSR"
-  - "Vite env var convention (VITE_* prefix) instead of Next.js (NEXT_PUBLIC_*)"
+  - "Vite env var convention (VITE_* prefix) instead of Next.js public env prefix"
   - "AuthProvider wraps entire Portal app for global auth context"
 
 patterns-established:
@@ -39,6 +39,8 @@ patterns-established:
 duration: 6min
 completed: 2026-02-05
 ---
+
+> Historical normalization note (2026-02-12): environment variable naming in this summary was normalized to current project conventions (`VITE_*` for frontend). Original execution context was preserved.
 
 # Phase 1: Plan 1 Summary
 
@@ -105,7 +107,7 @@ Each task was committed atomically:
 - **Impact:** Session persisted in localStorage, no httpOnly cookies, no Next.js middleware
 
 ### Environment Variables
-- **Decision:** Use Vite convention (VITE_* prefix) instead of Next.js (NEXT_PUBLIC_*)
+- **Decision:** Use Vite convention (VITE_* prefix) instead of Next.js public env prefix
 - **Rationale:** Vite only exposes env vars with VITE_ prefix to client code
 - **Impact:** Renamed env vars, added TypeScript declarations
 
@@ -125,7 +127,7 @@ Each task was committed atomically:
   - Used @supabase/supabase-js browser client instead of @supabase/ssr
   - Session persisted in localStorage instead of httpOnly cookies
   - No Next.js middleware (SPA handles auth differently)
-  - Vite env var convention (VITE_*) instead of Next.js (NEXT_PUBLIC_*)
+  - Vite env var convention (VITE_*) instead of Next.js public env prefix
 - **Files modified:** All auth files use browser client patterns
 - **Rationale:** Portal is Vite-based SPA; adaptation respects existing architecture
 - **User decision:** Option A explicitly selected by user
@@ -154,10 +156,14 @@ None - execution proceeded smoothly after architectural adaptation.
 
 3. **Configure env vars:**
    ```bash
-   # In apps/portal/.env
-   VITE_SUPABASE_URL=https://your-project.supabase.co
-   VITE_SUPABASE_ANON_KEY=your-anon-key
+    # In apps/portal/.env
+    VITE_SUPABASE_URL=https://your-project.supabase.co
+    VITE_SUPABASE_ANON_KEY=your-anon-key
    ```
+
+5. **Security reminder:**
+   - Share `.env.example` only; do not send real `.env` secrets over WhatsApp.
+   - `SUPABASE_SERVICE_ROLE_KEY` is server-side only and must never be placed in frontend env.
 
 4. **Enable OAuth providers (optional):**
    - Navigate to Authentication → Providers

@@ -5,7 +5,8 @@
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Trash2, Power, AlertTriangle, Info, Check } from 'lucide-react';
+import { Trash2, Power, AlertTriangle, Info } from 'lucide-react';
+import { BaseModal } from './BaseModal';
 
 export type ConfirmActionType = 'delete' | 'deactivate' | 'activate' | 'warning' | 'info';
 
@@ -73,11 +74,14 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   const { icon, bgColor, buttonColor } = getIconAndColor();
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
-      <div
-        className="bg-card border border-border rounded-xl shadow-xl w-full max-w-sm p-6 animate-in fade-in slide-in-from-bottom-4 duration-200"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <BaseModal
+      isOpen={isOpen}
+      onRequestClose={onCancel}
+      closeOnBackdropClick={false}
+      overlayClassName="z-[120]"
+      contentClassName="bg-card border border-border rounded-xl shadow-xl w-full max-w-sm p-6 animate-in fade-in slide-in-from-bottom-4 duration-200"
+    >
+      <div>
         {/* Header */}
         <div className="flex items-center gap-3 mb-4">
           <div className={`w-10 h-10 rounded-full flex items-center justify-center ${bgColor}`}>
@@ -105,6 +109,6 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </BaseModal>
   );
 };

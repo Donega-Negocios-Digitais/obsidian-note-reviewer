@@ -1,5 +1,7 @@
 # Plan 04-05: Shareable Links System - Summary
 
+> Historical normalization note (2026-02-12): environment variable examples were normalized to current project conventions (`VITE_*` for frontend).
+
 **Status:** Complete
 **Executed:** 2026-02-07
 **Tasks:** 7/7
@@ -106,8 +108,12 @@ Run the migration in Supabase SQL editor:
 
 ## Environment Variables
 
-Add to `.env`:
+Add to `apps/portal/.env.local`:
 ```
-SUPABASE_URL=your_supabase_url
-SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
+
+Security reminder:
+- Share `.env.example` only; do not send a real `.env` file over WhatsApp.
+- `SUPABASE_SERVICE_ROLE_KEY` is server-only and must not be used in frontend env files.

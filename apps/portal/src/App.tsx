@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { useEffect } from 'react'
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@obsidian-note-reviewer/security/auth'
 import EditorApp from '@obsidian-note-reviewer/editor'
 import { LoginPage } from './pages/login'
@@ -12,6 +13,9 @@ import { CollaborationPreview } from './pages/preview/CollaborationPreview'
 import { Pricing } from './pages/Pricing'
 import { CheckoutSuccess } from './pages/CheckoutSuccess'
 import { CheckoutCancel } from './pages/CheckoutCancel'
+import { LogoutThanks } from './pages/LogoutThanks'
+import { useReferralCapture } from './hooks/useReferralCapture'
+import { clearPostLogoutRedirect, readPostLogoutRedirect } from './lib/referral'
 
 /**
  * Protected Route Component
@@ -55,6 +59,34 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+function ReferralCapture(): React.ReactElement | null {
+  useReferralCapture()
+  return null
+}
+
+function PostLogoutRedirect(): React.ReactElement | null {
+  const { user, loading } = useAuth()
+  const location = useLocation()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (loading || user) return
+
+    const redirectPath = readPostLogoutRedirect()
+    if (!redirectPath) return
+
+    if (location.pathname === redirectPath) {
+      clearPostLogoutRedirect()
+      return
+    }
+
+    clearPostLogoutRedirect()
+    navigate(redirectPath, { replace: true })
+  }, [loading, user, location.pathname, navigate])
+
+  return null
+}
+
 /**
  * Main App Component with Router
  */
@@ -62,6 +94,8 @@ export function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <ReferralCapture />
+        <PostLogoutRedirect />
         <Routes>
           {/* Public routes */}
           <Route
@@ -93,6 +127,7 @@ export function App() {
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/checkout/success" element={<CheckoutSuccess />} />
           <Route path="/checkout/cancel" element={<CheckoutCancel />} />
+          <Route path="/logout-thanks" element={<LogoutThanks />} />
 
           {/* Protected routes */}
           <Route

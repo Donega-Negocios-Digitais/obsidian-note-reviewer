@@ -21,6 +21,7 @@ import { useVersionStore } from '../store/useVersionStore';
 import type { DocumentVersion } from '../types/version';
 import DiffViewer from './DiffViewer';
 import { ConfirmationDialog } from './ConfirmationDialog';
+import { BaseModal } from './BaseModal';
 
 interface VersionHistoryProps {
   /** Document ID to fetch versions for */
@@ -195,8 +196,14 @@ function ComparisonModal({
   if (!isOpen || !version1 || !version2) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] flex flex-col">
+    <BaseModal
+      isOpen={isOpen}
+      onRequestClose={onClose}
+      closeOnBackdropClick={false}
+      overlayClassName="z-50 bg-black/50"
+      contentClassName="bg-white dark:bg-gray-900 rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] flex flex-col"
+    >
+      <div className="h-full flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
           <div>
@@ -209,7 +216,7 @@ function ComparisonModal({
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400"
+            className="p-2 rounded hover:bg-red-500/10 text-gray-500 dark:text-gray-400 hover:text-red-500"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -238,18 +245,18 @@ function ComparisonModal({
           </button>
         </div>
       </div>
-    </div>
+    </BaseModal>
   );
 }
 
 export const VersionHistory: React.FC<VersionHistoryProps> = ({
   documentId,
-  userId,
+  userId: _userId,
   onVersionRestored,
   className = '',
 }) => {
   const [page, setPage] = useState(1);
-  const [selectedVersion, setSelectedVersion] = useState<DocumentVersion | null>(null);
+  const [selectedVersion] = useState<DocumentVersion | null>(null);
   const [compareState, setCompareState] = useState<CompareState>({
     isOpen: false,
     version1: null,
