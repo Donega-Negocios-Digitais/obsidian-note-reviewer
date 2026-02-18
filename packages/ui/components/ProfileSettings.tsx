@@ -34,27 +34,7 @@ type PasswordErrors = {
 
 const LOGOUT_THANKS_SNAPSHOT_KEY = 'obsreview-logout-thanks-snapshot'
 const POST_LOGOUT_REDIRECT_KEY = 'obsreview-post-logout-redirect'
-const LOGOUT_CONFIRM_OPEN_KEY = 'obsreview-profile-logout-confirm-open'
-
-function readLocalFlag(key: string): boolean {
-  try {
-    return localStorage.getItem(key) === '1'
-  } catch {
-    return false
-  }
-}
-
-function writeLocalFlag(key: string, value: boolean): void {
-  try {
-    if (value) {
-      localStorage.setItem(key, '1')
-    } else {
-      localStorage.removeItem(key)
-    }
-  } catch {
-    // ignore persistence errors
-  }
-}
+const LEGACY_LOGOUT_CONFIRM_OPEN_KEY = 'obsreview-profile-logout-confirm-open'
 
 type AffiliateSummaryRow = {
   affiliate_code?: string
@@ -112,7 +92,7 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
   const [savingPassword, setSavingPassword] = useState(false)
   const [passwordErrors, setPasswordErrors] = useState<PasswordErrors>({})
   const [passwordSuccess, setPasswordSuccess] = useState(false)
-  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(() => readLocalFlag(LOGOUT_CONFIRM_OPEN_KEY))
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
 
   // General state
@@ -137,8 +117,12 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
   }, [savedField])
 
   useEffect(() => {
-    writeLocalFlag(LOGOUT_CONFIRM_OPEN_KEY, logoutConfirmOpen)
-  }, [logoutConfirmOpen])
+    try {
+      localStorage.removeItem(LEGACY_LOGOUT_CONFIRM_OPEN_KEY)
+    } catch {
+      // ignore persistence errors
+    }
+  }, [])
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]

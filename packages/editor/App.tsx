@@ -422,7 +422,7 @@ type SettingsTab =
   | 'colaboracao'
   | 'integracoes';
 
-const SETTINGS_PANEL_OPEN_KEY = 'obsidian-reviewer-settings-open';
+const LEGACY_SETTINGS_PANEL_OPEN_KEY = 'obsidian-reviewer-settings-open';
 const SETTINGS_PANEL_TAB_KEY = 'obsidian-reviewer-settings-tab';
 const APP_MODAL_KEYS = {
   showExport: 'obsidian-reviewer-modal-showExport',
@@ -490,7 +490,7 @@ const App: React.FC = () => {
   const [showShareDialog, setShowShareDialog] = useState(() => readLocalFlag(APP_MODAL_KEYS.showShareDialog));
   const [showShortcutsModal, setShowShortcutsModal] = useState(() => readLocalFlag(APP_MODAL_KEYS.showShortcutsModal));
   const [isPanelOpen, setIsPanelOpen] = useState(true);
-  const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(() => storage.getItem(SETTINGS_PANEL_OPEN_KEY) === '1');
+  const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab>(() => {
     const savedTab = storage.getItem(SETTINGS_PANEL_TAB_KEY);
     return isSettingsTab(savedTab) ? savedTab : 'caminhos';
@@ -596,8 +596,8 @@ const App: React.FC = () => {
   }, [isSettingsPanelOpen]);
 
   useEffect(() => {
-    storage.setItem(SETTINGS_PANEL_OPEN_KEY, isSettingsPanelOpen ? '1' : '0');
-  }, [isSettingsPanelOpen]);
+    storage.removeItem(LEGACY_SETTINGS_PANEL_OPEN_KEY);
+  }, []);
 
   useEffect(() => {
     storage.setItem(SETTINGS_PANEL_TAB_KEY, settingsInitialTab);
