@@ -13,6 +13,7 @@
 import React, { useState } from 'react'
 import { useAuth } from '@obsidian-note-reviewer/security/auth'
 import { supabase } from '@obsidian-note-reviewer/security/supabase/client'
+import { useNavigate } from 'react-router-dom'
 import {
   clearPostLogoutRedirect,
   setPostLogoutRedirect,
@@ -46,6 +47,7 @@ export function LogoutButton({
   const [showConfirm, setShowConfirm] = useState(false)
   const [loading, setLoading] = useState(false)
   const { signOut, user } = useAuth()
+  const navigate = useNavigate()
 
   const toSafeNumber = (value: unknown, fallback = 0) => {
     if (typeof value === 'number' && Number.isFinite(value)) return value
@@ -116,7 +118,7 @@ export function LogoutButton({
       await prepareLogoutThanksSnapshot()
       setPostLogoutRedirect('/logout-thanks')
       await signOut()
-      window.location.assign('/logout-thanks')
+      navigate('/logout-thanks')
     } catch (error: any) {
       clearPostLogoutRedirect()
       console.error('Logout error:', error)
