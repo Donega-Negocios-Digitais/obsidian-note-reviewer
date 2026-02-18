@@ -1,6 +1,25 @@
 import { supabase } from './supabase';
 import { log } from './logger';
 
+function getAuthRedirectOrigin(): string {
+  const configuredAppUrl = import.meta.env.VITE_APP_URL;
+  if (configuredAppUrl) {
+    try {
+      return new URL(configuredAppUrl).origin;
+    } catch {
+      log.warn('Invalid VITE_APP_URL for auth redirect, falling back to current origin', {
+        configuredAppUrl,
+      });
+    }
+  }
+
+  return window.location.origin;
+}
+
+function authRedirect(path: string): string {
+  return `${getAuthRedirectOrigin()}${path}`;
+}
+
 export const auth = {
   /**
    * Sign up with email and password
@@ -12,7 +31,7 @@ export const auth = {
         password,
         options: {
           data: metadata,
-          emailRedirectTo: `${window.location.origin}/auth/callback`
+          emailRedirectTo: authRedirect('/auth/callback')
         }
       });
 
@@ -52,7 +71,7 @@ export const auth = {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`
+          redirectTo: authRedirect('/auth/callback')
         }
       });
 
@@ -123,7 +142,7 @@ export const auth = {
   async resetPassword(email: string) {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/reset-password`
+        redirectTo: authRedirect('/auth/reset-password')
       });
 
       if (error) throw error;

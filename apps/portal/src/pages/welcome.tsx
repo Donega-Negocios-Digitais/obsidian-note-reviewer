@@ -25,6 +25,7 @@ export function WelcomePage() {
     // Check if user already completed onboarding
     // If user has full_name in metadata, they've been here before
     if (!loading && user?.user_metadata?.full_name) {
+      console.log('🔍 [Welcome] Usuário com full_name, redirecionando para /editor')
       // Redirect to editor to avoid repeated onboarding
       navigate('/editor', { replace: true })
     }

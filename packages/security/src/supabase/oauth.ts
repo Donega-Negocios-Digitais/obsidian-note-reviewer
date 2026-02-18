@@ -42,7 +42,7 @@ export async function signInWithOAuth(
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: OAUTH_PROVIDERS[provider],
     options: {
-      redirectTo: redirectTo || `${getWindowOrigin()}/auth/callback`,
+      redirectTo: redirectTo || `${getAuthRedirectOrigin()}/auth/callback`,
       scopes,
       skipBrowserRedirect,
     },
@@ -57,13 +57,26 @@ export async function signInWithOAuth(
 }
 
 /**
- * Get current window origin for redirect
- * Falls back to localhost if origin cannot be determined
+ * Resolve callback origin for OAuth redirects.
+ * Priority:
+ * 1) VITE_APP_URL (if configured)
+ * 2) Current browser origin
+ * 3) Localhost fallback
  */
-function getWindowOrigin(): string {
+function getAuthRedirectOrigin(): string {
+  const configuredAppUrl = import.meta.env.VITE_APP_URL
+  if (configuredAppUrl) {
+    try {
+      return new URL(configuredAppUrl).origin
+    } catch {
+      // Invalid VITE_APP_URL: ignore and fallback to current origin.
+    }
+  }
+
   if (typeof window !== 'undefined') {
     return window.location.origin
   }
+
   return 'http://localhost:5173'
 }
 

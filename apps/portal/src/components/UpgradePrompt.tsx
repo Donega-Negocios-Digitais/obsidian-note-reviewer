@@ -124,7 +124,7 @@ export function UpgradePrompt({
           <button
             onClick={() => {
               if (onUpgrade) onUpgrade();
-              window.location.href = '/pricing';
+              window.location.assign('/pricing');
             }}
             className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 rounded-xl transition-all shadow-md hover:shadow-lg"
           >

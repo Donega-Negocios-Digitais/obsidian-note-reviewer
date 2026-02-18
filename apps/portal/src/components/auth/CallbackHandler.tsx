@@ -11,7 +11,7 @@ import type { User } from '@supabase/supabase-js'
  *
  * Redirect behavior:
  * - New users (created_at == now) → /welcome
- * - Returning users → /dashboard
+ * - Returning users → /editor
  * - OAuth failed/cancelled → /auth/login
  */
 export function CallbackHandler() {
@@ -79,7 +79,8 @@ export function CallbackHandler() {
             const isNewUser = (now.getTime() - createdAt.getTime()) < 30000 // 30 seconds
 
             const targetPath = redirectTo || (isNewUser ? '/welcome' : '/editor')
-            console.log('✅ [Callback] Redirecionando para:', targetPath, '(novo usuário:', isNewUser, ')')
+            console.log('✅ [Callback] Redirecionando para:', targetPath, '(novo usuário:', isNewUser, ', caminho: setSession)')
+            console.log('🔍 [Callback] Email:', sessionData.session.user.email)
 
             setProcessing(false)
             setUser(sessionData.session.user)
@@ -109,7 +110,7 @@ export function CallbackHandler() {
           const now = new Date()
           const isNewUser = (now.getTime() - createdAt.getTime()) < 30000 // 30 seconds
 
-          const targetPath = redirectTo || (isNewUser ? '/welcome' : '/dashboard')
+          const targetPath = redirectTo || (isNewUser ? '/welcome' : '/editor')
           console.log('✅ [Callback] Redirecionando para:', targetPath, '(novo usuário:', isNewUser, ')')
 
           setProcessing(false)
