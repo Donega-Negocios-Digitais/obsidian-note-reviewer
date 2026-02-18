@@ -1,7 +1,4 @@
 {
-  "buildCommand": "bun run build:portal",
-  "installCommand": "bun install",
-  "outputDirectory": "apps/portal/dist",
   "rewrites": [
     {
       "source": "/api/:path*",
