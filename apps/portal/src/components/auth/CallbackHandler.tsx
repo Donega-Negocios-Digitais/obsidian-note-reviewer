@@ -42,7 +42,7 @@ export function CallbackHandler() {
           console.error('❌ [Callback] OAuth error:', error_code, error_description)
           setError(error_description || error_code)
           setTimeout(() => {
-            if (mounted) window.location.href = '/auth/login'
+            if (mounted) navigate('/auth/login')
           }, 3000)
           return
         }
@@ -124,7 +124,7 @@ export function CallbackHandler() {
           setError('Não foi possível completar a autenticação. Tente novamente.')
           setTimeout(() => {
             if (mounted) {
-              window.location.href = '/auth/login'
+              navigate('/auth/login')
             }
           }, 5000)
         }
@@ -133,7 +133,7 @@ export function CallbackHandler() {
         if (mounted) {
           setError('Erro ao processar autenticação')
           setTimeout(() => {
-            window.location.href = '/auth/login'
+            navigate('/auth/login')
           }, 3000)
         }
       }
@@ -178,7 +178,7 @@ export function CallbackHandler() {
           <p className="text-muted-foreground text-sm">Usuário: {user.email}</p>
           <p className="text-muted-foreground text-sm">Redirecionar para: {targetUrl}</p>
           <button
-            onClick={() => window.location.href = targetUrl}
+            onClick={() => navigate(targetUrl)}
             className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
           >
             Continuar
