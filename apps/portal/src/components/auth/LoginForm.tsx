@@ -18,7 +18,7 @@ export function LoginForm() {
 
     try {
       await signInWithEmail(email, password)
-      navigate('/dashboard')
+      navigate('/editor')
     } catch (error: any) {
       setError(error.message || 'Erro ao fazer login. Tente novamente.')
     } finally {

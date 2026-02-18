@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '@obsidian-note-reviewer/security/supabase/client'
-import type { User } from '@supabase/supabase-js'
 
 /**
  * OAuth Callback Handler
@@ -10,8 +9,7 @@ import type { User } from '@supabase/supabase-js'
  * Manually processes the session from URL hash tokens.
  *
  * Redirect behavior:
- * - New users (created_at == now) → /welcome
- * - Returning users → /editor
+ * - OAuth success → /editor (or redirectTo when explicitly provided)
  * - OAuth failed/cancelled → /auth/login
  */
 export function CallbackHandler() {
@@ -19,8 +17,6 @@ export function CallbackHandler() {
   const [searchParams] = useSearchParams()
   const [error, setError] = useState<string | null>(null)
   const [processing, setProcessing] = useState(true)
-  const [user, setUser] = useState<User | null>(null)
-  const [targetUrl, setTargetUrl] = useState<string | null>(null)
 
   // Get redirect target from URL params (for flexibility)
   const next = searchParams.get('next') ?? null
@@ -72,19 +68,9 @@ export function CallbackHandler() {
 
           if (sessionData?.session?.user) {
             console.log('✅ [Callback] Sessão configurada! Usuário:', sessionData.session.user.email)
-
-            // Check if new user
-            const createdAt = new Date(sessionData.session.user.created_at)
-            const now = new Date()
-            const isNewUser = (now.getTime() - createdAt.getTime()) < 30000 // 30 seconds
-
-            const targetPath = redirectTo || (isNewUser ? '/welcome' : '/editor')
-            console.log('✅ [Callback] Redirecionando para:', targetPath, '(novo usuário:', isNewUser, ', caminho: setSession)')
-            console.log('🔍 [Callback] Email:', sessionData.session.user.email)
-
-            setProcessing(false)
-            setUser(sessionData.session.user)
-            setTargetUrl(targetPath)
+            const targetPath = redirectTo || '/editor'
+            console.log('✅ [Callback] Redirecionando automaticamente para:', targetPath, '(caminho: setSession)')
+            navigate(targetPath, { replace: true })
             return
           }
         }
@@ -104,18 +90,9 @@ export function CallbackHandler() {
 
         if (session?.user) {
           console.log('✅ [Callback] Sessão encontrada! Usuário:', session.user.email)
-
-          // Check if new user
-          const createdAt = new Date(session.user.created_at)
-          const now = new Date()
-          const isNewUser = (now.getTime() - createdAt.getTime()) < 30000 // 30 seconds
-
-          const targetPath = redirectTo || (isNewUser ? '/welcome' : '/editor')
-          console.log('✅ [Callback] Redirecionando para:', targetPath, '(novo usuário:', isNewUser, ')')
-
-          setProcessing(false)
-          setUser(session.user)
-          setTargetUrl(targetPath)
+          const targetPath = redirectTo || '/editor'
+          console.log('✅ [Callback] Redirecionando automaticamente para:', targetPath, '(caminho: getSession)')
+          navigate(targetPath, { replace: true })
         } else {
           console.error('❌ [Callback] Nenhuma sessão encontrada após 10 tentativas')
           console.log('🔍 [Callback] LocalStorage keys:', Object.keys(localStorage).filter(k => k.startsWith('sb-')))
@@ -145,7 +122,7 @@ export function CallbackHandler() {
     return () => {
       mounted = false
     }
-  }, [searchParams, redirectTo])
+  }, [navigate, searchParams, redirectTo])
 
   // Error state
   if (error) {
@@ -160,33 +137,6 @@ export function CallbackHandler() {
           <h2 className="text-xl font-semibold">Erro na autenticação</h2>
           <p className="text-muted-foreground text-sm">{error}</p>
           <p className="text-muted-foreground text-sm">Redirecionando para o login...</p>
-        </div>
-      </div>
-    )
-  }
-
-  // Success state - mostra info e não redireciona automaticamente
-  if (!processing && user && targetUrl) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-8">
-        <div className="w-full max-w-md space-y-4 text-center">
-          <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-green-500/15">
-            <svg className="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <h2 className="text-xl font-semibold">Login realizado com sucesso!</h2>
-          <p className="text-muted-foreground text-sm">Usuário: {user.email}</p>
-          <p className="text-muted-foreground text-sm">Redirecionar para: {targetUrl}</p>
-          <button
-            onClick={() => navigate(targetUrl)}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-          >
-            Continuar
-          </button>
-          <p className="text-xs text-muted-foreground mt-4">
-            Abra o console (F12) e copie os logs para enviar ao desenvolvedor
-          </p>
         </div>
       </div>
     )
