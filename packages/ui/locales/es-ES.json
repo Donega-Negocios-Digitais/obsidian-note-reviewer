@@ -36,7 +36,18 @@
       "tip": "💡 Consejo: Use el botón ⏻ para activar/desactivar plantillas. Verde = Activo, Rojo = Inactivo",
       "configurePath": "Configurar ruta y plantilla",
       "templatePathDescription": "Ruta al archivo de plantilla usado para crear este tipo de nota",
-      "destinationPathDescription": "Carpeta donde se guardarán las notas de este tipo"
+      "destinationPathDescription": "Carpeta donde se guardarán las notas de este tipo",
+      "manageTemplates": "Administrar plantillas",
+      "manageCategories": "Administrar categorías",
+      "trash": "Papelera",
+      "categories": "Categorías",
+      "filteredCount": "{{count}} de {{total}}",
+      "deleteCategory": "Eliminar categoría",
+      "noTemplatesInCategory": "No hay plantillas en esta categoría.",
+      "editConfiguration": "Editar configuración",
+      "noCategoriesForFilter": "No hay categorías para este filtro.",
+      "configurationSaved": "¡Configuración guardada con éxito!",
+      "uncategorized": "Sin categoría"
     },
     "identity": {
       "title": "Perfil del Revisor",
@@ -76,6 +87,8 @@
       "subtitle": "Configurar integraciones automáticas",
       "active": "✓ Activo",
       "inactive": "Inactivo",
+      "activate": "Activar",
+      "deactivate": "Desactivar",
       "moreSoon": "Más hooks se agregarán pronto",
       "trigger": "Trigger",
       "test": "Probar",
@@ -89,7 +102,21 @@
       "obsidianNote": {
         "name": "Crear Nota Obsidian",
         "description": "Abre el Note Reviewer cuando usas la skill para crear notas en Obsidian"
-      }
+      },
+      "descriptionPlaceholder": "Describe qué hace este hook...",
+      "whenThisHappens": "Cuando esto ocurre",
+      "triggerCommand": "Comando disparador",
+      "triggerPlaceholder": "Ej: /review o comando específico",
+      "triggerHelp": "Cuando se detecte este comando, se ejecutará el hook.",
+      "thenThisRuns": "Entonces se ejecutará esto",
+      "autoRunDescription": "La acción de este hook se ejecutará automáticamente.",
+      "status": "Estado",
+      "saveChanges": "Guardar cambios",
+      "saveHook": "Guardar hook",
+      "editHook": "Editar hook",
+      "configureAutomations": "Configura automatizaciones personalizadas",
+      "hookName": "Nombre del hook",
+      "hookNamePlaceholder": "Ej: Mi Hook Personalizado"
     },
     "categoryManager": {
       "title": "Gestionar Categorías",
@@ -128,6 +155,8 @@
       "whatsappDesc": "Envía links de revisión automáticamente por WhatsApp",
       "telegram": "Telegram",
       "telegramDesc": "Envía links de revisión automáticamente por Telegram",
+      "notionDesc": "Enviar a Notion",
+      "obsidianDesc": "Sincronizar con el vault de Obsidian",
       "configure": "Configurar",
       "enabled": "Activado",
       "disabled": "Desactivado",
@@ -135,15 +164,27 @@
       "phoneNumberPlaceholder": "+34 600 000 000",
       "chatId": "Chat ID / Username",
       "chatIdPlaceholder": "@usuario o ID numérico",
+      "apiKey": "API Key",
+      "apiKeyPlaceholder": "Ej: secret_...",
+      "vaultPath": "Ruta del Vault",
+      "vaultPathPlaceholder": "Ej: /Users/usuario/Documents/Vault",
       "associatedHook": "Hook Asociado",
       "selectHook": "Selecciona un hook",
       "noHook": "Ninguno",
+      "noHooksAvailable": "No hay hooks disponibles",
       "customMessage": "Mensaje Personalizado",
-      "customMessagePlaceholder": "Nueva nota para revisión: {{link}}",
+      "customMessagePlaceholder": "Variables: {emoji}, {title}, {noteType}, {url}, {timestamp}",
+      "customMessageVariables": "Variables disponibles",
+      "variableEmoji": "Emoji",
+      "variableTitle": "Título",
+      "variableType": "Tipo",
+      "variableLink": "Enlace",
+      "variableTimestamp": "Marca de tiempo",
       "autoSendLink": "Enviar link de revisión automáticamente",
       "testConnection": "Probar Conexión",
       "testSuccess": "¡Conexión probada con éxito!",
       "testError": "Error al probar la conexión",
+      "testing": "Probando...",
       "noIntegrations": "Ninguna integración configurada aún."
     },
     "language": {
@@ -208,6 +249,8 @@
       "editorDesc": "Puede agregar anotaciones y comentarios",
       "viewerDesc": "Solo visualización del documento",
       "pending": "Pendiente",
+      "active": "Activo",
+      "inactive": "Inactivo",
       "removeCollaborator": "Eliminar colaborador",
       "editCollaborator": "Editar Colaborador",
       "activate": "Activar",
@@ -234,7 +277,62 @@
       "updatePassword": "Cambiar contraseña",
       "updating": "Actualizando...",
       "photoUpdated": "Foto actualizada",
-      "maxSize": "JPG, PNG o GIF. Máximo 2MB."
+      "maxSize": "JPG, PNG o GIF. Máximo 2MB.",
+      "accountSection": "Cuenta",
+      "securitySection": "Seguridad",
+      "setPassword": "Definir contraseña",
+      "changePhoto": "Cambiar foto",
+      "uploading": "Subiendo...",
+      "noName": "Sin nombre",
+      "avatarAlt": "Avatar",
+      "publicNameHint": "Nombre público en el sistema",
+      "oauthInfo": "Iniciaste sesión con {{provider}}. Aquí también puedes definir una contraseña para acceder con correo/contraseña.",
+      "passwordUpdated": "Contraseña actualizada con éxito",
+      "errors": {
+        "invalidImage": "Selecciona un archivo de imagen válido.",
+        "maxImageSize": "La imagen debe tener como máximo 2MB.",
+        "avatarUpdate": "Error al actualizar el avatar en el perfil.",
+        "avatarUpload": "Error al subir el avatar.",
+        "emptyDisplayName": "Ingresa tu nombre para mostrar.",
+        "profileUpdate": "Error al actualizar el perfil en la base de datos.",
+        "profileUpdateGeneral": "Error al actualizar el perfil.",
+        "currentPasswordRequired": "La contraseña actual es obligatoria",
+        "newPasswordRequired": "La nueva contraseña es obligatoria",
+        "passwordMinLength": "La contraseña debe tener al menos 6 caracteres",
+        "confirmPasswordRequired": "La confirmación de contraseña es obligatoria",
+        "passwordMismatch": "Las contraseñas no coinciden",
+        "invalidUser": "Usuario inválido para cambiar la contraseña.",
+        "currentPasswordInvalid": "La contraseña actual es incorrecta",
+        "passwordUpdate": "Error al actualizar la contraseña."
+      }
+    },
+    "templateDelete": {
+      "title": "Eliminar Template",
+      "message": "¿Seguro que deseas eliminar \"{{name}}\"? Esta acción no se puede deshacer."
+    },
+    "session": {
+      "logoutAccount": "Cerrar sesión",
+      "logoutShort": "Salir",
+      "loggingOut": "Saliendo...",
+      "logoutConfirmTitle": "¿Deseas cerrar sesión?",
+      "logoutConfirmDescription": "Serás redirigido a una pantalla de agradecimiento y podrás volver a iniciar sesión cuando quieras."
+    },
+    "groups": {
+      "preferences": "Preferencias",
+      "automation": "Automatización"
+    },
+    "common": {
+      "itemDeleted": "\"{{name}}\" eliminado con éxito."
+    },
+    "trash": {
+      "templateDeletedPermanentlyFromTrash": "\"{{name}}\" eliminado permanentemente de la papelera.",
+      "categoryDeletedPermanentlyFromTrash": "La categoría \"{{name}}\" fue eliminada permanentemente de la papelera.",
+      "itemDeletedPermanently": "\"{{name}}\" eliminado permanentemente.",
+      "itemMovedToTrash": "\"{{name}}\" movido a la papelera.",
+      "itemRestored": "\"{{name}}\" restaurado con éxito.",
+      "categoryRestored": "Categoría \"{{name}}\" restaurada con éxito.",
+      "categoryMovedToTrash": "Categoría \"{{name}}\" movida a la papelera.",
+      "categoryMovedToTrashWithTemplates": "Categoría \"{{name}}\" movida a la papelera con {{count}} plantilla(s)."
     }
   },
   "viewer": {
@@ -277,7 +375,8 @@
       "comment": "Comentario",
       "global": "Global",
       "image": "Imagen"
-    }
+    },
+    "restore": "Restaurar"
   },
   "toolbar": {
     "delete": "Eliminar",
@@ -287,6 +386,7 @@
     "addCommentAria": "Añadir un comentario",
     "backToMenu": "Volver al menú",
     "save": "Guardar",
+    "submitHint": "Enter para enviar · Shift+⏎ nueva línea",
     "selection": "Selección",
     "editNote": "Editar Nota",
     "editMarkdown": "Editar MD",
@@ -355,7 +455,8 @@
     "editTitle": "Editar Atajo",
     "pressNewKey": "Presiona la nueva combinación de teclas",
     "waitingForKey": "Esperando...",
-    "clearKey": "Limpiar tecla"
+    "clearKey": "Limpiar tecla",
+    "pressKey": "Pulsa una tecla"
   },
   "editor": {
     "placeholder": "Edita el contenido de la nota aquí...",
@@ -394,7 +495,10 @@
     "save": "Guardar",
     "name": "Nombre",
     "email": "Correo electrónico",
-    "permission": "Permiso"
+    "permission": "Permiso",
+    "selected": "{{count}} seleccionados",
+    "selected_one": "{{count}} seleccionado",
+    "unknownError": "Error desconocido"
   },
   "app": {
     "saveToObsidian": "Guardar en Obsidian",
@@ -418,6 +522,20 @@
     "openExport": "Abrir Exportar",
     "editMode": "Modo de Edición",
     "characters": "caracteres",
-    "escToCancel": "Esc para cancelar"
+    "escToCancel": "Esc para cancelar",
+    "fullEditPlaceholder": "Edita el markdown completo aquí...",
+    "ctrlEnterToSave": "Ctrl+Enter para guardar",
+    "directMarkdownEdit": "Edición directa de markdown",
+    "savingChanges": "Guardando cambios...",
+    "requestChanges": "Solicitar cambios",
+    "sending": "Enviando...",
+    "approveNote": "Aprobar nota",
+    "approving": "Aprobando...",
+    "addAnnotationsTitle": "Añade anotaciones",
+    "addAnnotationsDescription": "Añade al menos una anotación antes de solicitar cambios.",
+    "changesCopied": "Cambios copiados",
+    "pasteInClaude": "Pega en Claude Code para continuar",
+    "copyChangesError": "Error al copiar cambios al portapapeles",
+    "saveUnknownError": "Error al guardar"
   }
 }

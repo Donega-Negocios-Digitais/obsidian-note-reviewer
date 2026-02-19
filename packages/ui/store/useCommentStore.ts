@@ -223,10 +223,21 @@ export const useCommentStore = create<CommentState>()(
           try {
             const { error } = await supabase
               .from('comments')
-              .delete()
+              .update({
+                deleted_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              })
               .eq('id', commentId);
 
-            if (error) throw error;
+            if (error) {
+              // Backward compatibility for schemas without deleted_at
+              const fallback = await supabase
+                .from('comments')
+                .delete()
+                .eq('id', commentId);
+
+              if (fallback.error) throw fallback.error;
+            }
           } catch (err) {
             console.error('Failed to delete comment:', err);
             set({ error: 'Failed to delete comment' });
@@ -280,7 +291,7 @@ export const useCommentStore = create<CommentState>()(
               updatedAt: new Date(thread.updated_at).getTime(),
               createdBy: thread.created_by,
               comments: (commentsData || [])
-                .filter((c: any) => c.thread_id === thread.id)
+                .filter((c: any) => c.thread_id === thread.id && !c.deleted_at)
                 .map((comment: any) => ({
                   id: comment.id,
                   threadId: comment.thread_id,
@@ -329,7 +340,9 @@ export const useCommentStore = create<CommentState>()(
               createdAt: new Date(threadData.created_at).getTime(),
               updatedAt: new Date(threadData.updated_at).getTime(),
               createdBy: threadData.created_by,
-              comments: (commentsData || []).map((comment: any) => ({
+              comments: (commentsData || [])
+                .filter((comment: any) => !comment.deleted_at)
+                .map((comment: any) => ({
                 id: comment.id,
                 threadId: comment.thread_id,
                 authorId: comment.author_id,

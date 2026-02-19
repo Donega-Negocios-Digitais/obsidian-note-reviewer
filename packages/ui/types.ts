@@ -21,6 +21,7 @@ export type SortOption = 'newest' | 'oldest' | 'type' | 'author';
 
 export interface Annotation {
   id: string;
+  persistedId?: string; // UUID no banco para sincronização em nuvem
   blockId: string; // Legacy - not used with web-highlighter
   startOffset: number; // Legacy
   endOffset: number; // Legacy
@@ -48,6 +49,10 @@ export interface Annotation {
   // Image annotation metadata
   imageId?: string; // ID da imagem anotada (para IMAGE_COMMENT)
   imageStrokes?: Stroke[]; // Traços desenhados sobre a imagem
+  renderedImageUrl?: string; // URL da versão renderizada no storage
+  threadId?: string; // ID do thread (comments table)
+  commentId?: string; // ID do comentário principal (comments table)
+  deletedAt?: number; // Soft delete timestamp
   // Visual marker metadata
   markerColor?: string; // Computed from annotation type for visual display
   markerPosition?: { top: number; left: number }; // For marker placement on the page

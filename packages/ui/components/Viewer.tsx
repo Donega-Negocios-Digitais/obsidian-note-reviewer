@@ -22,12 +22,14 @@ interface ImageAnnotationContextValue {
   onAddAnnotation: (ann: Annotation) => void;
   onUpdateAnnotation?: (id: string, updates: Partial<Annotation>) => void;
   isDrawingEnabled: boolean;
+  currentAuthor?: string;
 }
 
 const ImageAnnotationContext = React.createContext<ImageAnnotationContextValue>({
   annotations: [],
   onAddAnnotation: () => {},
   isDrawingEnabled: false,
+  currentAuthor: undefined,
 });
 
 function buildAnnotationId(): string {
@@ -48,6 +50,7 @@ interface ViewerProps {
   selectedAnnotationId: string | null;
   mode: EditorMode;
   onBlockChange?: (blocks: Block[]) => void;
+  currentAuthor?: string;
 }
 
 export interface ViewerHandle {
@@ -65,7 +68,8 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(({
   onSelectAnnotation,
   selectedAnnotationId,
   mode,
-  onBlockChange
+  onBlockChange,
+  currentAuthor
 }, ref) => {
   const { t } = useTranslation();
 
@@ -203,7 +207,7 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(({
       text,
       originalText: source.text,
       createdA: Date.now(),
-      author: getIdentity(),
+      author: currentAuthor || getIdentity(),
       startMeta: source.startMeta,
       endMeta: source.endMeta,
     };
@@ -576,7 +580,7 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(({
       text,
       originalText: codeText,
       createdA: Date.now(),
-      author: getIdentity(),
+      author: currentAuthor || getIdentity(),
     };
 
     onAddAnnotationRef.current(newAnnotation);
@@ -597,6 +601,7 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(({
         onAddAnnotation,
         onUpdateAnnotation,
         isDrawingEnabled: mode === 'edit',
+        currentAuthor,
       }}
     >
     <div className="relative z-50 w-full max-w-3xl">
@@ -802,7 +807,7 @@ const AnnotatedImage: React.FC<{
   alt: string;
   imageId: string;
 }> = ({ src, alt, imageId }) => {
-  const { annotations, onAddAnnotation, onUpdateAnnotation, isDrawingEnabled } = React.useContext(ImageAnnotationContext);
+  const { annotations, onAddAnnotation, onUpdateAnnotation, isDrawingEnabled, currentAuthor } = React.useContext(ImageAnnotationContext);
   const annotationIdRef = useRef<string | null>(null);
 
   const handleAnnotationsChange = useCallback((strokes: Stroke[]) => {
@@ -819,6 +824,7 @@ const AnnotatedImage: React.FC<{
         endOffset: 0,
         type: AnnotationType.IMAGE_COMMENT,
         originalText: alt || src,
+        author: currentAuthor || getIdentity(),
         imageId,
         imageStrokes: strokes,
         createdA: Date.now(),
@@ -1465,7 +1471,7 @@ const CodeBlockToolbar: React.FC<{
           <button
             onClick={() => setStep('input')}
             title={t('toolbar.comment')}
-            className="p-1.5 rounded-md transition-colors text-accent hover:bg-accent/10"
+            className="p-1.5 rounded-md transition-colors text-accent hover:text-accent hover:bg-accent/10"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />

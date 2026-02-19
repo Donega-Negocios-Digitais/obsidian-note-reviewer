@@ -1,7 +1,6 @@
 ﻿import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Annotation, AnnotationType, Block } from '../types';
-import { isCurrentUser } from '../utils/identity';
 import { useCopyFeedback } from '../hooks/useCopyFeedback';
 
 interface PanelProps {
@@ -10,6 +9,8 @@ interface PanelProps {
   blocks: Block[];
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
+  onRestoreLastDeleted?: () => void;
+  deletedCount?: number;
   selectedId: string | null;
   shareUrl?: string;
 }
@@ -20,6 +21,8 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
   blocks,
   onSelect,
   onDelete,
+  onRestoreLastDeleted,
+  deletedCount = 0,
   selectedId,
   shareUrl
 }) => {
@@ -47,9 +50,19 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             {t('annotationPanel.title')}
           </h2>
-          <span className="text-[10px] font-mono bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
-            {annotations.length}
-          </span>
+          <div className="flex items-center gap-1.5">
+            {deletedCount > 0 && onRestoreLastDeleted && (
+              <button
+                onClick={onRestoreLastDeleted}
+                className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-primary/10 text-primary hover:bg-primary/15 transition-colors"
+              >
+                {t('annotationPanel.restore')} ({deletedCount})
+              </button>
+            )}
+            <span className="text-[10px] font-mono bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
+              {annotations.length}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -72,13 +85,13 @@ export const AnnotationPanel: React.FC<PanelProps> = ({
             {globalComments.length > 0 && (
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1.5 px-1 mb-1">
-                  <svg className="w-3.5 h-3.5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <svg className="w-3.5 h-3.5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <h3 className="text-[10px] font-semibold uppercase tracking-wider text-blue-500">
+                  <h3 className="text-[10px] font-semibold uppercase tracking-wider text-primary">
                     {t('annotationPanel.globalComments')}
                   </h3>
-                  <span className="text-[10px] font-mono bg-blue-500/20 px-1.5 py-0.5 rounded text-blue-600">
+                  <span className="text-[10px] font-mono bg-primary/20 px-1.5 py-0.5 rounded text-primary">
                     {globalComments.length}
                   </span>
                 </div>
@@ -220,8 +233,8 @@ const AnnotationCard: React.FC<{
     },
     [AnnotationType.GLOBAL_COMMENT]: {
       label: t('annotationPanel.types.global'),
-      color: 'text-blue-500',
-      bg: 'bg-blue-500/10',
+      color: 'text-primary',
+      bg: 'bg-primary/10',
       icon: (
         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -230,8 +243,8 @@ const AnnotationCard: React.FC<{
     },
     [AnnotationType.IMAGE_COMMENT]: {
       label: t('annotationPanel.types.image'),
-      color: 'text-purple-500',
-      bg: 'bg-purple-500/10',
+      color: 'text-primary',
+      bg: 'bg-primary/10',
       icon: (
         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -250,8 +263,8 @@ const AnnotationCard: React.FC<{
         group relative p-2.5 rounded-lg border cursor-pointer transition-all
         ${isGlobal
           ? isSelected
-            ? 'bg-blue-500/10 border-blue-500/40 shadow-sm'
-            : 'bg-blue-500/5 border-blue-500/20 hover:bg-blue-500/10 hover:border-blue-500/30'
+            ? 'bg-primary/15 border-primary/40 shadow-sm'
+            : 'bg-primary/10 border-primary/20 hover:bg-primary/15 hover:border-primary/35'
           : isSelected
             ? 'bg-primary/5 border-primary/30 shadow-sm'
             : 'border-transparent hover:bg-muted/50 hover:border-border/50'
@@ -260,11 +273,11 @@ const AnnotationCard: React.FC<{
     >
       {/* Author */}
       {annotation.author && (
-        <div className={`flex items-center gap-1.5 text-[10px] font-mono truncate mb-1.5 ${isCurrentUser(annotation.author) ? 'text-muted-foreground/60' : 'text-muted-foreground'}`}>
+        <div className="flex items-center gap-1.5 text-[10px] font-mono truncate mb-1.5 text-muted-foreground">
           <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
           </svg>
-          <span className="truncate">{annotation.author}{isCurrentUser(annotation.author) && ` ${t('annotationPanel.me')}`}</span>
+          <span className="truncate">{annotation.author}</span>
         </div>
       )}
 
@@ -295,14 +308,14 @@ const AnnotationCard: React.FC<{
 
       {/* Original Text - Only show for non-global annotations */}
       {!isGlobal && annotation.originalText && (
-        <div className="text-[11px] font-mono text-muted-foreground bg-muted/50 rounded px-2 py-1.5 truncate">
+        <div className="text-[11px] font-mono text-muted-foreground bg-muted/50 rounded px-2 py-1.5 max-h-20 overflow-y-auto break-words">
           "{annotation.originalText}"
         </div>
       )}
 
       {/* Comment/Replacement Text */}
       {annotation.text && annotation.type !== AnnotationType.DELETION && (
-        <div className={`${!isGlobal && annotation.originalText ? 'mt-2' : ''} text-xs text-foreground/90 ${isGlobal ? '' : 'pl-2 border-l-2 border-primary/50'}`}>
+        <div className={`${!isGlobal && annotation.originalText ? 'mt-2' : ''} text-xs text-foreground/90 max-h-36 overflow-y-auto break-words ${isGlobal ? '' : 'pl-2 border-l-2 border-primary/50'}`}>
           {annotation.text}
         </div>
       )}

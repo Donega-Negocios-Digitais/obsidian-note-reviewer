@@ -404,15 +404,6 @@ export const ImageAnnotator: React.FC<ImageAnnotatorProps> = ({
           }}
         />
 
-        {/* Hover hint — shown only when no strokes exist */}
-        {drawing.strokes.length === 0 && (
-          <div className="absolute inset-0 flex items-end justify-center pb-3 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-            <div className="bg-background/80 backdrop-blur-sm border border-border rounded-md px-2 py-1 text-xs text-muted-foreground flex items-center gap-1.5">
-              <Pencil className="w-3 h-3" />
-              Clique para anotar
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

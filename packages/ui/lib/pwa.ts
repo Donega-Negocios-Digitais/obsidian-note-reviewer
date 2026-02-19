@@ -77,8 +77,8 @@ class PWAManager {
 
       // Listen for controller change
       navigator.serviceWorker.addEventListener('controllerchange', () => {
-        log.info('Service worker controller changed - reloading');
-        window.location.reload();
+        log.info('Service worker controller changed');
+        this.notifyUpdate();
       });
     } catch (error) {
       log.error('Service Worker registration failed', error);

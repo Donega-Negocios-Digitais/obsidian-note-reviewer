@@ -248,13 +248,18 @@ export function formatTelegramMessage(
 ): string {
   const emoji = variables.emoji || getRandomNoteEmoji();
   const timestamp = variables.timestamp || new Date().toLocaleString('pt-BR');
+  const title = variables.title || 'Sem título';
+  const url = variables.url || '';
+  const noteType = variables.noteType || 'nota';
 
+  // Keep compatibility with legacy placeholders ({titulo}, {tipo}, {link})
+  // while standardizing new templates to {title}, {noteType}, {url}.
   return template
-    .replace('{emoji}', emoji)
-    .replace('{title}', variables.title || 'Sem título')
-    .replace('{url}', variables.url || '')
-    .replace('{noteType}', variables.noteType || 'nota')
-    .replace('{timestamp}', timestamp);
+    .replace(/\{emoji\}/g, emoji)
+    .replace(/\{title\}|\{titulo\}/g, title)
+    .replace(/\{url\}|\{link\}/g, url)
+    .replace(/\{noteType\}|\{tipo\}/g, noteType)
+    .replace(/\{timestamp\}/g, timestamp);
 }
 
 /**

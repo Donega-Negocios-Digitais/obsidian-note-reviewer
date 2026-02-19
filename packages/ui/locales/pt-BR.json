@@ -36,7 +36,18 @@
       "tip": "💡 Dica: Use o botão ⏻ para ativar/desativar templates. Verde = Ativado, Vermelho = Inativo",
       "configurePath": "Configure caminho e template",
       "templatePathDescription": "Caminho para o arquivo de template usado para criar este tipo de nota",
-      "destinationPathDescription": "Pasta onde as notas deste tipo serão salvas"
+      "destinationPathDescription": "Pasta onde as notas deste tipo serão salvas",
+      "manageTemplates": "Gerenciar templates",
+      "manageCategories": "Gerenciar categorias",
+      "trash": "Lixeira",
+      "categories": "Categorias",
+      "filteredCount": "{{count}} de {{total}}",
+      "deleteCategory": "Excluir categoria",
+      "noTemplatesInCategory": "Nenhum template nesta categoria.",
+      "editConfiguration": "Editar configuração",
+      "noCategoriesForFilter": "Nenhuma categoria para este filtro.",
+      "configurationSaved": "Configuração salva com sucesso!",
+      "uncategorized": "Sem categoria"
     },
     "identity": {
       "title": "Identidade do Revisor",
@@ -91,7 +102,21 @@
       "obsidianNote": {
         "name": "Criar Nota Obsidian",
         "description": "Abre o Note Reviewer quando você usa a skill para criar notas no Obsidian"
-      }
+      },
+      "descriptionPlaceholder": "Descreva o que este hook faz...",
+      "whenThisHappens": "Quando isso acontece",
+      "triggerCommand": "Comando de gatilho",
+      "triggerPlaceholder": "Ex: /review ou comando específico",
+      "triggerHelp": "Quando esse comando for detectado, o hook será executado.",
+      "thenThisRuns": "Então isso será executado",
+      "autoRunDescription": "A ação deste hook será executada automaticamente.",
+      "status": "Status",
+      "saveChanges": "Salvar alterações",
+      "saveHook": "Salvar hook",
+      "editHook": "Editar hook",
+      "configureAutomations": "Configure automações personalizadas",
+      "hookName": "Nome do hook",
+      "hookNamePlaceholder": "Ex: Meu Hook Personalizado"
     },
     "categoryManager": {
       "title": "Gerenciar Categorias",
@@ -130,6 +155,8 @@
       "whatsappDesc": "Envie links de revisão automaticamente via WhatsApp",
       "telegram": "Telegram",
       "telegramDesc": "Envie links de revisão automaticamente via Telegram",
+      "notionDesc": "Enviar para o Notion",
+      "obsidianDesc": "Sincronizar com vault do Obsidian",
       "configure": "Configurar",
       "enabled": "Ativado",
       "disabled": "Desativado",
@@ -137,11 +164,16 @@
       "phoneNumberPlaceholder": "+55 11 99999-9999",
       "chatId": "Chat ID / Username",
       "chatIdPlaceholder": "@usuario ou ID numérico",
+      "apiKey": "API Key",
+      "apiKeyPlaceholder": "Ex: secret_...",
+      "vaultPath": "Caminho do Vault",
+      "vaultPathPlaceholder": "Ex: /Users/username/Documents/Vault",
       "associatedHook": "Hook Associado",
       "selectHook": "Selecione um hook",
       "noHook": "Nenhum",
+      "noHooksAvailable": "Nenhum hook disponível",
       "customMessage": "Mensagem Personalizada",
-      "customMessagePlaceholder": "Variáveis: {emoji}, {titulo}, {tipo}, {link}, {timestamp}",
+      "customMessagePlaceholder": "Variáveis: {emoji}, {title}, {noteType}, {url}, {timestamp}",
       "customMessageVariables": "Variáveis disponíveis",
       "variableEmoji": "Emoji",
       "variableTitle": "Título",
@@ -245,7 +277,62 @@
       "updatePassword": "Alterar senha",
       "updating": "Atualizando...",
       "photoUpdated": "Foto atualizada",
-      "maxSize": "JPG, PNG ou GIF. Máximo 2MB."
+      "maxSize": "JPG, PNG ou GIF. Máximo 2MB.",
+      "accountSection": "Conta",
+      "securitySection": "Segurança",
+      "setPassword": "Definir senha",
+      "changePhoto": "Trocar foto",
+      "uploading": "Enviando...",
+      "noName": "Sem nome",
+      "avatarAlt": "Avatar",
+      "publicNameHint": "Nome público no sistema",
+      "oauthInfo": "Você entrou com {{provider}}. Aqui você pode definir uma senha para entrar também com e-mail/senha.",
+      "passwordUpdated": "Senha atualizada com sucesso",
+      "errors": {
+        "invalidImage": "Por favor, selecione um arquivo de imagem válido.",
+        "maxImageSize": "A imagem deve ter no máximo 2MB.",
+        "avatarUpdate": "Erro ao atualizar avatar no perfil.",
+        "avatarUpload": "Erro ao enviar avatar.",
+        "emptyDisplayName": "Por favor, insira seu nome de exibição.",
+        "profileUpdate": "Erro ao atualizar perfil no banco.",
+        "profileUpdateGeneral": "Erro ao atualizar perfil.",
+        "currentPasswordRequired": "Senha atual é obrigatória",
+        "newPasswordRequired": "Nova senha é obrigatória",
+        "passwordMinLength": "A senha deve ter pelo menos 6 caracteres",
+        "confirmPasswordRequired": "Confirmação de senha é obrigatória",
+        "passwordMismatch": "As senhas não coincidem",
+        "invalidUser": "Usuário inválido para alteração de senha.",
+        "currentPasswordInvalid": "Senha atual incorreta",
+        "passwordUpdate": "Erro ao atualizar senha."
+      }
+    },
+    "templateDelete": {
+      "title": "Deletar Template",
+      "message": "Tem certeza que deseja deletar \"{{name}}\"? Esta ação não pode ser desfeita."
+    },
+    "session": {
+      "logoutAccount": "Sair da conta",
+      "logoutShort": "Sair",
+      "loggingOut": "Saindo...",
+      "logoutConfirmTitle": "Deseja sair da conta?",
+      "logoutConfirmDescription": "Você será redirecionado para uma tela de agradecimento e poderá acessar novamente quando quiser."
+    },
+    "groups": {
+      "preferences": "Preferências",
+      "automation": "Automação"
+    },
+    "common": {
+      "itemDeleted": "\"{{name}}\" deletado com sucesso!"
+    },
+    "trash": {
+      "templateDeletedPermanentlyFromTrash": "\"{{name}}\" deletado permanentemente da lixeira.",
+      "categoryDeletedPermanentlyFromTrash": "\"{{name}}\" deletada permanentemente da lixeira.",
+      "itemDeletedPermanently": "\"{{name}}\" deletado permanentemente!",
+      "itemMovedToTrash": "\"{{name}}\" movido para a lixeira!",
+      "itemRestored": "\"{{name}}\" restaurado com sucesso!",
+      "categoryRestored": "Categoria \"{{name}}\" restaurada com sucesso!",
+      "categoryMovedToTrash": "Categoria \"{{name}}\" movida para a lixeira.",
+      "categoryMovedToTrashWithTemplates": "Categoria \"{{name}}\" movida para a lixeira com {{count}} template(s)."
     }
   },
   "viewer": {
@@ -285,10 +372,11 @@
       "deletion": "Excluir",
       "insertion": "Inserir",
       "replacement": "Substituir",
-      "comment": "Comentario",
+      "comment": "Comentário",
       "global": "Global",
       "image": "Imagem"
-    }
+    },
+    "restore": "Restaurar"
   },
   "toolbar": {
     "delete": "Excluir",
@@ -298,6 +386,7 @@
     "addCommentAria": "Adicione um comentário",
     "backToMenu": "Voltar ao menu",
     "save": "Salvar",
+    "submitHint": "Enter para enviar · Shift+⏎ nova linha",
     "selection": "Seleção",
     "editNote": "Editar Nota",
     "editMarkdown": "Editar MD",
@@ -366,7 +455,8 @@
     "editTitle": "Editar Atalho",
     "pressNewKey": "Pressione a nova combinação de teclas",
     "waitingForKey": "Aguardando...",
-    "clearKey": "Limpar tecla"
+    "clearKey": "Limpar tecla",
+    "pressKey": "Pressione uma tecla"
   },
   "editor": {
     "placeholder": "Edite o conteúdo da nota aqui...",
@@ -405,7 +495,10 @@
     "save": "Salvar",
     "name": "Nome",
     "email": "E-mail",
-    "permission": "Permissão"
+    "permission": "Permissão",
+    "selected": "{{count}} selecionados",
+    "selected_one": "{{count}} selecionado",
+    "unknownError": "Erro desconhecido"
   },
   "app": {
     "saveToObsidian": "Salvar no Obsidian",
@@ -429,6 +522,20 @@
     "openExport": "Abrir Exportar",
     "editMode": "Modo de Edição",
     "characters": "caracteres",
-    "escToCancel": "Esc para cancelar"
+    "escToCancel": "Esc para cancelar",
+    "fullEditPlaceholder": "Edite o markdown completo aqui...",
+    "ctrlEnterToSave": "Ctrl+Enter para salvar",
+    "directMarkdownEdit": "Edição direta de markdown",
+    "savingChanges": "Salvando alterações...",
+    "requestChanges": "Solicitar alterações",
+    "sending": "Enviando...",
+    "approveNote": "Aprovar nota",
+    "approving": "Aprovando...",
+    "addAnnotationsTitle": "Adicione anotações",
+    "addAnnotationsDescription": "Adicione pelo menos uma anotação antes de solicitar alterações.",
+    "changesCopied": "Alterações copiadas",
+    "pasteInClaude": "Cole no Claude Code para continuar",
+    "copyChangesError": "Erro ao copiar alterações para a área de transferência",
+    "saveUnknownError": "Erro ao salvar"
   }
 }

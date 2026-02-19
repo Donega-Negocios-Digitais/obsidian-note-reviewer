@@ -29,17 +29,15 @@ import { supabase } from './client.js'
  * ```
  */
 export async function uploadAvatar(userId: string, file: File): Promise<string> {
-  // Generate unique filename with original extension
-  const fileExt = file.name.split('.').pop()
-  const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`
-  const filePath = `${userId}/${fileName}`
+  // Keep a stable path per user to simplify cache invalidation and profile sync.
+  const filePath = `${userId}.png`
 
   // Upload to avatars bucket in user-isolated folder
   const { error: uploadError } = await supabase.storage
     .from('avatars')
     .upload(filePath, file, {
       cacheControl: '3600',
-      upsert: false,
+      upsert: true,
     })
 
   if (uploadError) {

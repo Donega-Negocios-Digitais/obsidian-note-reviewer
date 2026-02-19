@@ -29,6 +29,9 @@ interface UseSharingResult {
   /** Human-readable size of the share URL */
   shareUrlSize: string;
 
+  /** Error message when URL generation fails */
+  shareError: string | null;
+
   /** Annotations loaded from share that need to be applied to DOM */
   pendingSharedAnnotations: Annotation[] | null;
 
@@ -50,6 +53,7 @@ export function useSharing(
   const [isLoadingShared, setIsLoadingShared] = useState(true);
   const [shareUrl, setShareUrl] = useState('');
   const [shareUrlSize, setShareUrlSize] = useState('');
+  const [shareError, setShareError] = useState<string | null>(null);
   const [pendingSharedAnnotations, setPendingSharedAnnotations] = useState<Annotation[] | null>(null);
 
   const clearPendingSharedAnnotations = useCallback(() => {
@@ -117,10 +121,12 @@ export function useSharing(
       const url = await generateShareUrl(markdown, annotations);
       setShareUrl(url);
       setShareUrlSize(formatUrlSize(url));
+      setShareError(null);
     } catch (e) {
       console.error('Failed to generate share URL:', e);
       setShareUrl('');
       setShareUrlSize('');
+      setShareError('Não foi possível gerar o link de compartilhamento.');
     }
   }, [markdown, annotations]);
 
@@ -134,6 +140,7 @@ export function useSharing(
     isLoadingShared,
     shareUrl,
     shareUrlSize,
+    shareError,
     pendingSharedAnnotations,
     clearPendingSharedAnnotations,
     refreshShareUrl,

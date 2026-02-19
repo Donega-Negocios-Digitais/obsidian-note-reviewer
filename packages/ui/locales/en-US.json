@@ -36,7 +36,18 @@
       "tip": "💡 Tip: Use the ⏻ button to enable/disable templates. Green = Active, Red = Inactive",
       "configurePath": "Configure path and template",
       "templatePathDescription": "Path to the template file used to create this note type",
-      "destinationPathDescription": "Folder where notes of this type will be saved"
+      "destinationPathDescription": "Folder where notes of this type will be saved",
+      "manageTemplates": "Manage templates",
+      "manageCategories": "Manage categories",
+      "trash": "Trash",
+      "categories": "Categories",
+      "filteredCount": "{{count}} of {{total}}",
+      "deleteCategory": "Delete category",
+      "noTemplatesInCategory": "No templates in this category.",
+      "editConfiguration": "Edit configuration",
+      "noCategoriesForFilter": "No categories for this filter.",
+      "configurationSaved": "Configuration saved successfully!",
+      "uncategorized": "Uncategorized"
     },
     "identity": {
       "title": "Reviewer Profile",
@@ -91,7 +102,51 @@
       "obsidianNote": {
         "name": "Create Obsidian Note",
         "description": "Opens Note Reviewer when you use the skill to create notes in Obsidian"
-      }
+      },
+      "descriptionPlaceholder": "Describe what this hook does...",
+      "whenThisHappens": "When this happens",
+      "triggerCommand": "Trigger command",
+      "triggerPlaceholder": "Ex: /review or specific command",
+      "triggerHelp": "When this command is detected, the hook will run.",
+      "thenThisRuns": "Then this will run",
+      "autoRunDescription": "This hook action will run automatically.",
+      "status": "Status",
+      "saveChanges": "Save changes",
+      "saveHook": "Save hook",
+      "editHook": "Edit hook",
+      "configureAutomations": "Configure custom automations",
+      "hookName": "Hook name",
+      "hookNamePlaceholder": "Ex: My Custom Hook"
+    },
+    "categoryManager": {
+      "title": "Manage Categories",
+      "subtitle": "Organize your note types by category",
+      "addCategory": "New Category",
+      "editCategory": "Edit Category",
+      "deleteCategory": "Delete Category",
+      "categoryName": "Category Name",
+      "categoryNamePlaceholder": "Ex: Studies, Work...",
+      "categoryIcon": "Icon",
+      "builtIn": "Built-in",
+      "custom": "Custom",
+      "deleteConfirm": "Are you sure you want to delete this category? Associated templates will remain uncategorized.",
+      "emptyCustom": "No custom categories yet. Create one to organize your templates.",
+      "manageCategories": "Manage Categories"
+    },
+    "newTemplate": {
+      "title": "New Template",
+      "subtitle": "Create a new note type",
+      "templateName": "Template Name",
+      "templateNamePlaceholder": "Ex: Meeting Note",
+      "category": "Category",
+      "selectCategory": "Select a category",
+      "icon": "Icon",
+      "templateFile": "Template File",
+      "templateFilePlaceholder": "Template file path...",
+      "destination": "Default Destination",
+      "destinationPlaceholder": "Default destination folder...",
+      "created": "Template created successfully!",
+      "newTemplate": "New Template"
     },
     "integrations": {
       "title": "Integrations",
@@ -100,6 +155,8 @@
       "whatsappDesc": "Send review links automatically via WhatsApp",
       "telegram": "Telegram",
       "telegramDesc": "Send review links automatically via Telegram",
+      "notionDesc": "Send to Notion",
+      "obsidianDesc": "Sync with Obsidian vault",
       "configure": "Configure",
       "enabled": "Enabled",
       "disabled": "Disabled",
@@ -107,9 +164,14 @@
       "phoneNumberPlaceholder": "+1 234 567 8900",
       "chatId": "Chat ID / Username",
       "chatIdPlaceholder": "@username or numeric ID",
+      "apiKey": "API Key",
+      "apiKeyPlaceholder": "Ex: secret_...",
+      "vaultPath": "Vault Path",
+      "vaultPathPlaceholder": "Ex: /Users/username/Documents/Vault",
       "associatedHook": "Associated Hook",
       "selectHook": "Select a hook",
       "noHook": "None",
+      "noHooksAvailable": "No hooks available",
       "customMessage": "Custom Message",
       "customMessagePlaceholder": "Variables: {emoji}, {title}, {noteType}, {url}, {timestamp}",
       "customMessageVariables": "Available variables",
@@ -215,7 +277,62 @@
       "updatePassword": "Change password",
       "updating": "Updating...",
       "photoUpdated": "Photo updated",
-      "maxSize": "JPG, PNG or GIF. Max 2MB."
+      "maxSize": "JPG, PNG or GIF. Max 2MB.",
+      "accountSection": "Account",
+      "securitySection": "Security",
+      "setPassword": "Set password",
+      "changePhoto": "Change photo",
+      "uploading": "Uploading...",
+      "noName": "No name",
+      "avatarAlt": "Avatar",
+      "publicNameHint": "Public name in the system",
+      "oauthInfo": "You signed in with {{provider}}. Here you can also set a password for email/password login.",
+      "passwordUpdated": "Password updated successfully",
+      "errors": {
+        "invalidImage": "Please select a valid image file.",
+        "maxImageSize": "Image must be at most 2MB.",
+        "avatarUpdate": "Failed to update avatar in profile.",
+        "avatarUpload": "Failed to upload avatar.",
+        "emptyDisplayName": "Please enter your display name.",
+        "profileUpdate": "Failed to update profile in database.",
+        "profileUpdateGeneral": "Failed to update profile.",
+        "currentPasswordRequired": "Current password is required",
+        "newPasswordRequired": "New password is required",
+        "passwordMinLength": "Password must be at least 6 characters",
+        "confirmPasswordRequired": "Password confirmation is required",
+        "passwordMismatch": "Passwords do not match",
+        "invalidUser": "Invalid user for password change.",
+        "currentPasswordInvalid": "Current password is incorrect",
+        "passwordUpdate": "Failed to update password."
+      }
+    },
+    "templateDelete": {
+      "title": "Delete Template",
+      "message": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone."
+    },
+    "session": {
+      "logoutAccount": "Sign out",
+      "logoutShort": "Sign out",
+      "loggingOut": "Signing out...",
+      "logoutConfirmTitle": "Do you want to sign out?",
+      "logoutConfirmDescription": "You will be redirected to a thank-you page and can log in again whenever you want."
+    },
+    "groups": {
+      "preferences": "Preferences",
+      "automation": "Automation"
+    },
+    "common": {
+      "itemDeleted": "\"{{name}}\" deleted successfully!"
+    },
+    "trash": {
+      "templateDeletedPermanentlyFromTrash": "\"{{name}}\" permanently deleted from trash.",
+      "categoryDeletedPermanentlyFromTrash": "\"{{name}}\" category permanently deleted from trash.",
+      "itemDeletedPermanently": "\"{{name}}\" permanently deleted!",
+      "itemMovedToTrash": "\"{{name}}\" moved to trash!",
+      "itemRestored": "\"{{name}}\" restored successfully!",
+      "categoryRestored": "Category \"{{name}}\" restored successfully!",
+      "categoryMovedToTrash": "Category \"{{name}}\" moved to trash.",
+      "categoryMovedToTrashWithTemplates": "Category \"{{name}}\" moved to trash with {{count}} template(s)."
     }
   },
   "viewer": {
@@ -258,7 +375,8 @@
       "comment": "Comment",
       "global": "Global",
       "image": "Image"
-    }
+    },
+    "restore": "Restore"
   },
   "toolbar": {
     "delete": "Delete",
@@ -268,6 +386,7 @@
     "addCommentAria": "Add a comment",
     "backToMenu": "Back to menu",
     "save": "Save",
+    "submitHint": "Enter to send · Shift+⏎ new line",
     "selection": "Selection",
     "editNote": "Edit Note",
     "editMarkdown": "Edit MD",
@@ -336,7 +455,8 @@
     "editTitle": "Edit Shortcut",
     "pressNewKey": "Press the new key combination",
     "waitingForKey": "Waiting...",
-    "clearKey": "Clear key"
+    "clearKey": "Clear key",
+    "pressKey": "Press a key"
   },
   "editor": {
     "placeholder": "Edit note content here...",
@@ -375,7 +495,10 @@
     "save": "Save",
     "name": "Name",
     "email": "Email",
-    "permission": "Permission"
+    "permission": "Permission",
+    "selected": "{{count}} selected",
+    "selected_one": "{{count}} selected",
+    "unknownError": "Unknown error"
   },
   "app": {
     "saveToObsidian": "Save to Obsidian",
@@ -399,6 +522,20 @@
     "openExport": "Open Export",
     "editMode": "Edit Mode",
     "characters": "characters",
-    "escToCancel": "Esc to cancel"
+    "escToCancel": "Esc to cancel",
+    "fullEditPlaceholder": "Edit the full markdown here...",
+    "ctrlEnterToSave": "Ctrl+Enter to save",
+    "directMarkdownEdit": "Direct markdown editing",
+    "savingChanges": "Saving changes...",
+    "requestChanges": "Request changes",
+    "sending": "Sending...",
+    "approveNote": "Approve note",
+    "approving": "Approving...",
+    "addAnnotationsTitle": "Add annotations",
+    "addAnnotationsDescription": "Add at least one annotation before requesting changes.",
+    "changesCopied": "Changes copied",
+    "pasteInClaude": "Paste into Claude Code to continue",
+    "copyChangesError": "Failed to copy changes to clipboard",
+    "saveUnknownError": "Failed to save"
   }
 }

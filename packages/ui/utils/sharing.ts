@@ -23,6 +23,51 @@ export interface SharePayload {
   a: ShareableAnnotation[];
 }
 
+function toBase64Url(bytes: Uint8Array): string {
+  const chunkSize = 0x8000;
+  let binary = '';
+
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+
+  const base64 = btoa(binary);
+  return base64
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
+}
+
+function fromBase64Url(base64url: string): Uint8Array {
+  const base64 = base64url
+    .replace(/-/g, '+')
+    .replace(/_/g, '/');
+
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(base64)) {
+    throw new Error('Invalid base64 format');
+  }
+
+  const binary = atob(base64);
+  if (binary.length === 0) {
+    throw new Error('Empty decoded data');
+  }
+
+  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+}
+
+async function parseRawPayload(base64url: string): Promise<SharePayload> {
+  const rawBytes = fromBase64Url(base64url);
+  const json = new TextDecoder().decode(rawBytes);
+  const result = safeJsonParse<SharePayload>(json, validateSharePayload);
+
+  if (!result.success) {
+    throw new Error(`Failed to parse raw share payload: ${result.error}`);
+  }
+
+  return result.data;
+}
+
 /**
  * Validate that a parsed object is a valid ShareableAnnotation
  * Checks type, required fields, and field types
@@ -112,20 +157,23 @@ export async function compress(payload: SharePayload): Promise<string> {
   const json = JSON.stringify(payload);
   const byteArray = new TextEncoder().encode(json);
 
-  const stream = new CompressionStream('deflate-raw');
-  const writer = stream.writable.getWriter();
-  writer.write(byteArray);
-  writer.close();
+  // Browser fallback for environments without CompressionStream support.
+  if (typeof CompressionStream === 'undefined') {
+    return `raw.${toBase64Url(byteArray)}`;
+  }
 
-  const buffer = await new Response(stream.readable).arrayBuffer();
-  const compressed = new Uint8Array(buffer);
+  try {
+    const stream = new CompressionStream('deflate-raw');
+    const writer = stream.writable.getWriter();
+    writer.write(byteArray);
+    writer.close();
 
-  // Convert to base64url (URL-safe base64)
-  const base64 = btoa(String.fromCharCode(...compressed));
-  return base64
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=/g, '');
+    const buffer = await new Response(stream.readable).arrayBuffer();
+    const compressed = new Uint8Array(buffer);
+    return toBase64Url(compressed);
+  } catch {
+    return `raw.${toBase64Url(byteArray)}`;
+  }
 }
 
 /**
@@ -137,28 +185,11 @@ export async function decompress(b64: string): Promise<SharePayload> {
     throw new Error('Invalid input: empty or non-string');
   }
 
-  // Restore standard base64
-  const base64 = b64
-    .replace(/-/g, '+')
-    .replace(/_/g, '/');
-
-  // Validate base64 format (only valid base64 chars)
-  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(base64)) {
-    throw new Error('Invalid base64 format');
+  if (b64.startsWith('raw.')) {
+    return parseRawPayload(b64.slice(4));
   }
 
-  let binary: string;
-  try {
-    binary = atob(base64);
-  } catch (e) {
-    throw new Error('Failed to decode base64');
-  }
-
-  if (binary.length === 0) {
-    throw new Error('Empty decoded data');
-  }
-
-  const byteArray = Uint8Array.from(binary, c => c.charCodeAt(0));
+  const byteArray = fromBase64Url(b64);
 
   let buffer: ArrayBuffer;
   try {
@@ -277,7 +308,23 @@ export function fromShareable(data: ShareableAnnotation[]): Annotation[] {
 /**
  * Generate a full shareable URL from plan and annotations
  */
-const SHARE_BASE_URL = 'https://r.alexdonega.com.br';
+const DEFAULT_SHARE_BASE_URL = 'https://r.alexdonega.com.br';
+
+function resolveShareBaseUrl(): string {
+  const envBase = (import.meta as ImportMeta & { env?: Record<string, string | undefined> })
+    .env
+    ?.VITE_SHARE_BASE_URL;
+
+  if (envBase && envBase.trim().length > 0) {
+    return envBase.replace(/\/+$/, '');
+  }
+
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return window.location.origin.replace(/\/+$/, '');
+  }
+
+  return DEFAULT_SHARE_BASE_URL;
+}
 
 /**
  * Extract a friendly slug from markdown content
@@ -341,7 +388,8 @@ export async function generateShareUrl(
   // This makes URLs like: r.alexdonega.com.br/#obsidian-note-reviewer~5~[compressed]
   const friendlyHash = `${slug}~${annotationCount}~${hash}`;
 
-  return `${SHARE_BASE_URL}/#${friendlyHash}`;
+  const baseUrl = resolveShareBaseUrl();
+  return `${baseUrl}/#${friendlyHash}`;
 }
 
 /**

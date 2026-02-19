@@ -1,7 +1,9 @@
 ﻿/* eslint-disable @typescript-eslint/no-unused-vars, no-console, react-hooks/exhaustive-deps */
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import '@obsidian-note-reviewer/ui/i18n/config'; // Initialize i18n
+import obsreviewLogo from '@obsidian-note-reviewer/ui/obsreview.webp';
 import { parseMarkdownToBlocks, exportDiff } from '@obsidian-note-reviewer/ui/utils/parser';
 import { Viewer, ViewerHandle } from '@obsidian-note-reviewer/ui/components/Viewer';
 import { ViewerSkeleton } from '@obsidian-note-reviewer/ui/components/ViewerSkeleton';
@@ -27,8 +29,14 @@ import {
   saveAnnotations,
   loadAnnotations
 } from '@obsidian-note-reviewer/ui/utils/storage';
+import { updateDisplayName } from '@obsidian-note-reviewer/ui/utils/identity';
 import { isInputFocused, formatTooltipWithShortcut } from '@obsidian-note-reviewer/ui/utils/shortcuts';
 import { type TipoNota } from '@obsidian-note-reviewer/ui/utils/notePaths';
+import {
+  normalizeNoteSourcePath,
+  tryLoadCloudState,
+  trySyncCloudAnnotations,
+} from './cloudPersistence';
 
 const PLAN_CONTENT = `---
 title: Nota de Exemplo - Teste Completo
@@ -429,7 +437,6 @@ const APP_MODAL_KEYS = {
   showFeedbackPrompt: 'obsidian-reviewer-modal-showFeedbackPrompt',
   showGlobalCommentModal: 'obsidian-reviewer-modal-showGlobalCommentModal',
   showHelpVideo: 'obsidian-reviewer-modal-showHelpVideo',
-  showShareDialog: 'obsidian-reviewer-modal-showShareDialog',
   showShortcutsModal: 'obsidian-reviewer-modal-showShortcutsModal',
 } as const;
 const VALID_SETTINGS_TABS: SettingsTab[] = [
@@ -445,6 +452,35 @@ const VALID_SETTINGS_TABS: SettingsTab[] = [
 
 function isSettingsTab(value: string | null): value is SettingsTab {
   return value !== null && VALID_SETTINGS_TABS.includes(value as SettingsTab);
+}
+
+interface EditorUiState {
+  isPanelOpen: boolean;
+  isSettingsPanelOpen: boolean;
+  settingsTab: SettingsTab;
+  selectedAnnotationId: string | null;
+}
+
+const EDITOR_UI_STATE_KEY = 'obsidian-reviewer-editor-ui-state';
+
+function readEditorUiState(): Partial<EditorUiState> {
+  try {
+    const raw = window.localStorage.getItem(EDITOR_UI_STATE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Partial<EditorUiState>;
+    if (!parsed || typeof parsed !== 'object') return {};
+    return parsed;
+  } catch {
+    return {};
+  }
+}
+
+function writeEditorUiState(state: EditorUiState): void {
+  try {
+    window.localStorage.setItem(EDITOR_UI_STATE_KEY, JSON.stringify(state));
+  } catch {
+    // ignore persistence errors
+  }
 }
 
 function readLocalFlag(key: string): boolean {
@@ -481,17 +517,29 @@ const App: React.FC = () => {
 
   // History for undo (Ctrl+Z)
   const [annotationHistory, setAnnotationHistory] = useState<string[]>([]);
-  const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
+  const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(() => {
+    const savedUi = readEditorUiState();
+    return typeof savedUi.selectedAnnotationId === 'string' ? savedUi.selectedAnnotationId : null;
+  });
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [showExport, setShowExport] = useState(() => readLocalFlag(APP_MODAL_KEYS.showExport));
   const [showFeedbackPrompt, setShowFeedbackPrompt] = useState(() => readLocalFlag(APP_MODAL_KEYS.showFeedbackPrompt));
   const [showGlobalCommentModal, setShowGlobalCommentModal] = useState(() => readLocalFlag(APP_MODAL_KEYS.showGlobalCommentModal));
   const [showHelpVideo, setShowHelpVideo] = useState(() => readLocalFlag(APP_MODAL_KEYS.showHelpVideo));
-  const [showShareDialog, setShowShareDialog] = useState(() => readLocalFlag(APP_MODAL_KEYS.showShareDialog));
   const [showShortcutsModal, setShowShortcutsModal] = useState(() => readLocalFlag(APP_MODAL_KEYS.showShortcutsModal));
-  const [isPanelOpen, setIsPanelOpen] = useState(true);
-  const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
+  const [isPanelOpen, setIsPanelOpen] = useState(() => {
+    const savedUi = readEditorUiState();
+    return typeof savedUi.isPanelOpen === 'boolean' ? savedUi.isPanelOpen : true;
+  });
+  const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(() => {
+    const savedUi = readEditorUiState();
+    return typeof savedUi.isSettingsPanelOpen === 'boolean' ? savedUi.isSettingsPanelOpen : false;
+  });
   const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab>(() => {
+    const savedUi = readEditorUiState();
+    if (isSettingsTab(savedUi.settingsTab ?? null)) {
+      return savedUi.settingsTab as SettingsTab;
+    }
     const savedTab = storage.getItem(SETTINGS_PANEL_TAB_KEY);
     return isSettingsTab(savedTab) ? savedTab : 'caminhos';
   });
@@ -504,10 +552,31 @@ const App: React.FC = () => {
   const [submitted, setSubmitted] = useState<'approved' | 'denied' | null>(null);
   const [showStickyBar, setShowStickyBar] = useState(false);
   const [isFullEditMode, setIsFullEditMode] = useState(false);
+  const [isSavingFullEdit, setIsSavingFullEdit] = useState(false);
   const [fullEditContent, setFullEditContent] = useState('');
+  const [currentAuthorName, setCurrentAuthorName] = useState<string>('');
+  const [currentAuthorAvatar, setCurrentAuthorAvatar] = useState<string | null>(null);
+  const [cloudClient, setCloudClient] = useState<any | null>(null);
+  const [cloudProfile, setCloudProfile] = useState<{ id: string; name: string } | null>(null);
+  const [cloudNoteId, setCloudNoteId] = useState<string | null>(null);
   const viewerRef = useRef<ViewerHandle>(null);
   const headerRef = useRef<HTMLElement>(null);
   const fullEditTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const [annotationsLoadedFromCloud, setAnnotationsLoadedFromCloud] = useState(false);
+  const [hasInitializedLocalAnnotations, setHasInitializedLocalAnnotations] = useState(false);
+  const cloudLoadedPathRef = useRef<string | null>(null);
+  const activeAnnotations = useMemo(
+    () => annotations.filter(annotation => !annotation.deletedAt),
+    [annotations]
+  );
+  const deletedAnnotations = useMemo(
+    () => annotations.filter(annotation => !!annotation.deletedAt),
+    [annotations]
+  );
+  const noteSourcePath = useMemo(
+    () => normalizeNoteSourcePath(savePath || getNotePath() || 'nota.md'),
+    [savePath]
+  );
 
   // URL-based sharing
   const {
@@ -515,11 +584,12 @@ const App: React.FC = () => {
     isLoadingShared,
     shareUrl,
     shareUrlSize,
+    shareError,
     pendingSharedAnnotations,
     clearPendingSharedAnnotations,
   } = useSharing(
     markdown,
-    annotations,
+    activeAnnotations,
     setMarkdown,
     setAnnotations,
     () => {
@@ -538,7 +608,7 @@ const App: React.FC = () => {
       const timer = setTimeout(() => {
         // Clear existing highlights first (important when loading new share URL)
         viewerRef.current?.clearAllHighlights();
-        viewerRef.current?.applySharedAnnotations(pendingSharedAnnotations);
+        viewerRef.current?.applySharedAnnotations(pendingSharedAnnotations.filter(annotation => !annotation.deletedAt));
         clearPendingSharedAnnotations();
       }, 100);
       return () => clearTimeout(timer);
@@ -549,8 +619,10 @@ const App: React.FC = () => {
   useEffect(() => {
     if (isLoading || isLoadingShared || isSharedSession) return;
 
-    const storedAnnotations = loadAnnotations(markdown);
-    if (storedAnnotations && Array.isArray(storedAnnotations) && storedAnnotations.length > 0) {
+    const storedResult = loadAnnotations(markdown);
+    const storedAnnotations = storedResult.value;
+    setHasInitializedLocalAnnotations(true);
+    if (storedResult.success && Array.isArray(storedAnnotations)) {
       // Validate and set annotations
       setAnnotations(storedAnnotations as Annotation[]);
       setAnnotationsLoadedFromStorage(true);
@@ -558,7 +630,7 @@ const App: React.FC = () => {
       // Apply highlights after a small delay to ensure DOM is ready
       const timer = setTimeout(() => {
         viewerRef.current?.clearAllHighlights();
-        viewerRef.current?.applySharedAnnotations(storedAnnotations as Annotation[]);
+        viewerRef.current?.applySharedAnnotations((storedAnnotations as Annotation[]).filter(annotation => !annotation.deletedAt));
       }, 200);
       return () => clearTimeout(timer);
     }
@@ -567,17 +639,18 @@ const App: React.FC = () => {
   // Save annotations to localStorage when they change
   useEffect(() => {
     // Don't save if we just loaded from storage (prevents unnecessary writes)
-    if (annotationsLoadedFromStorage) {
+    if (annotationsLoadedFromStorage || annotationsLoadedFromCloud) {
       setAnnotationsLoadedFromStorage(false);
+      setAnnotationsLoadedFromCloud(false);
       return;
     }
 
     // Don't save during initial load or if loaded from share URL
     if (isLoading || isLoadingShared) return;
 
-    // Save annotations (including empty array to clear previous state)
+    // Save annotations (including soft-deleted items for restore)
     saveAnnotations(markdown, annotations);
-  }, [annotations, markdown, isLoading, isLoadingShared, annotationsLoadedFromStorage]);
+  }, [annotations, markdown, isLoading, isLoadingShared, annotationsLoadedFromStorage, annotationsLoadedFromCloud]);
 
   // Intersection Observer for sticky bar - shows when header is out of viewport
   useEffect(() => {
@@ -604,6 +677,15 @@ const App: React.FC = () => {
   }, [settingsInitialTab]);
 
   useEffect(() => {
+    writeEditorUiState({
+      isPanelOpen,
+      isSettingsPanelOpen,
+      settingsTab: settingsInitialTab,
+      selectedAnnotationId,
+    });
+  }, [isPanelOpen, isSettingsPanelOpen, settingsInitialTab, selectedAnnotationId]);
+
+  useEffect(() => {
     writeLocalFlag(APP_MODAL_KEYS.showExport, showExport);
   }, [showExport]);
 
@@ -620,12 +702,118 @@ const App: React.FC = () => {
   }, [showHelpVideo]);
 
   useEffect(() => {
-    writeLocalFlag(APP_MODAL_KEYS.showShareDialog, showShareDialog);
-  }, [showShareDialog]);
-
-  useEffect(() => {
     writeLocalFlag(APP_MODAL_KEYS.showShortcutsModal, showShortcutsModal);
   }, [showShortcutsModal]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    import('@obsidian-note-reviewer/ui/lib/supabase')
+      .then((module) => {
+        if (!cancelled) {
+          setCloudClient(module.supabase);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCloudClient(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!cloudClient || isLoading || isLoadingShared || isSharedSession) return;
+    if (!hasInitializedLocalAnnotations) return;
+    if (!noteSourcePath) return;
+    if (cloudLoadedPathRef.current === noteSourcePath) return;
+
+    let cancelled = false;
+    let highlightTimer: ReturnType<typeof setTimeout> | null = null;
+
+    tryLoadCloudState(cloudClient, noteSourcePath, markdown, annotations).then((cloudState) => {
+      if (cancelled || !cloudState) return;
+
+      cloudLoadedPathRef.current = noteSourcePath;
+      setCloudNoteId(cloudState.note?.id ?? null);
+
+      if (cloudState.profile) {
+        setCloudProfile(cloudState.profile as any);
+        setCurrentAuthorName(cloudState.profile.name);
+        setCurrentAuthorAvatar(cloudState.profile.avatarUrl);
+        updateDisplayName(cloudState.profile.name);
+      }
+
+      setAnnotations(cloudState.annotations);
+      setAnnotationsLoadedFromCloud(true);
+
+      highlightTimer = setTimeout(() => {
+        viewerRef.current?.clearAllHighlights();
+        viewerRef.current?.applySharedAnnotations(cloudState.annotations.filter(annotation => !annotation.deletedAt));
+      }, 150);
+    });
+
+    return () => {
+      cancelled = true;
+      if (highlightTimer) clearTimeout(highlightTimer);
+    };
+  }, [cloudClient, noteSourcePath, markdown, isLoading, isLoadingShared, isSharedSession, hasInitializedLocalAnnotations]);
+
+  useEffect(() => {
+    if (!cloudClient || !cloudNoteId || !cloudProfile) return;
+    if (isLoading || isLoadingShared || isSharedSession) return;
+
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      trySyncCloudAnnotations(cloudClient, cloudNoteId, cloudProfile as any, annotations).then((updated) => {
+        if (cancelled || !updated) return;
+        const changed =
+          updated.length !== annotations.length ||
+          updated.some((annotation, index) => {
+            const current = annotations[index];
+            if (!current) return true;
+            return (
+              annotation.persistedId !== current.persistedId ||
+              annotation.threadId !== current.threadId ||
+              annotation.commentId !== current.commentId ||
+              annotation.deletedAt !== current.deletedAt ||
+              annotation.author !== current.author
+            );
+          });
+
+        if (changed) {
+          setAnnotations(updated);
+        }
+      });
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [cloudClient, cloudNoteId, cloudProfile, annotations, isLoading, isLoadingShared, isSharedSession]);
+
+  useEffect(() => {
+    if (!cloudClient || !cloudNoteId || !cloudProfile) return;
+    if (isLoading || isLoadingShared || isSharedSession) return;
+
+    const timer = setTimeout(() => {
+      cloudClient
+        .from('notes')
+        .update({
+          markdown,
+          content: markdown,
+          updated_by: cloudProfile.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', cloudNoteId);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [cloudClient, cloudNoteId, cloudProfile, markdown, isLoading, isLoadingShared, isSharedSession]);
 
 
   // Check if we're in API mode (served from Bun hook server)
@@ -829,7 +1017,7 @@ const App: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isFullEditMode, fullEditContent]);
+  }, [isFullEditMode, fullEditContent, isSavingFullEdit]);
 
   // API mode handlers
   const handleApprove = async () => {
@@ -857,11 +1045,16 @@ const App: React.FC = () => {
   };
 
   const handleAddAnnotation = (ann: Annotation) => {
-    setAnnotations(prev => [...prev, ann]);
-    setSelectedAnnotationId(ann.id);
+    const nextAnnotation: Annotation = {
+      ...ann,
+      author: ann.author || currentAuthorName || ann.author,
+    };
+
+    setAnnotations(prev => [...prev, nextAnnotation]);
+    setSelectedAnnotationId(nextAnnotation.id);
     setIsPanelOpen(true);
     // Add to history for undo (Ctrl+Z)
-    setAnnotationHistory(prev => [...prev, ann.id]);
+    setAnnotationHistory(prev => [...prev, nextAnnotation.id]);
   };
 
   const handleUpdateAnnotation = (id: string, updates: Partial<Annotation>) => {
@@ -870,8 +1063,32 @@ const App: React.FC = () => {
 
   const handleDeleteAnnotation = (id: string) => {
     viewerRef.current?.removeHighlight(id);
-    setAnnotations(prev => prev.filter(a => a.id !== id));
+    setAnnotations(prev =>
+      prev.map(annotation =>
+        annotation.id === id
+          ? { ...annotation, deletedAt: Date.now() }
+          : annotation
+      )
+    );
     if (selectedAnnotationId === id) setSelectedAnnotationId(null);
+  };
+
+  const handleRestoreLatestDeleted = () => {
+    const latestDeleted = [...deletedAnnotations]
+      .sort((a, b) => (b.deletedAt || 0) - (a.deletedAt || 0))[0];
+
+    if (!latestDeleted) return;
+
+    setAnnotations(prev =>
+      prev.map(annotation =>
+        annotation.id === latestDeleted.id
+          ? { ...annotation, deletedAt: undefined }
+          : annotation
+      )
+    );
+
+    setSelectedAnnotationId(latestDeleted.id);
+    setIsPanelOpen(true);
   };
 
   const handleSelectAnnotation = (id: string | null) => {
@@ -894,6 +1111,7 @@ const App: React.FC = () => {
   };
 
   const handleAddGlobalComment = (comment: string, author: string) => {
+    const effectiveAuthor = author?.trim() || currentAuthorName || author;
     const newAnnotation: Annotation = {
       id: `global-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       blockId: '', // Not tied to a specific block
@@ -903,7 +1121,7 @@ const App: React.FC = () => {
       text: comment,
       originalText: '', // No selected text
       createdA: Date.now(),
-      author,
+      author: effectiveAuthor,
       isGlobal: true,
     };
 
@@ -924,11 +1142,26 @@ const App: React.FC = () => {
 
   const handleNotePathChange = (notePath: string) => {
     setSavePath(notePath);
+    cloudLoadedPathRef.current = null;
+    setCloudNoteId(null);
   };
 
   const handleIdentityChange = (oldIdentity: string, newIdentity: string) => {
+    const normalizedNewIdentity = newIdentity.trim();
+    if (!normalizedNewIdentity) return;
+
+    const aliases = new Set(
+      [oldIdentity, currentAuthorName]
+        .map(value => value?.trim())
+        .filter((value): value is string => Boolean(value))
+    );
+
+    setCurrentAuthorName(normalizedNewIdentity);
+    setCloudProfile(prev => (prev ? { ...prev, name: normalizedNewIdentity } : prev));
     setAnnotations(prev => prev.map(ann =>
-      ann.author === oldIdentity ? { ...ann, author: newIdentity } : ann
+      ann.author && aliases.has(ann.author.trim())
+        ? { ...ann, author: normalizedNewIdentity }
+        : ann
     ));
   };
 
@@ -964,15 +1197,32 @@ const App: React.FC = () => {
     }, 100);
   };
 
-  const handleSaveFullEdit = () => {
-    // Update markdown and reparse blocks
-    setMarkdown(fullEditContent);
-    const newBlocks = parseMarkdownToBlocks(fullEditContent);
-    setBlocks(newBlocks);
-    setIsFullEditMode(false);
+  const handleSaveFullEdit = async () => {
+    if (isSavingFullEdit) return;
+
+    setIsSavingFullEdit(true);
+    const startedAt = Date.now();
+
+    try {
+      // Update markdown and reparse blocks
+      setMarkdown(fullEditContent);
+      const newBlocks = parseMarkdownToBlocks(fullEditContent);
+      setBlocks(newBlocks);
+
+      const elapsed = Date.now() - startedAt;
+      const minimumDuration = 500;
+      if (elapsed < minimumDuration) {
+        await new Promise((resolve) => setTimeout(resolve, minimumDuration - elapsed));
+      }
+
+      setIsFullEditMode(false);
+    } finally {
+      setIsSavingFullEdit(false);
+    }
   };
 
   const handleCancelFullEdit = () => {
+    if (isSavingFullEdit) return;
     setIsFullEditMode(false);
     setFullEditContent('');
   };
@@ -982,7 +1232,7 @@ const App: React.FC = () => {
 
   const handleSaveToVault = async () => {
     if (!savePath.trim()) {
-      setSaveError('Configure o caminho nas configurações');
+      setSaveError(t('app.configurePath'));
       return;
     }
 
@@ -991,8 +1241,8 @@ const App: React.FC = () => {
 
     try {
       // CASO 1: TEM ANOTAÇÕES → Fazer Alterações (deny com feedback)
-      if (annotations.length > 0) {
-        console.log('🟠 Solicitando alterações com', annotations.length, 'anotações');
+      if (activeAnnotations.length > 0) {
+        console.log('🟠 Solicitando alterações com', activeAnnotations.length, 'anotações');
 
         if (isApiMode) {
           // Envia feedback para Claude Code
@@ -1012,7 +1262,7 @@ const App: React.FC = () => {
             console.log('📋 Diff copiado para clipboard!');
           } catch (clipboardError) {
             console.error('❌ Erro ao copiar para clipboard:', clipboardError);
-            setSaveError('Erro ao copiar alterações para clipboard');
+            setSaveError(t('app.copyChangesError'));
           }
         }
         return;
@@ -1034,7 +1284,7 @@ const App: React.FC = () => {
       const result = await response.json();
 
       if (!result.ok) {
-        throw new Error(result.error || 'Erro ao salvar');
+        throw new Error(result.error || t('app.saveUnknownError'));
       }
 
       console.log('✅ Nota salva com sucesso:', savePath);
@@ -1052,13 +1302,13 @@ const App: React.FC = () => {
         }
       }
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Erro desconhecido');
+      setSaveError(error instanceof Error ? error.message : t('common.unknownError'));
     } finally {
       setIsSaving(false);
     }
   };
 
-  const diffOutput = useMemo(() => exportDiff(blocks, annotations), [blocks, annotations]);
+  const diffOutput = useMemo(() => exportDiff(blocks, activeAnnotations), [blocks, activeAnnotations]);
 
   // Theme shortcut component (must be inside ThemeProvider)
   const ThemeShortcut = () => {
@@ -1084,8 +1334,91 @@ const App: React.FC = () => {
     return null;
   };
 
+  const fullEditOverlay =
+    isFullEditMode && typeof document !== 'undefined'
+      ? createPortal(
+        <div className="fixed inset-0 top-0 left-0 z-[200] w-screen h-screen bg-background flex flex-col">
+          {/* Full Edit Header */}
+          <div className="h-12 flex items-center justify-between px-4 border-b border-border/50 bg-card/50 backdrop-blur-xl">
+            <div className="flex items-center gap-3">
+              <svg className="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              <span className="text-sm font-semibold">{t('app.editMode')}</span>
+              <span className="text-xs text-muted-foreground font-mono">
+                {fullEditContent.length} {t('app.characters')}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleCancelFullEdit}
+                disabled={isSavingFullEdit}
+                className="px-3 py-1.5 rounded-md text-xs font-medium bg-muted hover:bg-muted/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={handleSaveFullEdit}
+                disabled={isSavingFullEdit}
+                className="px-3 py-1.5 rounded-md text-xs font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isSavingFullEdit ? (
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+                {isSavingFullEdit ? t('app.saving') : t('app.saveChanges')}
+              </button>
+            </div>
+          </div>
+
+          {/* Full Edit Content */}
+          <div className="flex-1 overflow-hidden flex">
+            <textarea
+              ref={fullEditTextareaRef}
+              value={fullEditContent}
+              onChange={(e) => setFullEditContent(e.target.value)}
+              disabled={isSavingFullEdit}
+              className="flex-1 w-full h-full p-6 md:p-8 bg-background text-foreground font-mono text-sm leading-relaxed resize-none focus:outline-none border-none"
+              placeholder={t('app.fullEditPlaceholder')}
+              spellCheck={false}
+            />
+          </div>
+
+          {/* Full Edit Footer with tips */}
+          <div className="h-10 flex items-center justify-between px-4 border-t border-border/50 bg-muted/30 text-xs text-muted-foreground">
+            <div className="flex items-center gap-4">
+              <span>{t('app.escToCancel')}</span>
+              <span>{t('app.ctrlEnterToSave')}</span>
+            </div>
+            <div>
+              {t('app.directMarkdownEdit')}
+            </div>
+          </div>
+
+          {isSavingFullEdit && (
+            <div className="absolute inset-0 z-[220] bg-background/60 backdrop-blur-sm flex items-center justify-center">
+              <div className="bg-card border border-border rounded-xl shadow-2xl px-6 py-5 flex items-center gap-3">
+                <svg className="w-5 h-5 text-primary animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                <span className="text-sm font-medium text-foreground">{t('app.savingChanges')}</span>
+              </div>
+            </div>
+          )}
+        </div>,
+        document.body,
+      )
+      : null;
+
   return (
-    <ThemeProvider defaultTheme="dark">
+    <ThemeProvider defaultTheme="light">
       <ThemeShortcut />
       <div className="h-screen flex flex-col bg-background overflow-hidden">
         {/* Show ONLY Settings when open */}
@@ -1108,9 +1441,11 @@ const App: React.FC = () => {
         {/* Minimal Header */}
         <header ref={headerRef} className="h-12 flex items-center justify-between px-2 md:px-4 border-b border-border/50 bg-card/50 backdrop-blur-xl z-50">
           <div className="flex items-center gap-2 md:gap-3">
-            <span className="text-xs text-muted-foreground font-mono opacity-60">
-              v{typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0'}
-            </span>
+            <img
+              src={obsreviewLogo}
+              alt="Obsidian Note Reviewer"
+              className="w-5 h-5 rounded object-contain opacity-70"
+            />
           </div>
 
           <div className="flex items-center gap-1 md:gap-2">
@@ -1122,20 +1457,20 @@ const App: React.FC = () => {
                 flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-all
                 ${isSaving || !savePath
                   ? 'opacity-50 cursor-not-allowed bg-muted text-muted-foreground'
-                  : annotations.length > 0
+                  : activeAnnotations.length > 0
                     ? 'bg-orange-500/20 text-orange-600 hover:bg-orange-500/30 border border-orange-500/40'
-                    : 'bg-purple-500/20 text-purple-600 hover:bg-purple-500/30 border border-purple-500/40'
+                    : 'bg-primary/20 text-primary hover:bg-primary/30 border border-primary/40'
                 }
               `}
               title={
                 !savePath
                   ? t('app.configurePath')
-                  : annotations.length > 0
+                  : activeAnnotations.length > 0
                     ? t('app.makeChangesInClaude')
                     : t('app.saveNoteToObsidian')
               }
             >
-              {annotations.length > 0 ? (
+              {activeAnnotations.length > 0 ? (
                 <>
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -1202,7 +1537,9 @@ const App: React.FC = () => {
               title={isPanelOpen ? t('app.hideAnnotationPanel') : t('app.showAnnotationPanel')}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                <rect x="4.5" y="4.5" width="11" height="11" rx="2.5" fill="currentColor" fillOpacity="0.16" />
+                <rect x="4.5" y="4.5" width="11" height="11" rx="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                <rect x="8.5" y="8.5" width="11" height="11" rx="2.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </button>
 
@@ -1231,7 +1568,7 @@ const App: React.FC = () => {
 
                 <button
                   onClick={() => {
-                    if (annotations.length === 0) {
+                    if (activeAnnotations.length === 0) {
                       setShowFeedbackPrompt(true);
                     } else {
                       handleDeny();
@@ -1243,12 +1580,12 @@ const App: React.FC = () => {
                       ? 'opacity-50 cursor-not-allowed bg-muted text-muted-foreground'
                       : 'bg-accent/15 text-accent hover:bg-accent/25 border border-accent/30'
                   }`}
-                  title="Solicitar Alterações"
+                  title={t('app.requestChanges')}
                 >
                   <svg className="w-4 h-4 md:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                   </svg>
-                  <span className="hidden md:inline">{isSubmitting ? 'Enviando...' : 'Solicitar Alterações'}</span>
+                  <span className="hidden md:inline">{isSubmitting ? t('app.sending') : t('app.requestChanges')}</span>
                 </button>
 
                 <button
@@ -1259,10 +1596,10 @@ const App: React.FC = () => {
                       ? 'opacity-50 cursor-not-allowed bg-muted text-muted-foreground'
                       : 'bg-green-600 text-white hover:bg-green-500'
                   }`}
-                  title="Aprovar Nota"
+                  title={t('app.approveNote')}
                 >
                   <span className="md:hidden">{isSubmitting ? '...' : 'OK'}</span>
-                  <span className="hidden md:inline">{isSubmitting ? 'Aprovando...' : 'Aprovar'}</span>
+                  <span className="hidden md:inline">{isSubmitting ? t('app.approving') : t('app.approveNote')}</span>
                 </button>
               </>
             )}
@@ -1275,7 +1612,7 @@ const App: React.FC = () => {
             <div className="flex items-center justify-between px-4 py-2">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-medium text-muted-foreground">
-                  {annotations.length} {t('app.annotations' + (annotations.length !== 1 ? '' : '_one'), { count: annotations.length })}
+                  {activeAnnotations.length} {t('app.annotations' + (activeAnnotations.length !== 1 ? '' : '_one'), { count: activeAnnotations.length })}
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -1287,13 +1624,13 @@ const App: React.FC = () => {
                     flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-all
                     ${isSaving || !savePath
                       ? 'opacity-50 cursor-not-allowed bg-muted text-muted-foreground'
-                      : annotations.length > 0
+                      : activeAnnotations.length > 0
                         ? 'bg-orange-500/20 text-orange-600 hover:bg-orange-500/30 border border-orange-500/40'
-                        : 'bg-purple-500/20 text-purple-600 hover:bg-purple-500/30 border border-purple-500/40'
+                        : 'bg-primary/20 text-primary hover:bg-primary/30 border border-primary/40'
                     }
                   `}
                 >
-                  {annotations.length > 0 ? (
+                  {activeAnnotations.length > 0 ? (
                     <>
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -1357,10 +1694,12 @@ const App: React.FC = () => {
                       ? 'bg-primary/15 text-primary'
                       : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                   }`}
-                  title={isPanelOpen ? 'Ocultar Painel' : 'Mostrar Painel'}
+                  title={isPanelOpen ? t('app.hideAnnotationPanel') : t('app.showAnnotationPanel')}
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                    <rect x="4.5" y="4.5" width="11" height="11" rx="2.5" fill="currentColor" fillOpacity="0.16" />
+                    <rect x="4.5" y="4.5" width="11" height="11" rx="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                    <rect x="8.5" y="8.5" width="11" height="11" rx="2.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </button>
 
@@ -1401,13 +1740,14 @@ const App: React.FC = () => {
                   ref={viewerRef}
                   blocks={blocks}
                   markdown={markdown}
-                  annotations={annotations}
+                  annotations={activeAnnotations}
                   onAddAnnotation={handleAddAnnotation}
                   onUpdateAnnotation={handleUpdateAnnotation}
                   onSelectAnnotation={setSelectedAnnotationId}
                   selectedAnnotationId={selectedAnnotationId}
                   mode={showExport ? 'selection' : editorMode}
                   onBlockChange={setBlocks}
+                  currentAuthor={currentAuthorName}
                 />
               )}
             </div>
@@ -1417,10 +1757,12 @@ const App: React.FC = () => {
           <AnnotationPanel
             isOpen={isPanelOpen}
             blocks={blocks}
-            annotations={annotations}
+            annotations={activeAnnotations}
             selectedId={selectedAnnotationId}
             onSelect={handleSelectAnnotation}
             onDelete={handleDeleteAnnotation}
+            onRestoreLastDeleted={handleRestoreLatestDeleted}
+            deletedCount={deletedAnnotations.length}
             shareUrl={shareUrl}
           />
         </div>
@@ -1429,10 +1771,12 @@ const App: React.FC = () => {
         <ExportModal
           isOpen={showExport}
           onClose={() => setShowExport(false)}
+          initialTab="share"
           shareUrl={shareUrl}
           shareUrlSize={shareUrlSize}
+          shareError={shareError}
           diffOutput={diffOutput}
-          annotationCount={annotations.length}
+          annotationCount={activeAnnotations.length}
 
         />
 
@@ -1441,6 +1785,7 @@ const App: React.FC = () => {
           isOpen={showGlobalCommentModal}
           onClose={() => setShowGlobalCommentModal(false)}
           onSubmit={handleAddGlobalComment}
+          defaultAuthor={currentAuthorName}
         />
 
         {/* Help Video Modal */}
@@ -1462,17 +1807,17 @@ const App: React.FC = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
                   </svg>
                 </div>
-                <h3 className="font-semibold">Adicione Anotações</h3>
+                <h3 className="font-semibold">{t('app.addAnnotationsTitle')}</h3>
               </div>
               <p className="text-sm text-muted-foreground mb-6">
-                Para solicitar alterações, selecione texto na nota e adicione anotações.
+                {t('app.addAnnotationsDescription')}
               </p>
               <div className="flex justify-end">
                 <button
                   onClick={() => setShowFeedbackPrompt(false)}
                   className="px-4 py-2 rounded-md text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
                 >
-                  Entendi
+                  {t('common.confirm')}
                 </button>
               </div>
             </div>
@@ -1501,18 +1846,18 @@ const App: React.FC = () => {
 
               <div className="space-y-2">
                 <h2 className="text-xl font-semibold text-foreground">
-                  {submitted === 'approved' ? 'Nota Aprovada' : 'Alterações Solicitadas'}
+                  {submitted === 'approved' ? t('decisionBar.noteApproved') : t('decisionBar.changesRequested')}
                 </h2>
                 <p className="text-muted-foreground">
                   {submitted === 'approved'
-                    ? 'A nota será salva no Obsidian.'
-                    : 'Claude irá revisar a nota com base nas suas anotações.'}
+                    ? t('decisionBar.willBeSaved')
+                    : t('decisionBar.willReview')}
                 </p>
               </div>
 
               <div className="pt-4 border-t border-border">
                 <p className="text-sm text-muted-foreground">
-                  Retorne ao <span className="text-foreground font-medium">terminal do Claude Code</span> para continuar.
+                  <span dangerouslySetInnerHTML={{ __html: t('decisionBar.returnToTerminal') }} />
                 </p>
               </div>
             </div>
@@ -1523,63 +1868,7 @@ const App: React.FC = () => {
 
         {/* Update notification */}
 
-        {/* Full Edit Mode Overlay */}
-        {isFullEditMode && (
-          <div className="fixed inset-0 z-[100] bg-background flex flex-col">
-            {/* Full Edit Header */}
-            <div className="h-12 flex items-center justify-between px-4 border-b border-border/50 bg-card/50 backdrop-blur-xl">
-              <div className="flex items-center gap-3">
-                <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-                <span className="text-sm font-semibold">{t('app.editMode')}</span>
-                <span className="text-xs text-muted-foreground font-mono">
-                  {fullEditContent.length} {t('app.characters')}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleCancelFullEdit}
-                  className="px-3 py-1.5 rounded-md text-xs font-medium bg-muted hover:bg-muted/80 transition-colors"
-                >
-                  {t('common.cancel')}
-                </button>
-                <button
-                  onClick={handleSaveFullEdit}
-                  className="px-3 py-1.5 rounded-md text-xs font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity flex items-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                  {t('app.saveChanges')}
-                </button>
-              </div>
-            </div>
-
-            {/* Full Edit Content */}
-            <div className="flex-1 overflow-hidden flex">
-              <textarea
-                ref={fullEditTextareaRef}
-                value={fullEditContent}
-                onChange={(e) => setFullEditContent(e.target.value)}
-                className="flex-1 w-full h-full p-6 md:p-8 bg-background text-foreground font-mono text-sm leading-relaxed resize-none focus:outline-none border-none"
-                placeholder="Digite o conteúdo markdown da sua nota..."
-                spellCheck={false}
-              />
-            </div>
-
-            {/* Full Edit Footer with tips */}
-            <div className="h-10 flex items-center justify-between px-4 border-t border-border/50 bg-muted/30 text-xs text-muted-foreground">
-              <div className="flex items-center gap-4">
-                <span>{t('app.escToCancel')}</span>
-                <span>Ctrl+Enter para salvar</span>
-              </div>
-              <div>
-                Edição markdown direta
-              </div>
-            </div>
-          </div>
-        )}
+        {fullEditOverlay}
 
         {/* Copy to clipboard toast */}
         {showCopyToast && (
@@ -1591,8 +1880,8 @@ const App: React.FC = () => {
                 </svg>
               </div>
               <div>
-                <p className="text-sm font-medium text-foreground">Alterações copiadas!</p>
-                <p className="text-xs text-muted-foreground">Cole no Claude Code para processar</p>
+                <p className="text-sm font-medium text-foreground">{t('app.changesCopied')}</p>
+                <p className="text-xs text-muted-foreground">{t('app.pasteInClaude')}</p>
               </div>
             </div>
           </div>
@@ -1604,64 +1893,6 @@ const App: React.FC = () => {
           onClose={() => setShowShortcutsModal(false)}
         />
 
-        {/* Share Dialog - Simple inline implementation */}
-        {showShareDialog && (
-          <BaseModal
-            isOpen={showShareDialog}
-            onRequestClose={() => setShowShareDialog(false)}
-            closeOnBackdropClick={true}
-            overlayClassName="z-[100] bg-black/50"
-            contentClassName="bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-6"
-          >
-            <div>
-              {/* Header */}
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-foreground">
-                  Compartilhar Documento
-                </h2>
-                <button
-                  onClick={() => setShowShareDialog(false)}
-                  className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/15 transition-colors rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-
-              {/* Description */}
-              <p className="text-sm text-muted-foreground mb-4">
-                Use a opção "Exportar" para gerar um link de compartilhamento temporário.
-              </p>
-
-              {/* Info note */}
-              <div className="mb-6 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                <p className="text-xs text-blue-500">
-                  O compartilhamento via Supabase será implementado em breve. Por enquanto, use o recurso de Exportar.
-                </p>
-              </div>
-
-              {/* Actions */}
-              <div className="flex justify-end gap-3">
-                <button
-                  onClick={() => {
-                    setShowShareDialog(false);
-                    setShowExport(true);
-                  }}
-                  className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 rounded-lg transition-colors"
-                >
-                  {t('app.openExport')}
-                </button>
-                <button
-                  onClick={() => setShowShareDialog(false)}
-                  className="px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted rounded-lg transition-colors"
-                >
-                  {t('common.close')}
-                </button>
-              </div>
-            </div>
-          </BaseModal>
-        )}
       </div>
     </ThemeProvider>
   );

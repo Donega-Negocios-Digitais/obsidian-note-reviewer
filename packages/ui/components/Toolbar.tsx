@@ -14,8 +14,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({ highlightElement, onAnnotate, 
   const [step, setStep] = useState<'menu' | 'input'>('menu');
   const [activeType, setActiveType] = useState<AnnotationType | null>(null);
   const [inputValue, setInputValue] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (step === 'input') inputRef.current?.focus();
@@ -25,6 +26,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ highlightElement, onAnnotate, 
     setStep('menu');
     setActiveType(null);
     setInputValue('');
+    setIsSubmitting(false);
   }, [highlightElement]);
 
   // Update position on scroll/resize
@@ -75,14 +77,17 @@ export const Toolbar: React.FC<ToolbarProps> = ({ highlightElement, onAnnotate, 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (activeType && inputValue.trim()) {
-      onAnnotate(activeType, inputValue);
+    if (activeType && inputValue.trim() && !isSubmitting) {
+      setIsSubmitting(true);
+      setTimeout(() => {
+        onAnnotate(activeType, inputValue);
+      }, 200);
     }
   };
 
   return createPortal(
     <div
-      className="annotation-toolbar fixed z-[100] bg-popover border border-border rounded-lg shadow-2xl transform -translate-x-1/2 animate-in fade-in slide-in-from-bottom-2 duration-150"
+      className="annotation-toolbar fixed z-[100] bg-popover border border-border rounded-xl shadow-2xl transform -translate-x-1/2 animate-in fade-in slide-in-from-bottom-2 duration-150"
       style={{ top, left }}
       onMouseDown={e => e.stopPropagation()}
     >
@@ -96,7 +101,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ highlightElement, onAnnotate, 
               </svg>
             }
             label={t('toolbar.delete')}
-            className="text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            className="text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
           />
           <ToolbarButton
             onClick={() => handleTypeSelect(AnnotationType.COMMENT)}
@@ -106,7 +111,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ highlightElement, onAnnotate, 
               </svg>
             }
             label={t('toolbar.comment')}
-            className="text-accent hover:bg-accent/10"
+            className="text-muted-foreground hover:text-accent hover:bg-accent/10"
           />
           <div className="w-px h-5 bg-border mx-0.5" />
           <ToolbarButton
@@ -121,38 +126,60 @@ export const Toolbar: React.FC<ToolbarProps> = ({ highlightElement, onAnnotate, 
           />
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="flex items-start gap-1.5 p-1.5 pl-3">
-          <textarea
-            ref={inputRef as React.RefObject<HTMLTextAreaElement>}
-            className="bg-transparent border-none outline-none text-sm w-80 placeholder:text-muted-foreground resize-none"
-            placeholder={t('toolbar.addComment')}
-            aria-label={t('toolbar.addCommentAria')}
-            rows={2}
-            value={inputValue}
-            onChange={e => setInputValue(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Escape') setStep('menu');
-              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                e.preventDefault();
-                if (inputValue.trim()) handleSubmit(e as unknown as React.FormEvent);
-              }
-            }}
-          />
-          <button
-            type="submit"
-            disabled={!inputValue.trim()}
-            className="px-2 py-1 text-xs font-medium rounded bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-          >{t('toolbar.save')}</button>
-          <button
-            type="button"
-            onClick={() => setStep('menu')}
-            aria-label={t('toolbar.backToMenu')}
-            className="p-1 rounded text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+        <form onSubmit={handleSubmit} className="flex flex-col w-72">
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
+            <span className="text-sm font-medium text-foreground">{t('toolbar.comment')}</span>
+            <button
+              type="button"
+              onClick={() => setStep('menu')}
+              aria-label={t('toolbar.backToMenu')}
+              className="p-1 rounded text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Body */}
+          <div className="px-4 py-3">
+            <textarea
+              ref={inputRef}
+              rows={3}
+              className="w-full text-sm bg-muted border border-border/60 rounded-lg px-3 py-2.5 placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-ring transition-shadow"
+              placeholder={t('toolbar.addComment')}
+              aria-label={t('toolbar.addCommentAria')}
+              value={inputValue}
+              onChange={e => setInputValue(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Escape') setStep('menu');
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  if (inputValue.trim() && !isSubmitting) handleSubmit(e as unknown as React.FormEvent);
+                }
+                // Shift+Enter: default behavior (new line)
+              }}
+            />
+          </div>
+
+          {/* Footer */}
+          <div className="flex items-center justify-between px-4 pb-3">
+            <span className="text-xs text-muted-foreground opacity-60">{t('toolbar.submitHint')}</span>
+            <button
+              type="submit"
+              disabled={!inputValue.trim() || isSubmitting}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            >
+              {isSubmitting && (
+                <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              )}
+              {t('toolbar.save')}
+            </button>
+          </div>
         </form>
       )}
     </div>,

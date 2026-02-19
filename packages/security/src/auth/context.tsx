@@ -215,7 +215,7 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
 
   // Update profile
   const handleUpdateProfile = useCallback(async (profile: Partial<UserProfile>) => {
-    setState((prev) => ({ ...prev, loading: true, error: null }))
+    setState((prev) => ({ ...prev, error: null }))
     try {
       const { data, error } = await supabase.auth.updateUser({
         data: profile,
@@ -225,13 +225,13 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
 
       setState((prev) => ({
         ...prev,
-        user: data.user,
-        loading: false,
+        user: data.user ?? prev.user,
+        session: prev.session,
+        error: null,
       }))
     } catch (error) {
       setState((prev) => ({
         ...prev,
-        loading: false,
         error: error as AuthError,
       }))
       throw error
@@ -240,7 +240,7 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
 
   // Refresh session
   const handleRefreshSession = useCallback(async () => {
-    setState((prev) => ({ ...prev, loading: true, error: null }))
+    setState((prev) => ({ ...prev, error: null }))
     try {
       const { data, error } = await supabase.auth.refreshSession()
 
@@ -261,22 +261,6 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
       throw error
     }
   }, [])
-
-  // Refresh session on window focus (when user returns to tab)
-  useEffect(() => {
-    const handleFocus = () => {
-      // Only refresh if we have a session
-      if (state.session && !state.loading) {
-        handleRefreshSession().catch((error) => {
-          // Silent fail - don't show error to user on focus refresh
-          console.warn('Session refresh on focus failed:', error.message)
-        })
-      }
-    }
-
-    window.addEventListener('focus', handleFocus)
-    return () => window.removeEventListener('focus', handleFocus)
-  }, [state.session, state.loading, handleRefreshSession])
 
   // Set up periodic session refresh (every 15 minutes)
   useEffect(() => {

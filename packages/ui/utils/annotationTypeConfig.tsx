@@ -46,7 +46,7 @@ export const annotationTypeConfig: AnnotationTypeConfig = {
     )
   },
   [AnnotationType.COMMENT]: {
-    label: 'Comentario',
+    label: 'Comentário',
     color: 'text-accent',
     bg: 'bg-accent/10',
     icon: (

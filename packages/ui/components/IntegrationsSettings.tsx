@@ -240,8 +240,8 @@ export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({ hook
     switch (type) {
       case 'whatsapp': return t('settings.integrations.whatsappDesc');
       case 'telegram': return t('settings.integrations.telegramDesc');
-      case 'notion': return 'Enviar para o Notion';
-      case 'obsidian': return 'Sincronizar com vault do Obsidian';
+      case 'notion': return t('settings.integrations.notionDesc');
+      case 'obsidian': return t('settings.integrations.obsidianDesc');
       default: return '';
     }
   };
@@ -274,11 +274,11 @@ export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({ hook
                   <div className={`rounded-lg flex items-center justify-center flex-shrink-0 ${
                     integration.type === 'whatsapp' ? 'w-8 h-8 bg-green-500/10 text-green-600 dark:text-green-400' :
                     integration.type === 'telegram' ? 'w-8 h-8 bg-blue-500/10 text-blue-600 dark:text-blue-400' :
-                    integration.type === 'notion' ? 'w-10 h-10 bg-white border-2 border-gray-900 text-gray-900' :
+                    integration.type === 'notion' ? 'w-8 h-8 p-1.5 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100' :
                     integration.type === 'obsidian' ? 'w-8 h-8 bg-purple-500/10 text-purple-600 dark:text-purple-400' :
                     'w-8 h-8 bg-blue-500/10 text-blue-600 dark:text-blue-400'
                   }`}>
-                    <Icon className={integration.type === 'notion' ? 'w-6 h-6' : 'w-4 h-4'} />
+                    <Icon className="w-4 h-4" />
                   </div>
                   <h3 className="text-sm font-semibold text-foreground truncate">
                     {getIntegrationLabel(integration.type)}
@@ -391,9 +391,9 @@ export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({ hook
                     : integrations.find(i => i.id === configuring)?.type === 'telegram'
                       ? t('settings.integrations.chatId')
                       : integrations.find(i => i.id === configuring)?.type === 'notion'
-                        ? 'API Key'
+                        ? t('settings.integrations.apiKey')
                         : integrations.find(i => i.id === configuring)?.type === 'obsidian'
-                          ? 'Vault Path'
+                          ? t('settings.integrations.vaultPath')
                           : t('settings.integrations.chatId')}
                   <span className="text-red-500 ml-1">*</span>
                 </label>
@@ -406,9 +406,9 @@ export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({ hook
                     : integrations.find(i => i.id === configuring)?.type === 'telegram'
                       ? t('settings.integrations.chatIdPlaceholder')
                       : integrations.find(i => i.id === configuring)?.type === 'notion'
-                        ? 'Ex: secret_...'
+                        ? t('settings.integrations.apiKeyPlaceholder')
                         : integrations.find(i => i.id === configuring)?.type === 'obsidian'
-                          ? 'Ex: /Users/username/Documents/Vault'
+                          ? t('settings.integrations.vaultPathPlaceholder')
                           : t('settings.integrations.chatIdPlaceholder')}
                   className="w-full p-2.5 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-sm"
                 />
@@ -421,7 +421,7 @@ export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({ hook
                 </label>
                 {hooks.length === 0 ? (
                   <p className="text-xs text-muted-foreground text-center py-2 border border-dashed border-border rounded-lg">
-                    Nenhum hook disponível
+                    {t('settings.integrations.noHooksAvailable')}
                   </p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
@@ -481,9 +481,9 @@ export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({ hook
                   </span>
                   {[
                     { key: '{emoji}', label: t('settings.integrations.variableEmoji') },
-                    { key: '{titulo}', label: t('settings.integrations.variableTitle') },
-                    { key: '{tipo}', label: t('settings.integrations.variableType') },
-                    { key: '{link}', label: t('settings.integrations.variableLink') },
+                    { key: '{title}', label: t('settings.integrations.variableTitle') },
+                    { key: '{noteType}', label: t('settings.integrations.variableType') },
+                    { key: '{url}', label: t('settings.integrations.variableLink') },
                     { key: '{timestamp}', label: t('settings.integrations.variableTimestamp') },
                   ].map(variable => (
                     <button

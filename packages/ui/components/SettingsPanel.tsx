@@ -1,7 +1,9 @@
 ﻿/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any, security/detect-object-injection, no-alert */
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BookOpen, FolderOpen, User, Keyboard, Globe, Download, Upload, RotateCcw, Lightbulb, UserCircle, Users, Edit, Trash2, Plug, Power, Ban, Eye, FileText, Zap, Terminal, Check, X, Info, ArrowDown, ToggleRight, ArrowRight } from 'lucide-react';
+import { FolderOpen, User, Keyboard, Globe, Download, Upload, RotateCcw, Lightbulb, UserCircle, Users, Edit, Trash2, Plug, Power, FileText, Zap, Terminal, Check, X, Info, ToggleRight, LogOut } from 'lucide-react';
+import { useAuth } from '@obsidian-note-reviewer/security/auth';
+import { supabase } from '@obsidian-note-reviewer/security/supabase/client';
 import { ProfileSettings } from './ProfileSettings';
 import { CollaborationSettings } from './CollaborationSettings';
 import { IntegrationsSettings } from './IntegrationsSettings';
@@ -151,6 +153,77 @@ function writeLocalJSON(key: string, value: unknown | null | undefined): void {
   }
 }
 
+const LOGOUT_THANKS_SNAPSHOT_KEY = 'obsreview-logout-thanks-snapshot';
+
+type AffiliateSummaryRow = {
+  affiliate_code?: string;
+  commission_rate?: number | string;
+  total_commission_cents?: number | string;
+  total_under_review_cents?: number | string;
+  referred_buyers_count?: number | string;
+};
+
+function toSafeNumber(value: unknown, fallback = 0): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return fallback;
+}
+
+function buildFallbackAffiliateCode(userId: string): string {
+  return `ref-${userId.replace(/-/g, '').toLowerCase()}`;
+}
+
+async function prepareLogoutThanksSnapshot(
+  user: { id: string } | null | undefined,
+  supabaseClient: typeof supabase,
+): Promise<void> {
+  if (!user) return;
+
+  let affiliateCode = buildFallbackAffiliateCode(user.id);
+  let commissionRate = 0.6;
+  let totalCommissionCents = 0;
+  let totalUnderReviewCents = 0;
+  let referredBuyersCount = 0;
+
+  try {
+    const { data: ensuredCode } = await supabaseClient.rpc('ensure_affiliate_profile');
+    if (typeof ensuredCode === 'string' && ensuredCode.trim()) {
+      affiliateCode = ensuredCode.trim().toLowerCase();
+    }
+  } catch (error) {
+    console.warn('[SettingsPanel] Failed to ensure affiliate profile before logout:', error);
+  }
+
+  try {
+    const { data: summaryData } = await supabaseClient.rpc('get_affiliate_summary');
+    const summary = (Array.isArray(summaryData) ? summaryData[0] : summaryData) as AffiliateSummaryRow | null;
+
+    if (summary) {
+      if (typeof summary.affiliate_code === 'string' && summary.affiliate_code.trim()) {
+        affiliateCode = summary.affiliate_code.trim().toLowerCase();
+      }
+      commissionRate = toSafeNumber(summary.commission_rate, 0.6);
+      totalCommissionCents = Math.round(toSafeNumber(summary.total_commission_cents, 0));
+      totalUnderReviewCents = Math.round(toSafeNumber(summary.total_under_review_cents, 0));
+      referredBuyersCount = Math.max(0, Math.round(toSafeNumber(summary.referred_buyers_count, 0)));
+    }
+  } catch (error) {
+    console.warn('[SettingsPanel] Failed to fetch affiliate summary before logout:', error);
+  }
+
+  sessionStorage.setItem(LOGOUT_THANKS_SNAPSHOT_KEY, JSON.stringify({
+    affiliateCode,
+    commissionRate,
+    totalCommissionCents,
+    totalUnderReviewCents,
+    referredBuyersCount,
+    generatedAt: new Date().toISOString(),
+  }));
+}
+
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   isOpen,
   onClose,
@@ -160,6 +233,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   onTabChange,
 }) => {
   const { t, i18n } = useTranslation();
+  const { user, signOut } = useAuth();
   const [identity, setIdentity] = useState('');
   const [displayName, setDisplayNameState] = useState('');
   const [anonymousIdentity, setAnonymousIdentity] = useState('');
@@ -277,6 +351,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const [shortcutsVersion, setShortcutsVersion] = useState(0);
   const [showAddHookModal, setShowAddHookModal] = useState(false);
   const [newHook, setNewHook] = useState({ name: '', description: '', trigger: '', enabled: true });
+  const [sidebarLoggingOut, setSidebarLoggingOut] = useState(false);
+  const [sidebarLogoutConfirm, setSidebarLogoutConfirm] = useState(false);
 
   // Persistência do modal de adicionar hook
   useEffect(() => {
@@ -305,20 +381,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       }
     }
 
-    const savedEditModal = localStorage.getItem('obsreview-editHookModal');
-    const savedEditingHook = localStorage.getItem('obsreview-editingHook');
-    const savedEditHookData = localStorage.getItem('obsreview-editHookData');
-    if (savedEditModal === 'true' && savedEditingHook && savedEditHookData) {
-      try {
-        setShowEditHookModal(true);
-        setEditingHook(JSON.parse(savedEditingHook));
-        setEditHookData(JSON.parse(savedEditHookData));
-      } catch {
-        localStorage.removeItem('obsreview-editHookModal');
-        localStorage.removeItem('obsreview-editingHook');
-        localStorage.removeItem('obsreview-editHookData');
-      }
-    }
+    localStorage.removeItem('obsreview-editHookModal');
+    localStorage.removeItem('obsreview-editingHook');
+    localStorage.removeItem('obsreview-editHookData');
   }, []);
 
   // Edit template/path modal state
@@ -334,27 +399,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     };
   });
 
-  // Edit hook modal state
-  const [showEditHookModal, setShowEditHookModal] = useState(false);
+  // Edit hook modal state (unified with add hook modal)
   const [editingHook, setEditingHook] = useState<Hook | null>(null);
-  const [editHookData, setEditHookData] = useState({
-    name: '',
-    description: '',
-    trigger: '',
-  });
-
-  useEffect(() => {
-    if (showEditHookModal && editingHook) {
-      localStorage.setItem('obsreview-editHookModal', 'true');
-      localStorage.setItem('obsreview-editingHook', JSON.stringify(editingHook));
-      localStorage.setItem('obsreview-editHookData', JSON.stringify(editHookData));
-      return;
-    }
-
-    localStorage.removeItem('obsreview-editHookModal');
-    localStorage.removeItem('obsreview-editingHook');
-    localStorage.removeItem('obsreview-editHookData');
-  }, [showEditHookModal, editingHook, editHookData]);
 
   // Delete confirmation modal state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(() => readLocalFlag(SETTINGS_MODAL_KEYS.showDeleteConfirm));
@@ -395,8 +441,16 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
   // Language state
   const [currentLanguage, setCurrentLanguage] = useState(() => {
-    return localStorage.getItem('app-language') || 'pt-BR';
+    return i18n.resolvedLanguage || i18n.language || localStorage.getItem('app-language') || 'pt-BR';
   });
+
+  useEffect(() => {
+    const syncLanguage = (lng: string) => setCurrentLanguage(lng);
+    i18n.on('languageChanged', syncLanguage);
+    return () => {
+      i18n.off('languageChanged', syncLanguage);
+    };
+  }, [i18n]);
 
   const removeTemplateStateLinks = (templateIds: string[]) => {
     if (templateIds.length === 0) return;
@@ -518,9 +572,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         });
 
         // Load language preference
-        const savedLang = localStorage.getItem('app-language') || 'pt-BR';
+        const savedLang = i18n.resolvedLanguage || i18n.language || localStorage.getItem('app-language') || 'pt-BR';
         setCurrentLanguage(savedLang);
-        // In full implementation, this would call i18n.changeLanguage(savedLang);
 
         // Load hooks from localStorage
         const savedHooks = localStorage.getItem('obsreview-hooks');
@@ -779,27 +832,24 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
   const openEditHookModal = (hook: Hook) => {
     setEditingHook(hook);
-    setEditHookData({
-      name: hook.name,
-      description: hook.description,
-      trigger: hook.trigger,
-    });
-    setShowEditHookModal(true);
+    setNewHook({ name: hook.name, description: hook.description, trigger: hook.trigger, enabled: hook.enabled });
+    setShowAddHookModal(true);
   };
 
   const updateHook = () => {
-    if (editingHook && editHookData.name && editHookData.description && editHookData.trigger) {
-      const updatedHooks = hooks.map(h =>
-        h.id === editingHook.id
-          ? { ...h, name: editHookData.name, description: editHookData.description, trigger: editHookData.trigger }
-          : h
-      );
-      setHooks(updatedHooks);
-      localStorage.setItem('obsreview-hooks', JSON.stringify(updatedHooks));
-      setShowEditHookModal(false);
-      setEditingHook(null);
-      setEditHookData({ name: '', description: '', trigger: '' });
-    }
+    if (!editingHook || !newHook.name || !newHook.description || !newHook.trigger) return;
+    const updatedHooks = hooks.map(h =>
+      h.id === editingHook.id
+        ? { ...h, name: newHook.name, description: newHook.description, trigger: newHook.trigger, enabled: newHook.enabled }
+        : h
+    );
+    setHooks(updatedHooks);
+    localStorage.setItem('obsreview-hooks', JSON.stringify(updatedHooks));
+    setShowAddHookModal(false);
+    setEditingHook(null);
+    setNewHook({ name: '', description: '', trigger: '', enabled: true });
+    localStorage.removeItem('obsreview-addHookModal');
+    localStorage.removeItem('obsreview-newHook');
   };
 
   const deleteHook = (id: string) => {
@@ -807,6 +857,22 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     if (hook) {
       setDeleteTarget({ tipo: id, label: hook.name });
       setShowDeleteConfirm(true);
+    }
+  };
+
+  const handleSidebarLogout = async () => {
+    setSidebarLoggingOut(true);
+    try {
+      // Prepare affiliate snapshot before logout
+      await prepareLogoutThanksSnapshot(user, supabase);
+      sessionStorage.setItem('obsreview-post-logout-redirect', '/logout-thanks');
+      await signOut();
+      window.location.assign('/logout-thanks');
+    } catch {
+      // ignore
+    } finally {
+      setSidebarLoggingOut(false);
+      setSidebarLogoutConfirm(false);
     }
   };
 
@@ -832,7 +898,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       }
       setShowEditPathModal(false);
       setEditingPath(null);
-      showSuccessToast('Configuração salva com sucesso!');
+      showSuccessToast(t('settings.paths.configurationSaved'));
     }
   };
 
@@ -851,7 +917,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       const templateId = deleteTarget.tipo.slice(TRASH_TEMPLATE_PREFIX.length);
       permanentlyDeleteFromTrash(templateId);
       setTrashedTemplates(getTrashedTemplates());
-      showSuccessToast(`"${deleteTarget.label}" deletado permanentemente da lixeira.`);
+      showSuccessToast(t('settings.trash.templateDeletedPermanentlyFromTrash', { name: deleteTarget.label }));
       setShowDeleteConfirm(false);
       setDeleteTarget(null);
       return;
@@ -861,7 +927,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       const categoryId = deleteTarget.tipo.slice(TRASH_CATEGORY_PREFIX.length);
       permanentlyDeleteCategoryFromTrash(categoryId);
       setTrashedCategories(getTrashedCategories());
-      showSuccessToast(`"${deleteTarget.label}" deletada permanentemente da lixeira.`);
+      showSuccessToast(t('settings.trash.categoryDeletedPermanentlyFromTrash', { name: deleteTarget.label }));
       setShowDeleteConfirm(false);
       setDeleteTarget(null);
       return;
@@ -871,7 +937,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     if (isTemplateInTrash(deleteTarget.tipo)) {
       permanentlyDeleteFromTrash(deleteTarget.tipo);
       setTrashedTemplates(getTrashedTemplates());
-      showSuccessToast(`"${deleteTarget.label}" deletado permanentemente!`);
+      showSuccessToast(t('settings.trash.itemDeletedPermanently', { name: deleteTarget.label }));
       setShowDeleteConfirm(false);
       setDeleteTarget(null);
       return;
@@ -882,7 +948,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       const updatedHooks = hooks.filter((hook) => hook.id !== deleteTarget.tipo);
       setHooks(updatedHooks);
       localStorage.setItem('obsreview-hooks', JSON.stringify(updatedHooks));
-      showSuccessToast(`"${deleteTarget.label}" deletado com sucesso!`);
+      showSuccessToast(t('settings.common.itemDeleted', { name: deleteTarget.label }));
       setShowDeleteConfirm(false);
       setDeleteTarget(null);
       return;
@@ -913,7 +979,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       }
 
       setTrashedTemplates(getTrashedTemplates());
-      showSuccessToast(`"${deleteTarget.label}" movido para a lixeira!`);
+      showSuccessToast(t('settings.trash.itemMovedToTrash', { name: deleteTarget.label }));
       setShowDeleteConfirm(false);
       setDeleteTarget(null);
       return;
@@ -946,7 +1012,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     setNoteTypePath(deleteTarget.tipo, '');
     setNoteTypeTemplate(deleteTarget.tipo, '');
 
-    showSuccessToast(`"${deleteTarget.label}" movido para a lixeira!`);
+    showSuccessToast(t('settings.trash.itemMovedToTrash', { name: deleteTarget.label }));
     setShowDeleteConfirm(false);
     setDeleteTarget(null);
   };
@@ -969,7 +1035,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           : currentTemplates.map((template) => (template.id === restoredTemplate.id ? restoredTemplate : template));
 
       syncCustomTemplatesWithCleanup(mergedTemplates);
-      showSuccessToast(`"${item.label}" restaurado com sucesso!`);
+      showSuccessToast(t('settings.trash.itemRestored', { name: item.label }));
       return;
     }
 
@@ -983,7 +1049,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     setHiddenNoteTypes(updatedHidden);
     saveHiddenNoteTypes(updatedHidden);
 
-    showSuccessToast(`"${item.label}" restaurado com sucesso!`);
+    showSuccessToast(t('settings.trash.itemRestored', { name: item.label }));
   };
 
   const handleRestoreCategory = (category: TrashedCategory) => {
@@ -1019,7 +1085,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
     restoreCategoryFromTrash(category.id);
     setTrashedCategories(getTrashedCategories());
-    showSuccessToast(`Categoria "${category.name}" restaurada com sucesso!`);
+    showSuccessToast(t('settings.trash.categoryRestored', { name: category.name }));
   };
 
   // Função para ativar/desativar template
@@ -1102,7 +1168,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const getCategoryLabel = (categoryId: string) => {
     const builtInCategory = builtInCategoryMap.get(categoryId);
     if (builtInCategory) return builtInCategory.name;
-    if (categoryId === '__sem_categoria__') return 'Sem categoria';
+    if (categoryId === '__sem_categoria__') return t('settings.paths.uncategorized');
     return customCategoryMap.get(categoryId)?.name || categoryId;
   };
 
@@ -1287,12 +1353,15 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     setTrashedCategories(getTrashedCategories());
 
     if (relatedTemplates.length === 0) {
-      showSuccessToast(`Categoria "${category.name}" movida para a lixeira.`);
+      showSuccessToast(t('settings.trash.categoryMovedToTrash', { name: category.name }));
       return;
     }
 
     showSuccessToast(
-      `Categoria "${category.name}" movida para a lixeira com ${relatedTemplates.length} template(s).`,
+      t('settings.trash.categoryMovedToTrashWithTemplates', {
+        name: category.name,
+        count: relatedTemplates.length,
+      }),
     );
   };
 
@@ -1320,9 +1389,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const tabs: Array<{ id: CategoryTab; Icon: React.ComponentType<{ className?: string }>; label: string }> = [
     { id: 'perfil', Icon: UserCircle, label: t('settings.tabs.perfil') },
     { id: 'idioma', Icon: Globe, label: t('settings.tabs.idioma') },
-    { id: 'caminhos', Icon: FolderOpen, label: 'Templates' },
+    { id: 'caminhos', Icon: FolderOpen, label: t('settings.tabs.caminhos') },
     { id: 'atalhos', Icon: Keyboard, label: t('settings.tabs.atalhos') },
-    { id: 'regras', Icon: BookOpen, label: t('settings.tabs.regras') },
     { id: 'hooks', Icon: Terminal, label: t('settings.tabs.hooks') },
     { id: 'colaboracao', Icon: Users, label: t('settings.tabs.colaboracao') },
     { id: 'integracoes', Icon: Plug, label: t('settings.integrations.title') },
@@ -1537,20 +1605,20 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               onClick={() => setShowTemplateManager(true)}
               className="px-3 py-1.5 text-xs font-medium text-primary-foreground bg-primary hover:opacity-90 rounded-lg transition-opacity"
             >
-              Gerenciar Templates
+              {t('settings.paths.manageTemplates')}
             </button>
             <button
               onClick={() => setShowCategoryManager(true)}
               className="px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted rounded-lg transition-colors"
             >
-              Gerenciar Categorias
+              {t('settings.paths.manageCategories')}
             </button>
             <button
               onClick={() => setShowTrashModal(true)}
               className="relative px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted rounded-lg transition-colors"
             >
               <LucideIcons.Trash2 className="w-3.5 h-3.5 inline-block mr-1.5" />
-              Lixeira
+              {t('settings.paths.trash')}
               {trashedTemplates.length > 0 && (
                 <span className="absolute -top-1 -right-1 w-4 h-4 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full flex items-center justify-center">
                   {trashedTemplates.length}
@@ -1563,10 +1631,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         <div className="rounded-xl border border-border/50 bg-muted/20 p-3 space-y-3">
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Categorias
+              {t('settings.paths.categories')}
             </p>
             <span className="text-[11px] text-muted-foreground">
-              {filteredSectionList.length} de {sectionList.length}
+              {t('settings.paths.filteredCount', { filtered: filteredSectionList.length, total: sectionList.length })}
             </span>
           </div>
           <div className="overflow-x-auto pb-1">
@@ -1579,7 +1647,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     : 'bg-background border-border text-muted-foreground hover:text-foreground hover:bg-muted'
                 }`}
               >
-                Todas
+                {t('common.all')}
               </button>
               {sectionList.map((section) => {
                 const { builtInItems, customItems } = getItemsForSection(section.id);
@@ -1621,7 +1689,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     <button
                       onClick={() => deleteCategory(section.id)}
                       className="p-1.5 rounded-md text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors"
-                      title="Excluir categoria"
+                      title={t('settings.paths.deleteCategory')}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -1630,7 +1698,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     onClick={() => openCreateTemplateModal(section.canDelete ? section.id : undefined)}
                     className="px-2.5 py-1 text-xs font-medium text-primary-foreground bg-primary hover:opacity-90 rounded-lg transition-opacity"
                   >
-                    Novo
+                    {t('settings.newTemplate.newTemplate')}
                   </button>
                 </div>
               </div>
@@ -1638,7 +1706,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               {/* 3-column grid for cards - MINIMALIST DESIGN */}
               {builtInItems.length === 0 && customItems.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-border/60 p-4 text-xs text-muted-foreground">
-                  Nenhum template nesta categoria ainda.
+                  {t('settings.paths.noTemplatesInCategory')}
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1684,10 +1752,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                               ? 'bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-500/20'
                               : 'bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20'
                           }`}
-                          title={isActive ? 'Desativar' : 'Ativar'}
+                          title={isActive ? t('settings.hooks.deactivate') : t('settings.hooks.activate')}
                         >
                           <Power className="w-3 h-3" />
-                          {isActive ? 'Ativado' : 'Inativado'}
+                          {isActive ? t('settings.hooks.active') : t('settings.hooks.inactive')}
                         </button>
                       </div>
 
@@ -1704,7 +1772,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                               deactivatePath(tipo, itemLabel);
                             }}
                             className="p-2 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors"
-                            title="Deletar"
+                            title={t('common.delete')}
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -1716,7 +1784,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                               openEditPathModal(tipo, itemLabel, itemIcon);
                             }}
                             className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
-                            title="Editar configuração"
+                            title={t('settings.paths.editConfiguration')}
                           >
                             <Edit className="w-4 h-4" />
                           </button>
@@ -1769,10 +1837,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                               ? 'bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-500/20'
                               : 'bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20'
                           }`}
-                          title={isActive ? 'Desativar' : 'Ativar'}
+                          title={isActive ? t('settings.hooks.deactivate') : t('settings.hooks.activate')}
                         >
                           <Power className="w-3 h-3" />
-                          {isActive ? 'Ativado' : 'Inativado'}
+                          {isActive ? t('settings.hooks.active') : t('settings.hooks.inactive')}
                         </button>
                       </div>
 
@@ -1789,7 +1857,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                               deleteCustomTemplate(ct.id, ct.label);
                             }}
                             className="p-2 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors"
-                            title="Excluir"
+                            title={t('common.delete')}
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -1801,7 +1869,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                               editCustomTemplate(ct);
                             }}
                             className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
-                            title="Editar configuração"
+                            title={t('settings.paths.editConfiguration')}
                           >
                             <Edit className="w-4 h-4" />
                           </button>
@@ -1818,7 +1886,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
         {filteredSectionList.length === 0 && (
           <div className="rounded-xl border border-dashed border-border/60 p-4 text-sm text-muted-foreground text-center">
-            Nenhuma categoria encontrada para o filtro selecionado.
+            {t('settings.paths.noCategoriesForFilter')}
           </div>
         )}
 
@@ -1887,29 +1955,95 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         <div
           role="tablist"
           aria-label={t('settings.aria.categoryTabs')}
-          className="flex flex-col gap-0.5 p-2 border-r border-border bg-muted/20 min-w-[44px] overflow-y-auto"
+          className="flex flex-col p-2 border-r border-border bg-muted/20 min-w-[44px] overflow-y-auto"
         >
-          {tabs.map(({ id, Icon, label }) => (
+          <div className="flex flex-col gap-0.5 flex-1">
+            {/* Group: Conta */}
+            <p className="hidden lg:block px-2 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">Conta</p>
+            {tabs.filter(({ id }) => ['perfil'].includes(id)).map(({ id, Icon, label }) => (
+              <button
+                key={id}
+                id={`settings-panel-tab-${id}`}
+                role="tab"
+                aria-selected={activeTab === id}
+                aria-controls={`settings-panel-content-${id}`}
+                onClick={() => setActiveTab(id)}
+                title={label}
+                className={`
+                  flex items-center gap-2 px-2 py-2 text-xs font-medium transition-all relative whitespace-nowrap rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none w-full
+                  ${activeTab === id
+                    ? 'text-primary bg-primary/10 border-l-2 border-primary pl-[6px]'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
+                  }
+                `}
+              >
+                <Icon className="w-4 h-4 flex-shrink-0" />
+                <span className="hidden lg:inline">{label}</span>
+              </button>
+            ))}
+
+            {/* Group: Preferências */}
+            <p className="hidden lg:block px-2 pt-3 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">{t('settings.groups.preferences')}</p>
+            {tabs.filter(({ id }) => ['idioma', 'atalhos', 'caminhos'].includes(id)).map(({ id, Icon, label }) => (
+              <button
+                key={id}
+                id={`settings-panel-tab-${id}`}
+                role="tab"
+                aria-selected={activeTab === id}
+                aria-controls={`settings-panel-content-${id}`}
+                onClick={() => setActiveTab(id)}
+                title={label}
+                className={`
+                  flex items-center gap-2 px-2 py-2 text-xs font-medium transition-all relative whitespace-nowrap rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none w-full
+                  ${activeTab === id
+                    ? 'text-primary bg-primary/10 border-l-2 border-primary pl-[6px]'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
+                  }
+                `}
+              >
+                <Icon className="w-4 h-4 flex-shrink-0" />
+                <span className="hidden lg:inline">{label}</span>
+              </button>
+            ))}
+
+            {/* Group: Automação */}
+            <p className="hidden lg:block px-2 pt-3 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">{t('settings.groups.automation')}</p>
+            {tabs.filter(({ id }) => ['hooks', 'colaboracao', 'integracoes'].includes(id)).map(({ id, Icon, label }) => (
+              <button
+                key={id}
+                id={`settings-panel-tab-${id}`}
+                role="tab"
+                aria-selected={activeTab === id}
+                aria-controls={`settings-panel-content-${id}`}
+                onClick={() => setActiveTab(id)}
+                title={label}
+                className={`
+                  flex items-center gap-2 px-2 py-2 text-xs font-medium transition-all relative whitespace-nowrap rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none w-full
+                  ${activeTab === id
+                    ? 'text-primary bg-primary/10 border-l-2 border-primary pl-[6px]'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
+                  }
+                `}
+              >
+                <Icon className="w-4 h-4 flex-shrink-0" />
+                <span className="hidden lg:inline">{label}</span>
+              </button>
+            ))}
+          </div>
+          {/* Logout button at the very bottom */}
+          <div className="pt-2 mt-2 border-t border-border/50">
             <button
-              key={id}
-              id={`settings-panel-tab-${id}`}
-              role="tab"
-              aria-selected={activeTab === id}
-              aria-controls={`settings-panel-content-${id}`}
-              onClick={() => setActiveTab(id)}
-              title={label}
-              className={`
-                flex items-center gap-2 px-2 py-2 text-xs font-medium transition-all relative whitespace-nowrap rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none w-full
-                ${activeTab === id
-                  ? 'text-primary bg-primary/10 border-l-2 border-primary pl-[6px]'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
-                }
-              `}
+              onClick={() => setSidebarLogoutConfirm(true)}
+              disabled={sidebarLoggingOut}
+              title={t('settings.session.logoutAccount')}
+              className="flex items-center gap-2 px-2 py-2 text-xs font-medium transition-all whitespace-nowrap rounded-md w-full text-destructive hover:bg-destructive/10 disabled:opacity-50"
             >
-              <Icon className="w-4 h-4 flex-shrink-0" />
-              <span className="hidden lg:inline">{label}</span>
+              <LogOut className="w-4 h-4 flex-shrink-0" />
+              <span className="hidden lg:inline">
+                {sidebarLoggingOut ? t('settings.session.loggingOut') : t('settings.session.logoutAccount')}
+              </span>
             </button>
-          ))}
+          </div>
         </div>
 
         {/* Tab Content */}
@@ -1917,7 +2051,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           id={`settings-panel-content-${activeTab}`}
           role="tabpanel"
           aria-labelledby={`settings-panel-tab-${activeTab}`}
-          className={`${activeTab === 'regras' || activeTab === 'caminhos' || activeTab === 'atalhos' || activeTab === 'hooks' || activeTab === 'idioma' || activeTab === 'perfil' || activeTab === 'colaboracao' || activeTab === 'integracoes' ? '' : 'p-5'} overflow-y-auto flex-1`}
+          className={`${activeTab === 'caminhos' || activeTab === 'atalhos' || activeTab === 'hooks' || activeTab === 'idioma' || activeTab === 'perfil' || activeTab === 'colaboracao' || activeTab === 'integracoes' ? '' : 'p-5'} overflow-y-auto flex-1`}
         >
         {activeTab === 'caminhos' ? (
           <AllPathsAndTemplates />
@@ -2139,7 +2273,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                             ? 'text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 hover:bg-green-500/10'
                             : 'text-muted-foreground hover:text-red-500 hover:bg-red-500/10'
                         }`}
-                        title={hook.enabled ? 'Desativar hook' : 'Ativar hook'}
+                        title={hook.enabled ? t('settings.hooks.deactivate') : t('settings.hooks.activate')}
                       >
                         <Power className="w-3.5 h-3.5" fill="none" />
                       </button>
@@ -2148,7 +2282,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                       <button
                         onClick={() => openEditHookModal(hook)}
                         className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-md transition-colors"
-                        title="Editar hook"
+                        title={t('common.edit')}
                       >
                         <Edit className="w-3.5 h-3.5" />
                       </button>
@@ -2158,7 +2292,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                         <button
                           onClick={() => deleteHook(hook.id)}
                           className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-md transition-colors"
-                          title="Excluir hook"
+                          title={t('common.delete')}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -2175,6 +2309,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 isOpen={showAddHookModal}
                 onRequestClose={() => {
                   setShowAddHookModal(false);
+                  setEditingHook(null);
                   setNewHook({ name: '', description: '', trigger: '', enabled: true });
                   localStorage.removeItem('obsreview-addHookModal');
                   localStorage.removeItem('obsreview-newHook');
@@ -2192,15 +2327,16 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                           <Zap className="w-5 h-5 text-primary" />
                         </div>
                         <div>
-                          <h3 className="text-lg font-semibold text-foreground">Cadastrar Novo Hook</h3>
+                          <h3 className="text-lg font-semibold text-foreground">{editingHook ? t('settings.hooks.editHook') : t('settings.hooks.addHook')}</h3>
                           <p className="text-xs text-muted-foreground mt-1">
-                            Configure automações personalizadas
+                            {t('settings.hooks.configureAutomations')}
                           </p>
                         </div>
                       </div>
                       <button
                         onClick={() => {
                           setShowAddHookModal(false);
+                          setEditingHook(null);
                           setNewHook({ name: '', description: '', trigger: '', enabled: true });
                           localStorage.removeItem('obsreview-addHookModal');
                           localStorage.removeItem('obsreview-newHook');
@@ -2217,13 +2353,13 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     <div>
                       <label className="block text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
                         <Edit className="w-4 h-4 text-primary" />
-                        Nome do Hook <span className="text-red-500">*</span>
+                        {t('settings.hooks.hookName')} <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
                         value={newHook.name}
                         onChange={(e) => setNewHook({ ...newHook, name: e.target.value })}
-                        placeholder="Ex: Meu Hook Personalizado"
+                        placeholder={t('settings.hooks.hookNamePlaceholder')}
                         className="w-full px-4 py-3 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
                       />
                     </div>
@@ -2232,12 +2368,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     <div>
                       <label className="block text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
                         <FileText className="w-4 h-4 text-primary" />
-                        Descrição <span className="text-red-500">*</span>
+                        {t('settings.hooks.description')} <span className="text-red-500">*</span>
                       </label>
                       <textarea
                         value={newHook.description}
                         onChange={(e) => setNewHook({ ...newHook, description: e.target.value })}
-                        placeholder="Descreva quando e como este hook deve ser ativado..."
+                        placeholder={t('settings.hooks.descriptionPlaceholder')}
                         rows={2}
                         className="w-full px-4 py-3 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary resize-none transition-all"
                       />
@@ -2250,47 +2386,39 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     <div>
                       <div className="flex items-center gap-2 mb-3">
                         <Terminal className="w-4 h-4 text-amber-500" />
-                        <h4 className="text-sm font-semibold text-foreground">Quando isso acontece...</h4>
+                        <h4 className="text-sm font-semibold text-foreground">{t('settings.hooks.whenThisHappens')}</h4>
                       </div>
 
                       <div className="bg-muted/30 rounded-lg p-4 border border-border/50">
                         <label className="block text-xs font-medium text-muted-foreground mb-2">
-                          Trigger (comando) <span className="text-red-500">*</span>
+                          {t('settings.hooks.triggerCommand')} <span className="text-red-500">*</span>
                         </label>
                         <div className="relative">
                           <input
                             type="text"
                             value={newHook.trigger}
                             onChange={(e) => setNewHook({ ...newHook, trigger: e.target.value })}
-                            placeholder="Ex: /meu-comando"
-                            className="w-full pl-4 pr-10 py-3 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary font-mono text-sm transition-all"
+                            placeholder={t('settings.hooks.triggerPlaceholder')}
+                            className="w-full px-4 py-3 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary font-mono text-sm transition-all"
                           />
-                          <ArrowDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                         </div>
                         <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1.5">
                           <Info className="w-3.5 h-3.5 text-primary" />
-                          Comando que será detectado nas mensagens para ativar o hook
+                          {t('settings.hooks.triggerHelp')}
                         </p>
                       </div>
-                    </div>
-
-                    {/* Separador com seta */}
-                    <div className="flex items-center gap-3 py-2">
-                      <div className="flex-1 h-px bg-border" />
-                      <ArrowRight className="w-5 h-5 text-muted-foreground" />
-                      <div className="flex-1 h-px bg-border" />
                     </div>
 
                     {/* Bloco 4: AÇÃO - Então isso será executado */}
                     <div>
                       <div className="flex items-center gap-2 mb-3">
                         <Zap className="w-4 h-4 text-green-500" />
-                        <h4 className="text-sm font-semibold text-foreground">Então isso será executado...</h4>
+                        <h4 className="text-sm font-semibold text-foreground">{t('settings.hooks.thenThisRuns')}</h4>
                       </div>
 
                       <div className="bg-muted/30 rounded-lg p-4 border border-border/50">
                         <p className="text-sm text-muted-foreground">
-                          O hook será ativado automaticamente quando o trigger for detectado.
+                          {t('settings.hooks.autoRunDescription')}
                         </p>
                       </div>
                     </div>
@@ -2303,7 +2431,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Power className="w-4 h-4 text-primary" />
-                          <label className="text-sm font-semibold text-foreground">Status</label>
+                          <label className="text-sm font-semibold text-foreground">{t('settings.hooks.status')}</label>
                         </div>
                         <button
                           onClick={() => setNewHook({ ...newHook, enabled: !newHook.enabled })}
@@ -2314,7 +2442,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                           }`}
                         >
                           <ToggleRight className={`w-5 h-5 ${newHook.enabled ? 'text-green-600 dark:text-green-400' : ''}`} />
-                          <span className="text-sm font-medium">{newHook.enabled ? 'Ativo' : 'Inativo'}</span>
+                          <span className="text-sm font-medium">{newHook.enabled ? t('settings.hooks.active') : t('settings.hooks.inactive')}</span>
                         </button>
                       </div>
                     </div>
@@ -2326,6 +2454,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                       <button
                         onClick={() => {
                           setShowAddHookModal(false);
+                          setEditingHook(null);
                           setNewHook({ name: '', description: '', trigger: '', enabled: true });
                           localStorage.removeItem('obsreview-addHookModal');
                           localStorage.removeItem('obsreview-newHook');
@@ -2333,15 +2462,15 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                         className="flex-1 px-4 py-3 rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors text-sm font-medium flex items-center justify-center gap-2"
                       >
                         <X className="w-4 h-4" />
-                        Cancelar
+                        {t('common.cancel')}
                       </button>
                       <button
-                        onClick={addHook}
+                        onClick={editingHook ? updateHook : addHook}
                         disabled={!newHook.name || !newHook.description || !newHook.trigger}
                         className="flex-1 px-4 py-3 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                       >
                         <Check className="w-4 h-4" />
-                        Salvar Hook
+                        {editingHook ? t('settings.hooks.saveChanges') : t('settings.hooks.saveHook')}
                       </button>
                     </div>
                   </div>
@@ -2349,96 +2478,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               </BaseModal>
             )}
 
-            {/* Edit Hook Modal */}
-            {showEditHookModal && editingHook && (
-              <BaseModal
-                isOpen={showEditHookModal && !!editingHook}
-                onRequestClose={() => {
-                  setShowEditHookModal(false);
-                  setEditingHook(null);
-                  setEditHookData({ name: '', description: '', trigger: '' });
-                }}
-                closeOnBackdropClick={false}
-                overlayClassName="z-[70]"
-                contentClassName="bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-6 animate-in fade-in slide-in-from-bottom-4 duration-200"
-              >
-                <div>
-                  {/* Header */}
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-foreground">Editar Hook</h3>
-                    <button
-                      onClick={() => {
-                        setShowEditHookModal(false);
-                        setEditingHook(null);
-                        setEditHookData({ name: '', description: '', trigger: '' });
-                      }}
-                      className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors rounded-md"
-                    >
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-
-                  {/* Form */}
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-1.5">Nome do Hook</label>
-                      <input
-                        type="text"
-                        value={editHookData.name}
-                        onChange={(e) => setEditHookData({ ...editHookData, name: e.target.value })}
-                        placeholder="Ex: Meu Hook Personalizado"
-                        className="w-full p-2.5 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-1.5">Descrição</label>
-                      <textarea
-                        value={editHookData.description}
-                        onChange={(e) => setEditHookData({ ...editHookData, description: e.target.value })}
-                        placeholder="Descreva quando este hook deve ser ativado..."
-                        rows={3}
-                        className="w-full p-2.5 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary resize-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-1.5">Trigger (comando)</label>
-                      <input
-                        type="text"
-                        value={editHookData.trigger}
-                        onChange={(e) => setEditHookData({ ...editHookData, trigger: e.target.value })}
-                        placeholder="Ex: /meu-comando"
-                        className="w-full p-2.5 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary font-mono text-sm"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex gap-3 mt-6">
-                    <button
-                      onClick={() => {
-                        setShowEditHookModal(false);
-                        setEditingHook(null);
-                        setEditHookData({ name: '', description: '', trigger: '' });
-                      }}
-                      className="flex-1 px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors text-sm font-medium"
-                    >
-                      {t('settings.actions.cancel')}
-                    </button>
-                    <button
-                      onClick={updateHook}
-                      disabled={!editHookData.name || !editHookData.description || !editHookData.trigger}
-                      className="flex-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Salvar
-                    </button>
-                  </div>
-                </div>
-              </BaseModal>
-            )}
           </div>
         ) : activeTab === 'perfil' ? (
           <div className="p-5 overflow-y-auto">
@@ -2446,7 +2485,22 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               <h4 className="text-base font-semibold text-foreground">{t('settings.profile.title')}</h4>
               <p className="text-sm text-muted-foreground/90">{t('settings.profile.subtitle')}</p>
             </div>
-            <ProfileSettings />
+            <ProfileSettings
+              onSave={(payload) => {
+                const nextName = payload?.newDisplayName?.trim();
+                const previousName = payload?.oldDisplayName?.trim();
+
+                if (!nextName) return;
+
+                setDisplayNameState(nextName);
+                setIdentity(nextName || anonymousIdentity);
+
+                const oldIdentity = previousName || identity;
+                if (oldIdentity && oldIdentity !== nextName) {
+                  onIdentityChange?.(oldIdentity, nextName);
+                }
+              }}
+            />
           </div>
         ) : activeTab === 'colaboracao' ? (
           <div className="p-5 overflow-y-auto">
@@ -2595,7 +2649,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           <div>
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-foreground">Editar Configuração</h3>
+              <h3 className="text-lg font-semibold text-foreground">{t('settings.paths.editConfiguration')}</h3>
               <button
                 onClick={() => {
                   setShowEditPathModal(false);
@@ -2626,14 +2680,14 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               {/* Template field */}
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1.5">
-                  Template
-                  <span className="text-xs text-muted-foreground ml-2">(opcional)</span>
+                  {t('settings.paths.template')}
+                  <span className="text-xs text-muted-foreground ml-2">({t('settings.paths.templateOptionalFull').toLowerCase()})</span>
                 </label>
                 <input
                   type="text"
                   value={editPathData.template}
                   onChange={(e) => setEditPathData({ ...editPathData, template: e.target.value })}
-                  placeholder="Ex: Templates/Nota.md"
+                  placeholder={t('settings.paths.templatePlaceholder')}
                   className="w-full p-2.5 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary font-mono text-sm"
                 />
               </div>
@@ -2641,14 +2695,14 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               {/* Path field */}
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1.5">
-                  Caminho de destino
+                  {t('settings.paths.destination')}
                   <span className="text-xs text-primary ml-2">*</span>
                 </label>
                 <input
                   type="text"
                   value={editPathData.path}
                   onChange={(e) => setEditPathData({ ...editPathData, path: e.target.value })}
-                  placeholder="Ex: YouTube/Transcrições"
+                  placeholder={t('settings.paths.destinationPlaceholder')}
                   className="w-full p-2.5 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary font-mono text-sm"
                 />
               </div>
@@ -2663,13 +2717,13 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 }}
                 className="flex-1 px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors text-sm font-medium"
               >
-                Cancelar
+                {t('common.cancel')}
               </button>
               <button
                 onClick={savePathEdit}
                 className="flex-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity text-sm font-medium"
               >
-                Salvar
+                {t('common.save')}
               </button>
             </div>
           </div>
@@ -2684,12 +2738,46 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           setShowDeleteConfirm(false);
           setDeleteTarget(null);
         }}
-        title="Deletar Template"
-        message={deleteTarget ? `Tem certeza que deseja deletar "${deleteTarget.label}"? Esta ação não pode ser desfeita.` : ''}
+        title={t('settings.templateDelete.title')}
+        message={deleteTarget ? t('settings.templateDelete.message', { name: deleteTarget.label }) : ''}
         type="delete"
-        confirmLabel="Deletar"
-        cancelLabel="Cancelar"
+        confirmLabel={t('common.delete')}
+        cancelLabel={t('common.cancel')}
       />
+
+      {/* Sidebar Logout Confirmation Modal */}
+      {sidebarLogoutConfirm && (
+        <BaseModal
+          isOpen={sidebarLogoutConfirm}
+          onRequestClose={() => setSidebarLogoutConfirm(false)}
+          closeOnBackdropClick={false}
+          overlayClassName="z-[80] bg-black/50"
+          contentClassName="w-full max-w-sm rounded-xl border border-border bg-card p-5 shadow-xl"
+        >
+          <div>
+            <h4 className="text-base font-semibold text-foreground mb-2">{t('settings.session.logoutConfirmTitle')}</h4>
+            <p className="text-sm text-muted-foreground mb-5">
+              {t('settings.session.logoutConfirmDescription')}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setSidebarLogoutConfirm(false)}
+                disabled={sidebarLoggingOut}
+                className="flex-1 px-4 py-2 rounded-md border border-input hover:bg-accent transition-colors disabled:opacity-50"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={handleSidebarLogout}
+                disabled={sidebarLoggingOut}
+                className="flex-1 px-4 py-2 rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors disabled:opacity-50"
+              >
+                {sidebarLoggingOut ? t('settings.session.loggingOut') : t('settings.session.logoutShort')}
+              </button>
+            </div>
+          </div>
+        </BaseModal>
+      )}
     </div>
   );
 };

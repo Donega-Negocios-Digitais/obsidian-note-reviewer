@@ -1,9 +1,15 @@
 import { describe, test, expect, mock, beforeEach, afterEach } from 'bun:test';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
+import React from 'react';
 import { AnnotationPanel } from '../AnnotationPanel';
 import { Annotation, AnnotationType } from '../../types';
 
-// Mock navigator.clipboard
+mock.module('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => key,
+  }),
+}));
+
 const mockWriteText = mock(() => Promise.resolve());
 
 beforeEach(() => {
@@ -11,136 +17,106 @@ beforeEach(() => {
     value: {
       writeText: mockWriteText,
     },
-    writable: true,
     configurable: true,
+    writable: true,
   });
   mockWriteText.mockClear();
 });
 
 afterEach(() => {
-  mockWriteText.mockClear();
+  cleanup();
 });
 
-// Helper to create test annotations
 function createAnnotation(overrides: Partial<Annotation> = {}): Annotation {
   return {
-    id: 'test-1',
+    id: 'ann-1',
     blockId: 'block-1',
     startOffset: 0,
-    endOffset: 10,
+    endOffset: 5,
     type: AnnotationType.COMMENT,
-    originalText: 'highlighted text',
-    text: 'comment text',
+    originalText: 'texto',
+    text: 'comentario',
     createdA: Date.now(),
-    author: 'test-user',
+    author: 'tester',
     ...overrides,
   };
 }
 
-// Default props for AnnotationPanel
-const defaultProps = {
-  isOpen: true,
-  annotations: [] as Annotation[],
-  blocks: [],
-  onSelect: mock(() => {}),
-  onDelete: mock(() => {}),
-  selectedId: null,
-};
-
 describe('AnnotationPanel', () => {
-  describe('AnnotationCard copy functionality', () => {
-    test('renders annotation card with copy button', () => {
-      const annotation = createAnnotation();
+  test('renders annotation content and author', () => {
+    render(
+      <AnnotationPanel
+        isOpen={true}
+        annotations={[createAnnotation()]}
+        blocks={[]}
+        onSelect={mock(() => {})}
+        onDelete={mock(() => {})}
+        selectedId={null}
+      />,
+    );
 
-      render(
-        <AnnotationPanel
-          {...defaultProps}
-          annotations={[annotation]}
-        />
-      );
+    expect(screen.getByText('comentario')).toBeDefined();
+    expect(screen.getByText('tester')).toBeDefined();
+  });
 
-      // Should render the annotation card
-      expect(screen.getByText('comment text')).toBeDefined();
-      // Copy button should exist (with title "Copiar")
-      expect(screen.getByTitle('Copiar')).toBeDefined();
-    });
+  test('deletes annotation when delete button is clicked', () => {
+    const onDelete = mock(() => {});
 
-    test('copy button has correct hover visibility classes', () => {
-      const annotation = createAnnotation();
+    const { container } = render(
+      <AnnotationPanel
+        isOpen={true}
+        annotations={[createAnnotation()]}
+        blocks={[]}
+        onSelect={mock(() => {})}
+        onDelete={onDelete}
+        selectedId={null}
+      />,
+    );
 
-      render(
-        <AnnotationPanel
-          {...defaultProps}
-          annotations={[annotation]}
-        />
-      );
+    const buttons = container.querySelectorAll('button');
+    expect(buttons.length).toBe(1);
+    fireEvent.click(buttons[0]);
+    expect(onDelete).toHaveBeenCalledWith('ann-1');
+  });
 
-      const copyButton = screen.getByTitle('Copiar');
-      // Button should have opacity-0 for default hidden state and group-hover:opacity-100 for hover visibility
-      expect(copyButton.className).toContain('opacity-0');
-      expect(copyButton.className).toContain('group-hover:opacity-100');
-    });
+  test('shows restore action when deleted items exist', () => {
+    const onRestore = mock(() => {});
 
-    test('clicking copy button copies annotation.text to clipboard', async () => {
-      const annotation = createAnnotation({
-        text: 'my comment text',
-        originalText: 'original highlighted',
-      });
+    render(
+      <AnnotationPanel
+        isOpen={true}
+        annotations={[createAnnotation()]}
+        blocks={[]}
+        onSelect={mock(() => {})}
+        onDelete={mock(() => {})}
+        onRestoreLastDeleted={onRestore}
+        deletedCount={1}
+        selectedId={null}
+      />,
+    );
 
-      render(
-        <AnnotationPanel
-          {...defaultProps}
-          annotations={[annotation]}
-        />
-      );
+    const restoreButton = screen.getByRole('button', { name: /annotationPanel\.restore|Restaurar/i });
+    fireEvent.click(restoreButton);
+    expect(onRestore).toHaveBeenCalledTimes(1);
+  });
 
-      const copyButton = screen.getByTitle('Copiar');
-      fireEvent.click(copyButton);
+  test('quick-share copies share URL', async () => {
+    render(
+      <AnnotationPanel
+        isOpen={true}
+        annotations={[createAnnotation()]}
+        blocks={[]}
+        onSelect={mock(() => {})}
+        onDelete={mock(() => {})}
+        selectedId={null}
+        shareUrl="https://example.com/#hash"
+      />,
+    );
 
-      await waitFor(() => {
-        expect(mockWriteText).toHaveBeenCalledWith('my comment text');
-      });
-    });
+    fireEvent.click(screen.getByRole('button', { name: 'annotationPanel.share' }));
 
-    test('clicking copy button copies originalText when text is not available', async () => {
-      const annotation = createAnnotation({
-        type: AnnotationType.DELETION,
-        text: undefined,
-        originalText: 'text to delete',
-      });
-
-      render(
-        <AnnotationPanel
-          {...defaultProps}
-          annotations={[annotation]}
-        />
-      );
-
-      const copyButton = screen.getByTitle('Copiar');
-      fireEvent.click(copyButton);
-
-      await waitFor(() => {
-        expect(mockWriteText).toHaveBeenCalledWith('text to delete');
-      });
-    });
-
-    test('copy button shows checkmark after successful copy', async () => {
-      const annotation = createAnnotation();
-
-      render(
-        <AnnotationPanel
-          {...defaultProps}
-          annotations={[annotation]}
-        />
-      );
-
-      const copyButton = screen.getByTitle('Copiar');
-      fireEvent.click(copyButton);
-
-      await waitFor(() => {
-        // After clicking, title should change to "Copiado!"
-        expect(screen.getByTitle('Copiado!')).toBeDefined();
-      });
+    await waitFor(() => {
+      expect(mockWriteText).toHaveBeenCalledWith('https://example.com/#hash');
     });
   });
 });

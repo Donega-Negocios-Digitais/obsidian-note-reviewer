@@ -5,7 +5,7 @@
  * Raw Diff tab: Shows human-readable diff output with copy/download
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCopyFeedback } from '../hooks/useCopyFeedback';
 import { BaseModal } from './BaseModal';
@@ -15,6 +15,8 @@ interface ExportModalProps {
   onClose: () => void;
   shareUrl: string;
   shareUrlSize: string;
+  shareError?: string | null;
+  initialTab?: Tab;
   diffOutput: string;
   annotationCount: number;
   taterSprite?: React.ReactNode;
@@ -27,12 +29,14 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   onClose,
   shareUrl,
   shareUrlSize,
+  shareError = null,
+  initialTab = 'share',
   diffOutput,
   annotationCount,
   taterSprite,
 }) => {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<Tab>('share');
+  const [activeTab, setActiveTab] = useState<Tab>(initialTab);
 
   // Copy URL feedback (share tab)
   const {
@@ -42,6 +46,11 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     buttonClass: urlButtonClass,
     iconClass: urlIconClass,
   } = useCopyFeedback();
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setActiveTab(initialTab);
+  }, [isOpen, initialTab]);
 
   // Copy diff feedback (diff tab)
   const {
@@ -80,6 +89,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       contentProps={{
         role: 'dialog',
         'aria-modal': true,
+        'aria-labelledby': 'export-modal-title',
       }}
     >
       <div className="h-full flex flex-col">
@@ -88,7 +98,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         {/* Header */}
         <div className="p-4 border-b border-border">
           <div className="flex justify-between items-center">
-            <h3 className="font-semibold text-sm">{t('exportModal.title')}</h3>
+            <h3 id="export-modal-title" className="font-semibold text-sm">{t('exportModal.title')}</h3>
             <div className="flex items-center gap-3">
               <span className="text-xs text-muted-foreground">
                 {getAnnotationsLabel()}
@@ -148,6 +158,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                   />
                   <button
                     onClick={() => handleCopyUrl(shareUrl)}
+                    disabled={!shareUrl || !!shareError}
                     className={`px-3 py-2 rounded-lg text-xs font-medium bg-background hover:bg-muted border border-border transition-colors flex items-center gap-1.5 flex-shrink-0 ${urlAnimationClass} ${urlButtonClass}`}
                   >
                     {urlCopied ? (
@@ -167,7 +178,11 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                     )}
                   </button>
                 </div>
-                <p className="text-[10px] text-muted-foreground mt-1.5">{shareUrlSize}</p>
+                {shareError ? (
+                  <p className="text-[10px] text-destructive mt-1.5">{shareError}</p>
+                ) : (
+                  <p className="text-[10px] text-muted-foreground mt-1.5">{shareUrlSize}</p>
+                )}
               </div>
 
               <p className="text-xs text-muted-foreground">

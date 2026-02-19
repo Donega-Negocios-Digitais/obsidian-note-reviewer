@@ -36,7 +36,18 @@
       "tip": "💡 提示：使用 ⏻ 按钮启用/禁用模板。绿色 = 活跃，红色 = 非活跃",
       "configurePath": "配置路径和模板",
       "templatePathDescription": "用于创建此笔记类型的模板文件路径",
-      "destinationPathDescription": "此类型笔记将保存的文件夹"
+      "destinationPathDescription": "此类型笔记将保存的文件夹",
+      "manageTemplates": "管理模板",
+      "manageCategories": "管理分类",
+      "trash": "回收站",
+      "categories": "分类",
+      "filteredCount": "{{count}} / {{total}}",
+      "deleteCategory": "删除分类",
+      "noTemplatesInCategory": "该分类下没有模板。",
+      "editConfiguration": "编辑配置",
+      "noCategoriesForFilter": "该筛选下没有分类。",
+      "configurationSaved": "配置保存成功！",
+      "uncategorized": "未分类"
     },
     "identity": {
       "title": "审阅者资料",
@@ -76,6 +87,8 @@
       "subtitle": "配置自动集成",
       "active": "✓ 活跃",
       "inactive": "非活跃",
+      "activate": "启用",
+      "deactivate": "停用",
       "moreSoon": "更多钩子即将添加",
       "trigger": "触发器",
       "test": "测试",
@@ -89,7 +102,21 @@
       "obsidianNote": {
         "name": "创建Obsidian笔记",
         "description": "当您使用技能在Obsidian中创建笔记时打开Note Reviewer"
-      }
+      },
+      "descriptionPlaceholder": "描述此 Hook 的作用...",
+      "whenThisHappens": "当发生以下情况时",
+      "triggerCommand": "触发命令",
+      "triggerPlaceholder": "例如：/review 或特定命令",
+      "triggerHelp": "检测到该命令时将执行此 Hook。",
+      "thenThisRuns": "然后执行以下操作",
+      "autoRunDescription": "该 Hook 操作将自动执行。",
+      "status": "状态",
+      "saveChanges": "保存更改",
+      "saveHook": "保存 Hook",
+      "editHook": "编辑 Hook",
+      "configureAutomations": "配置自定义自动化",
+      "hookName": "Hook 名称",
+      "hookNamePlaceholder": "例如：我的自定义 Hook"
     },
     "categoryManager": {
       "title": "管理分类",
@@ -128,6 +155,8 @@
       "whatsappDesc": "通过 WhatsApp 自动发送审阅链接",
       "telegram": "Telegram",
       "telegramDesc": "通过 Telegram 自动发送审阅链接",
+      "notionDesc": "发送到 Notion",
+      "obsidianDesc": "与 Obsidian Vault 同步",
       "configure": "配置",
       "enabled": "已启用",
       "disabled": "已禁用",
@@ -135,15 +164,27 @@
       "phoneNumberPlaceholder": "+86 138 0000 0000",
       "chatId": "聊天 ID / 用户名",
       "chatIdPlaceholder": "@用户名 或 数字 ID",
+      "apiKey": "API Key",
+      "apiKeyPlaceholder": "例如：secret_...",
+      "vaultPath": "Vault 路径",
+      "vaultPathPlaceholder": "例如：/Users/username/Documents/Vault",
       "associatedHook": "关联 Hook",
       "selectHook": "选择 hook",
       "noHook": "无",
+      "noHooksAvailable": "没有可用的 Hook",
       "customMessage": "自定义消息",
-      "customMessagePlaceholder": "新笔记待审阅：{{link}}",
+      "customMessagePlaceholder": "变量：{emoji}, {title}, {noteType}, {url}, {timestamp}",
+      "customMessageVariables": "可用变量",
+      "variableEmoji": "表情",
+      "variableTitle": "标题",
+      "variableType": "类型",
+      "variableLink": "链接",
+      "variableTimestamp": "时间戳",
       "autoSendLink": "自动发送审阅链接",
       "testConnection": "测试连接",
       "testSuccess": "连接测试成功！",
       "testError": "连接测试失败",
+      "testing": "测试中...",
       "noIntegrations": "暂未配置任何集成。"
     },
     "language": {
@@ -208,6 +249,8 @@
       "editorDesc": "可以添加批注和评论",
       "viewerDesc": "仅查看文档",
       "pending": "待处理",
+      "active": "激活",
+      "inactive": "未激活",
       "removeCollaborator": "删除协作者",
       "editCollaborator": "编辑协作者",
       "activate": "激活",
@@ -234,7 +277,62 @@
       "updatePassword": "更改密码",
       "updating": "更新中...",
       "photoUpdated": "照片已更新",
-      "maxSize": "JPG、PNG 或 GIF。最大 2MB。"
+      "maxSize": "JPG、PNG 或 GIF。最大 2MB。",
+      "accountSection": "账户",
+      "securitySection": "安全",
+      "setPassword": "设置密码",
+      "changePhoto": "更换头像",
+      "uploading": "上传中...",
+      "noName": "未命名",
+      "avatarAlt": "头像",
+      "publicNameHint": "系统中的公开名称",
+      "oauthInfo": "你使用 {{provider}} 登录。你也可以在这里设置密码以使用邮箱/密码登录。",
+      "passwordUpdated": "密码更新成功",
+      "errors": {
+        "invalidImage": "请选择有效的图片文件。",
+        "maxImageSize": "图片大小不能超过 2MB。",
+        "avatarUpdate": "更新头像失败。",
+        "avatarUpload": "上传头像失败。",
+        "emptyDisplayName": "请输入显示名称。",
+        "profileUpdate": "更新数据库中的个人资料失败。",
+        "profileUpdateGeneral": "更新个人资料失败。",
+        "currentPasswordRequired": "当前密码为必填项",
+        "newPasswordRequired": "新密码为必填项",
+        "passwordMinLength": "密码至少需要 6 个字符",
+        "confirmPasswordRequired": "请确认密码",
+        "passwordMismatch": "两次输入的密码不一致",
+        "invalidUser": "用于修改密码的用户无效。",
+        "currentPasswordInvalid": "当前密码不正确",
+        "passwordUpdate": "更新密码失败。"
+      }
+    },
+    "templateDelete": {
+      "title": "删除模板",
+      "message": "确定要删除“{{name}}”吗？此操作无法撤销。"
+    },
+    "session": {
+      "logoutAccount": "退出登录",
+      "logoutShort": "退出",
+      "loggingOut": "正在退出...",
+      "logoutConfirmTitle": "要退出登录吗？",
+      "logoutConfirmDescription": "您将被重定向到感谢页面，并且可以随时再次登录。"
+    },
+    "groups": {
+      "preferences": "偏好设置",
+      "automation": "自动化"
+    },
+    "common": {
+      "itemDeleted": "“{{name}}” 已成功删除！"
+    },
+    "trash": {
+      "templateDeletedPermanentlyFromTrash": "“{{name}}” 已从回收站永久删除。",
+      "categoryDeletedPermanentlyFromTrash": "分类 “{{name}}” 已从回收站永久删除。",
+      "itemDeletedPermanently": "“{{name}}” 已永久删除。",
+      "itemMovedToTrash": "“{{name}}” 已移至回收站。",
+      "itemRestored": "“{{name}}” 已成功恢复。",
+      "categoryRestored": "分类 “{{name}}” 已成功恢复。",
+      "categoryMovedToTrash": "分类 “{{name}}” 已移至回收站。",
+      "categoryMovedToTrashWithTemplates": "分类 “{{name}}” 已移至回收站，包含 {{count}} 个模板。"
     }
   },
   "viewer": {
@@ -277,7 +375,8 @@
       "comment": "评论",
       "global": "全局",
       "image": "图片"
-    }
+    },
+    "restore": "恢复"
   },
   "toolbar": {
     "delete": "删除",
@@ -287,6 +386,7 @@
     "addCommentAria": "添加评论",
     "backToMenu": "返回菜单",
     "save": "保存",
+    "submitHint": "Enter 发送 · Shift+⏎ 换行",
     "selection": "选择",
     "editNote": "编辑笔记",
     "editMarkdown": "编辑MD",
@@ -355,7 +455,8 @@
     "editTitle": "编辑快捷键",
     "pressNewKey": "按新的组合键",
     "waitingForKey": "等待中...",
-    "clearKey": "清除键"
+    "clearKey": "清除键",
+    "pressKey": "按下一个按键"
   },
   "editor": {
     "placeholder": "在此编辑笔记内容...",
@@ -394,7 +495,10 @@
     "save": "保存",
     "name": "名称",
     "email": "电子邮箱",
-    "permission": "权限"
+    "permission": "权限",
+    "selected": "已选择 {{count}} 项",
+    "selected_one": "已选择 {{count}} 项",
+    "unknownError": "未知错误"
   },
   "app": {
     "saveToObsidian": "保存到 Obsidian",
@@ -418,6 +522,20 @@
     "openExport": "打开导出",
     "editMode": "编辑模式",
     "characters": "个字符",
-    "escToCancel": "Esc 取消"
+    "escToCancel": "Esc 取消",
+    "fullEditPlaceholder": "在此编辑完整 markdown...",
+    "ctrlEnterToSave": "Ctrl+Enter 保存",
+    "directMarkdownEdit": "直接编辑 markdown",
+    "savingChanges": "正在保存更改...",
+    "requestChanges": "请求修改",
+    "sending": "发送中...",
+    "approveNote": "批准笔记",
+    "approving": "批准中...",
+    "addAnnotationsTitle": "添加标注",
+    "addAnnotationsDescription": "请求修改前请至少添加一条标注。",
+    "changesCopied": "更改已复制",
+    "pasteInClaude": "粘贴到 Claude Code 继续",
+    "copyChangesError": "复制更改到剪贴板失败",
+    "saveUnknownError": "保存失败"
   }
 }

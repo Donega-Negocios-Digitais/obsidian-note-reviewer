@@ -729,8 +729,9 @@ describe('sharing module', () => {
 
       const url = await generateShareUrl('# Plan', annotations);
 
-      // URL format: https://r.alexdonega.com.br/#slug~count~hash
-      expect(url).toMatch(/^https:\/\/r\.alexdonega\.com\.br\/#[a-z0-9-]+~\d+~[A-Za-z0-9_-]+$/);
+      const escapedOrigin = window.location.origin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // URL format: <origin>/#slug~count~hash
+      expect(url).toMatch(new RegExp(`^${escapedOrigin}/#[a-z0-9-]+~\\d+~[A-Za-z0-9_.-]+$`));
     });
 
     it('should generate URL-safe characters only', async () => {

@@ -15,12 +15,14 @@ interface GlobalCommentInputProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (comment: string, author: string) => void;
+  defaultAuthor?: string;
 }
 
 export const GlobalCommentInput: React.FC<GlobalCommentInputProps> = ({
   isOpen,
   onClose,
   onSubmit,
+  defaultAuthor,
 }) => {
   const { t } = useTranslation();
   const [comment, setComment] = useState('');
@@ -37,13 +39,13 @@ export const GlobalCommentInput: React.FC<GlobalCommentInputProps> = ({
   // Load author from storage on mount
   useEffect(() => {
     if (isOpen) {
-      const identity = getIdentity();
+      const identity = defaultAuthor?.trim() || getIdentity();
       if (identity) {
         setAuthor(identity);
       }
       setComment(''); // Reset comment when opening
     }
-  }, [isOpen]);
+  }, [isOpen, defaultAuthor]);
 
   if (!isOpen) return null;
 
@@ -84,8 +86,8 @@ export const GlobalCommentInput: React.FC<GlobalCommentInputProps> = ({
         <div className="p-4 border-b border-border">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
-                <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+                <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
@@ -153,7 +155,7 @@ export const GlobalCommentInput: React.FC<GlobalCommentInputProps> = ({
             disabled={!comment.trim()}
             className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
               comment.trim()
-                ? 'bg-blue-500 text-white hover:bg-blue-600'
+                ? 'bg-primary text-primary-foreground hover:bg-primary/90'
                 : 'bg-muted text-muted-foreground cursor-not-allowed'
             }`}
           >
