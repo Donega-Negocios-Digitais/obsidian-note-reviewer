@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@obsidian-note-reviewer/security/supabase/client';
 import type {
   SubscriptionTier,
   UserSubscription,
@@ -15,11 +15,6 @@ import {
   TIER_LIMITS,
   canAddCollaborators as checkCanAddCollaborators,
 } from '@obsidian-note-reviewer/collaboration/types/tier';
-
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL || '',
-  import.meta.env.VITE_SUPABASE_ANON_KEY || ''
-);
 
 type SubscriptionRow = {
   id: string;

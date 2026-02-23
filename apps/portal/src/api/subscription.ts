@@ -5,18 +5,13 @@
  * This module maps DB snake_case fields to the app's camelCase subscription model.
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@obsidian-note-reviewer/security/supabase/client';
 import type {
   SubscriptionTier,
   SubscriptionType,
   SubscriptionStatus,
   UserSubscription,
 } from '@obsidian-note-reviewer/collaboration/types/tier';
-
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL || '',
-  import.meta.env.VITE_SUPABASE_ANON_KEY || ''
-);
 
 type BillingInterval = 'month' | 'year';
 

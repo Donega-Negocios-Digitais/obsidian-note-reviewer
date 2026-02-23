@@ -93,11 +93,16 @@ function normalizeResolvedWorkspaceProfile(data: unknown): ResolvedWorkspaceProf
 export async function resolveCurrentWorkspaceProfile(
   client: SupabaseClientLike,
 ): Promise<ResolvedWorkspaceProfile | null> {
+  let rpcProfile: ResolvedWorkspaceProfile | null = null;
+
   try {
     const { data, error } = await client.rpc('resolve_current_user_profile');
     if (!error) {
       const normalized = normalizeResolvedWorkspaceProfile(data);
-      if (normalized) return normalized;
+      if (normalized) {
+        rpcProfile = normalized;
+        if (normalized.orgId) return normalized;
+      }
     }
   } catch {
     // fallback below
@@ -117,17 +122,18 @@ export async function resolveCurrentWorkspaceProfile(
   const fallbackEmail =
     typeof profile?.email === 'string'
       ? profile.email
-      : (typeof user.email === 'string' ? user.email : null);
+      : rpcProfile?.email || (typeof user.email === 'string' ? user.email : null);
   const fallbackName =
     typeof profile?.name === 'string'
       ? profile.name
-      : (typeof user.user_metadata?.full_name === 'string'
-        ? user.user_metadata.full_name
-        : (typeof user.user_metadata?.name === 'string' ? user.user_metadata.name : null));
+      : rpcProfile?.name ||
+        (typeof user.user_metadata?.full_name === 'string'
+          ? user.user_metadata.full_name
+          : (typeof user.user_metadata?.name === 'string' ? user.user_metadata.name : null));
   const fallbackAvatar =
     typeof profile?.avatar_url === 'string'
       ? profile.avatar_url
-      : (typeof user.user_metadata?.avatar_url === 'string' ? user.user_metadata.avatar_url : null);
+      : rpcProfile?.avatarUrl || (typeof user.user_metadata?.avatar_url === 'string' ? user.user_metadata.avatar_url : null);
 
   if (fallbackOrgId) {
     return {
@@ -153,7 +159,7 @@ export async function resolveCurrentWorkspaceProfile(
   }
 
   return {
-    orgId: null,
+    orgId: rpcProfile?.orgId || null,
     email: fallbackEmail,
     name: fallbackName,
     avatarUrl: fallbackAvatar,

@@ -57,6 +57,14 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
   useEffect(() => {
     let mounted = true
 
+    const ensureWorkspaceProfile = async () => {
+      try {
+        await supabase.rpc('resolve_current_user_profile')
+      } catch {
+        // Best-effort self-healing; auth flow must continue.
+      }
+    }
+
     async function initializeAuth() {
       try {
         console.log('🔐 [Auth] Inicializando auth...')
@@ -73,6 +81,10 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
             loading: false,
             error,
           }))
+        }
+
+        if (session?.user) {
+          void ensureWorkspaceProfile()
         }
       } catch (error) {
         console.error('❌ [Auth] Erro ao inicializar:', error)
@@ -98,6 +110,10 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
           session,
           loading: false,
         }))
+      }
+
+      if (session?.user && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
+        void ensureWorkspaceProfile()
       }
     })
 

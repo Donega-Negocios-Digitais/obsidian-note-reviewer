@@ -109,11 +109,17 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
       setLastSavedPhone(existingPhone)
 
       try {
+        await supabase.rpc('resolve_current_user_profile')
+      } catch {
+        // Best-effort: table lookup below can still fallback to auth metadata.
+      }
+
+      try {
         const { data, error } = await supabase
           .from('users')
           .select('name, avatar_url, phone')
           .eq('id', user.id)
-          .single()
+          .maybeSingle()
 
         if (cancelled || error || !data) return
 
@@ -134,7 +140,7 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
             .from('users')
             .select('name, avatar_url')
             .eq('id', user.id)
-            .single()
+            .maybeSingle()
 
           if (cancelled || fallbackError || !fallbackData) return
 
