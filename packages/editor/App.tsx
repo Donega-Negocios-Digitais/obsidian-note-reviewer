@@ -19,6 +19,7 @@ import { KeyboardShortcutsModal } from '@obsidian-note-reviewer/ui/components/Ke
 import { HowItWorksModal } from '@obsidian-note-reviewer/ui/components/HowItWorksModal';
 import { BaseModal } from '@obsidian-note-reviewer/ui/components/BaseModal';
 import { useSharing } from '@obsidian-note-reviewer/ui/hooks/useSharing';
+import { acceptInvite, getCurrentUserRole, useDocumentPresence } from '@obsidian-note-reviewer/collaboration';
 import {
   storage,
   getVaultPath,
@@ -27,7 +28,8 @@ import {
   setNotePath,
   getNoteType,
   saveAnnotations,
-  loadAnnotations
+  loadAnnotations,
+  clearAnnotations
 } from '@obsidian-note-reviewer/ui/utils/storage';
 import { updateDisplayName } from '@obsidian-note-reviewer/ui/utils/identity';
 import { isInputFocused, formatTooltipWithShortcut } from '@obsidian-note-reviewer/ui/utils/shortcuts';
@@ -37,6 +39,21 @@ import {
   tryLoadCloudState,
   trySyncCloudAnnotations,
 } from './cloudPersistence';
+import {
+  listAccessibleDocuments,
+  createDocument,
+  openDocument,
+  renameDocument,
+  softDeleteDocument,
+  restoreDocument,
+  permanentDeleteDocument,
+  listTrashDocuments,
+  purgeExpiredDocuments,
+  type DocumentRecord,
+  type TrashDocumentRecord,
+} from './documentService';
+import { RaycastDocumentsModal } from './components/RaycastDocumentsModal';
+import { TrashDocumentsModal } from './components/TrashDocumentsModal';
 
 const PLAN_CONTENT = `---
 title: Nota de Exemplo - Teste Completo
@@ -503,8 +520,98 @@ function writeLocalFlag(key: string, value: boolean): void {
   }
 }
 
-const App: React.FC = () => {
+interface LivePresenceOverlayProps {
+  documentId: string;
+  enabled: boolean;
+  containerRef: React.RefObject<HTMLElement>;
+  onPresenceCountChange?: (count: number) => void;
+}
+
+function LivePresenceOverlay({
+  documentId,
+  enabled,
+  containerRef,
+  onPresenceCountChange,
+}: LivePresenceOverlayProps): React.ReactElement | null {
+  const { presence, updateCursor, clearCursor } = useDocumentPresence(enabled ? documentId : '');
+
+  useEffect(() => {
+    if (!enabled || !containerRef.current) return;
+
+    const container = containerRef.current;
+
+    const handleMouseMove = (event: MouseEvent) => {
+      const rect = container.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      if (x < 0 || y < 0 || x > rect.width || y > rect.height) return;
+      updateCursor(x, y);
+    };
+
+    const handleMouseLeave = () => clearCursor();
+
+    container.addEventListener('mousemove', handleMouseMove);
+    container.addEventListener('mouseleave', handleMouseLeave);
+
+    return () => {
+      container.removeEventListener('mousemove', handleMouseMove);
+      container.removeEventListener('mouseleave', handleMouseLeave);
+      clearCursor();
+    };
+  }, [containerRef, enabled, updateCursor, clearCursor]);
+
+  useEffect(() => {
+    onPresenceCountChange?.(presence.users.length);
+  }, [presence.users.length, onPresenceCountChange]);
+
+  if (!enabled) return null;
+
+  return (
+    <>
+      {presence.users
+        .filter((user) => user.cursor && user.cursor.x >= 0 && user.cursor.y >= 0)
+        .map((presenceUser) => (
+          <div
+            key={presenceUser.id}
+            className="pointer-events-none absolute z-[80]"
+            style={{
+              left: `${presenceUser.cursor!.x}px`,
+              top: `${presenceUser.cursor!.y}px`,
+              transform: 'translate(-2px, -2px)',
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <span className="h-3 w-3 rounded-full border border-white shadow-sm" style={{ backgroundColor: presenceUser.color }} />
+              <span
+                className="rounded-md px-2 py-0.5 text-[10px] font-semibold text-white shadow-lg"
+                style={{ backgroundColor: presenceUser.color }}
+              >
+                {presenceUser.name}
+              </span>
+            </div>
+          </div>
+        ))}
+    </>
+  );
+}
+
+const PENDING_INVITE_TOKEN_KEY = 'obsreview-pending-invite-token';
+
+export interface EditorAppProps {
+  runtime?: 'portal' | 'hook';
+  initialDocumentId?: string;
+}
+
+const App: React.FC<EditorAppProps> = ({
+  runtime = 'hook',
+  initialDocumentId,
+}) => {
   const { t } = useTranslation();
+  const isPortalRuntime = runtime === 'portal';
+  const cloudWorkspaceEnabled = isPortalRuntime && import.meta.env.VITE_FEATURE_CLOUD_WORKSPACE !== 'false';
+  const raycastDocumentsEnabled = cloudWorkspaceEnabled && import.meta.env.VITE_FEATURE_RAYCAST_DOCUMENTS !== 'false';
+  const livePresenceEnabled = cloudWorkspaceEnabled && import.meta.env.VITE_FEATURE_LIVE_PRESENCE !== 'false';
+  const legacyShareReadOnlyEnabled = import.meta.env.VITE_FEATURE_LEGACY_SHARE_READONLY !== 'false';
   const [markdown, setMarkdown] = useState(PLAN_CONTENT);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [savePath, setSavePath] = useState<string>(() => {
@@ -559,12 +666,28 @@ const App: React.FC = () => {
   const [cloudClient, setCloudClient] = useState<any | null>(null);
   const [cloudProfile, setCloudProfile] = useState<{ id: string; name: string } | null>(null);
   const [cloudNoteId, setCloudNoteId] = useState<string | null>(null);
+  const [documents, setDocuments] = useState<DocumentRecord[]>([]);
+  const [activeDocumentId, setActiveDocumentId] = useState<string | null>(() => {
+    if (initialDocumentId) return initialDocumentId;
+    if (typeof window === 'undefined') return null;
+    return new URLSearchParams(window.location.search).get('document');
+  });
+  const [activeDocumentRole, setActiveDocumentRole] = useState<'owner' | 'editor' | 'viewer' | 'none'>('none');
+  const [isDocumentsModalOpen, setIsDocumentsModalOpen] = useState(false);
+  const [isTrashModalOpen, setIsTrashModalOpen] = useState(false);
+  const [trashDocuments, setTrashDocuments] = useState<TrashDocumentRecord[]>([]);
+  const [trashLoading, setTrashLoading] = useState(false);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
+  const [documentsError, setDocumentsError] = useState<string | null>(null);
+  const [activePresenceCount, setActivePresenceCount] = useState(0);
   const viewerRef = useRef<ViewerHandle>(null);
   const headerRef = useRef<HTMLElement>(null);
+  const documentAreaRef = useRef<HTMLElement>(null);
   const fullEditTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [annotationsLoadedFromCloud, setAnnotationsLoadedFromCloud] = useState(false);
-  const [hasInitializedLocalAnnotations, setHasInitializedLocalAnnotations] = useState(false);
+  const [hasInitializedLocalAnnotations, setHasInitializedLocalAnnotations] = useState(() => isPortalRuntime);
   const cloudLoadedPathRef = useRef<string | null>(null);
+  const localMarkdownWriteAtRef = useRef<number>(0);
   const activeAnnotations = useMemo(
     () => annotations.filter(annotation => !annotation.deletedAt),
     [annotations]
@@ -577,6 +700,19 @@ const App: React.FC = () => {
     () => normalizeNoteSourcePath(savePath || getNotePath() || 'nota.md'),
     [savePath]
   );
+  const canEditActiveDocument = activeDocumentRole === 'owner' || activeDocumentRole === 'editor' || !cloudWorkspaceEnabled;
+
+  useEffect(() => {
+    if (!livePresenceEnabled || !activeDocumentId) {
+      setActivePresenceCount(0);
+    }
+  }, [livePresenceEnabled, activeDocumentId]);
+
+  useEffect(() => {
+    if (!canEditActiveDocument && editorMode !== 'selection') {
+      setEditorMode('selection');
+    }
+  }, [canEditActiveDocument, editorMode]);
 
   // URL-based sharing
   const {
@@ -595,7 +731,8 @@ const App: React.FC = () => {
     () => {
       // When loaded from share, mark as loaded
       setIsLoading(false);
-    }
+    },
+    legacyShareReadOnlyEnabled,
   );
 
   // Track if annotations were loaded from localStorage to avoid re-saving immediately
@@ -617,6 +754,7 @@ const App: React.FC = () => {
 
   // Load annotations from localStorage when markdown is ready (and not from share)
   useEffect(() => {
+    if (isPortalRuntime) return;
     if (isLoading || isLoadingShared || isSharedSession) return;
 
     const storedResult = loadAnnotations(markdown);
@@ -634,10 +772,11 @@ const App: React.FC = () => {
       }, 200);
       return () => clearTimeout(timer);
     }
-  }, [markdown, isLoading, isLoadingShared, isSharedSession]);
+  }, [markdown, isLoading, isLoadingShared, isSharedSession, isPortalRuntime]);
 
   // Save annotations to localStorage when they change
   useEffect(() => {
+    if (isPortalRuntime) return;
     // Don't save if we just loaded from storage (prevents unnecessary writes)
     if (annotationsLoadedFromStorage || annotationsLoadedFromCloud) {
       setAnnotationsLoadedFromStorage(false);
@@ -650,7 +789,7 @@ const App: React.FC = () => {
 
     // Save annotations (including soft-deleted items for restore)
     saveAnnotations(markdown, annotations);
-  }, [annotations, markdown, isLoading, isLoadingShared, annotationsLoadedFromStorage, annotationsLoadedFromCloud]);
+  }, [annotations, markdown, isLoading, isLoadingShared, annotationsLoadedFromStorage, annotationsLoadedFromCloud, isPortalRuntime]);
 
   // Intersection Observer for sticky bar - shows when header is out of viewport
   useEffect(() => {
@@ -706,6 +845,12 @@ const App: React.FC = () => {
   }, [showShortcutsModal]);
 
   useEffect(() => {
+    if (!documentsError) return;
+    const timer = setTimeout(() => setDocumentsError(null), 4000);
+    return () => clearTimeout(timer);
+  }, [documentsError]);
+
+  useEffect(() => {
     let cancelled = false;
 
     import('@obsidian-note-reviewer/ui/lib/supabase')
@@ -725,7 +870,263 @@ const App: React.FC = () => {
     };
   }, []);
 
+  const syncDocumentQueryParam = (noteId: string | null) => {
+    if (!isPortalRuntime || typeof window === 'undefined') return;
+
+    const url = new URL(window.location.href);
+    if (noteId) {
+      url.searchParams.set('document', noteId);
+    } else {
+      url.searchParams.delete('document');
+    }
+    window.history.replaceState({}, '', url.toString());
+  };
+
+  const reloadDocuments = async (preferredDocumentId?: string | null): Promise<string | null> => {
+    if (!cloudClient || !cloudWorkspaceEnabled) return null;
+
+    const docs = await listAccessibleDocuments(cloudClient);
+    setDocuments(docs);
+
+    if (docs.length === 0) return null;
+
+    if (preferredDocumentId && docs.some((doc) => doc.id === preferredDocumentId)) {
+      return preferredDocumentId;
+    }
+
+    if (activeDocumentId && docs.some((doc) => doc.id === activeDocumentId)) {
+      return activeDocumentId;
+    }
+
+    return docs[0].id;
+  };
+
+  const openPortalDocumentById = async (documentId: string): Promise<void> => {
+    if (!cloudClient || !cloudWorkspaceEnabled) return;
+
+    const [openedDocument, role] = await Promise.all([
+      openDocument(cloudClient, documentId),
+      getCurrentUserRole(documentId),
+    ]);
+    const { document, annotations: loadedAnnotations } = openedDocument;
+    const content = document.markdown || document.content || '';
+
+    setActiveDocumentId(document.id);
+    setActiveDocumentRole(role);
+    setCloudNoteId(document.id);
+    setMarkdown(content);
+    setBlocks(parseMarkdownToBlocks(content));
+    setAnnotations(loadedAnnotations);
+    setAnnotationsLoadedFromCloud(true);
+    setSelectedAnnotationId(null);
+    setSavePath(document.sourcePath || `cloud/${document.title || document.id}.md`);
+    cloudLoadedPathRef.current = document.sourcePath || document.id;
+    syncDocumentQueryParam(document.id);
+
+    const nextDocs = await listAccessibleDocuments(cloudClient);
+    setDocuments(nextDocs);
+  };
+
+  const createAndOpenPortalDocument = async (): Promise<void> => {
+    if (!cloudClient || !cloudWorkspaceEnabled) return;
+    setDocumentsLoading(true);
+    setDocumentsError(null);
+    try {
+      const created = await createDocument(cloudClient);
+      setDocuments((prev) => [created, ...prev.filter((doc) => doc.id !== created.id)]);
+      await openPortalDocumentById(created.id);
+      setIsDocumentsModalOpen(false);
+    } catch (error: any) {
+      setDocumentsError(error?.message || 'Falha ao criar documento');
+    } finally {
+      setDocumentsLoading(false);
+    }
+  };
+
   useEffect(() => {
+    if (!cloudClient || !cloudWorkspaceEnabled) return;
+    if (legacyShareReadOnlyEnabled && isLoadingShared) return;
+    if (legacyShareReadOnlyEnabled && isSharedSession) return;
+
+    let cancelled = false;
+
+    const bootstrapWorkspace = async () => {
+      setDocumentsLoading(true);
+      setDocumentsError(null);
+
+      try {
+        const { data: authData } = await cloudClient.auth.getUser();
+        const authUser = authData?.user;
+
+        if (authUser?.id) {
+          const { data: profileData } = await cloudClient
+            .from('users')
+            .select('id,name,avatar_url,email')
+            .eq('id', authUser.id)
+            .single();
+
+          if (!cancelled && profileData) {
+            const resolvedName = profileData.name || authUser.user_metadata?.full_name || authUser.email || 'Usuário';
+            setCloudProfile({ id: authUser.id, name: resolvedName });
+            setCurrentAuthorName(resolvedName);
+            setCurrentAuthorAvatar(profileData.avatar_url || (authUser.user_metadata?.avatar_url as string | null) || null);
+            updateDisplayName(resolvedName);
+          }
+        }
+
+        const pendingInviteToken = typeof window !== 'undefined'
+          ? window.sessionStorage.getItem(PENDING_INVITE_TOKEN_KEY)
+          : null;
+
+        let preferredDocumentId = activeDocumentId || initialDocumentId || null;
+        if (pendingInviteToken) {
+          const acceptedDocumentId = await acceptInvite(pendingInviteToken);
+          if (acceptedDocumentId) {
+            preferredDocumentId = acceptedDocumentId;
+          }
+          if (typeof window !== 'undefined') {
+            window.sessionStorage.removeItem(PENDING_INVITE_TOKEN_KEY);
+          }
+        }
+
+        const nextDocumentId = await reloadDocuments(preferredDocumentId);
+
+        if (cancelled) return;
+
+        if (!nextDocumentId) {
+          const created = await createDocument(cloudClient);
+          if (cancelled) return;
+          setDocuments([created]);
+          await openPortalDocumentById(created.id);
+          return;
+        }
+
+        await openPortalDocumentById(nextDocumentId);
+      } catch (error: any) {
+        if (!cancelled) {
+          setDocumentsError(error?.message || 'Falha ao carregar workspace em nuvem');
+        }
+      } finally {
+        if (!cancelled) {
+          setDocumentsLoading(false);
+          setIsLoading(false);
+        }
+      }
+    };
+
+    bootstrapWorkspace();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [cloudClient, cloudWorkspaceEnabled, initialDocumentId, isSharedSession, isLoadingShared, legacyShareReadOnlyEnabled]);
+
+  useEffect(() => {
+    if (!cloudWorkspaceEnabled || !cloudClient || !activeDocumentId) return;
+
+    const realtimeChannel = cloudClient.channel(`doc-sync-${activeDocumentId}`);
+
+    const refreshAnnotationsFromCloud = async () => {
+      try {
+        const opened = await openDocument(cloudClient, activeDocumentId);
+        setAnnotations(opened.annotations);
+        setAnnotationsLoadedFromCloud(true);
+      } catch {
+        // no-op
+      }
+    };
+
+    realtimeChannel
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'notes', filter: `id=eq.${activeDocumentId}` },
+        (payload: any) => {
+          const nextNote = (payload?.new || {}) as Record<string, unknown>;
+          const previousNote = (payload?.old || {}) as Record<string, unknown>;
+          const remoteNoteId = typeof nextNote.id === 'string' ? nextNote.id : activeDocumentId;
+          const remoteTitle = typeof nextNote.title === 'string' ? nextNote.title : null;
+          const remoteUpdatedAtIso = typeof nextNote.updated_at === 'string'
+            ? nextNote.updated_at
+            : new Date().toISOString();
+          const remoteDeletedAt = typeof nextNote.deleted_at === 'string' ? nextNote.deleted_at : null;
+          const wasDeleted = typeof previousNote.deleted_at === 'string' && previousNote.deleted_at.length > 0;
+          const remoteMarkdown = nextNote.markdown || nextNote.content;
+          const remoteUpdatedAt = new Date(nextNote.updated_at as string || 0).getTime();
+          const isOwnWrite = typeof nextNote.updated_by === 'string' && nextNote.updated_by === cloudProfile?.id;
+
+          if (remoteTitle) {
+            setDocuments((prev) => prev.map((doc) => (
+              doc.id === remoteNoteId
+                ? { ...doc, title: remoteTitle, updatedAt: remoteUpdatedAtIso }
+                : doc
+            )));
+          }
+
+          if (remoteDeletedAt) {
+            if (isOwnWrite) return;
+            if (remoteNoteId === activeDocumentId) {
+              setDocumentsError('Este documento foi movido para a lixeira por outro colaborador.');
+              void (async () => {
+                try {
+                  const nextDocumentId = await reloadDocuments(null);
+                  if (nextDocumentId) {
+                    await openPortalDocumentById(nextDocumentId);
+                    return;
+                  }
+
+                  setActiveDocumentId(null);
+                  setActiveDocumentRole('none');
+                  setCloudNoteId(null);
+                  setMarkdown('');
+                  setBlocks([]);
+                  setAnnotations([]);
+                  syncDocumentQueryParam(null);
+                } catch {
+                  setDocumentsError('Falha ao sincronizar documentos após exclusão.');
+                }
+              })();
+            } else if (remoteNoteId) {
+              setDocuments((prev) => prev.filter((doc) => doc.id !== remoteNoteId));
+            }
+            return;
+          }
+
+          if (wasDeleted && !remoteDeletedAt) {
+            void reloadDocuments(remoteNoteId).catch(() => {});
+          }
+
+          if (isOwnWrite) return;
+          if (typeof remoteMarkdown !== 'string' || !remoteMarkdown || Number.isNaN(remoteUpdatedAt)) return;
+          if (remoteUpdatedAt < localMarkdownWriteAtRef.current) return;
+          if (remoteMarkdown === markdown) return;
+
+          setMarkdown(remoteMarkdown);
+          setBlocks(parseMarkdownToBlocks(remoteMarkdown));
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'annotations', filter: `note_id=eq.${activeDocumentId}` },
+        () => {
+          refreshAnnotationsFromCloud();
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'comments' },
+        () => {
+          refreshAnnotationsFromCloud();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      realtimeChannel.unsubscribe();
+    };
+  }, [cloudWorkspaceEnabled, cloudClient, activeDocumentId, cloudProfile?.id, markdown]);
+
+  useEffect(() => {
+    if (isPortalRuntime) return;
     if (!cloudClient || isLoading || isLoadingShared || isSharedSession) return;
     if (!hasInitializedLocalAnnotations) return;
     if (!noteSourcePath) return;
@@ -760,11 +1161,12 @@ const App: React.FC = () => {
       cancelled = true;
       if (highlightTimer) clearTimeout(highlightTimer);
     };
-  }, [cloudClient, noteSourcePath, markdown, isLoading, isLoadingShared, isSharedSession, hasInitializedLocalAnnotations]);
+  }, [cloudClient, noteSourcePath, markdown, isLoading, isLoadingShared, isSharedSession, hasInitializedLocalAnnotations, isPortalRuntime]);
 
   useEffect(() => {
     if (!cloudClient || !cloudNoteId || !cloudProfile) return;
     if (isLoading || isLoadingShared || isSharedSession) return;
+    if (!canEditActiveDocument) return;
 
     let cancelled = false;
     const timer = setTimeout(() => {
@@ -797,10 +1199,28 @@ const App: React.FC = () => {
   }, [cloudClient, cloudNoteId, cloudProfile, annotations, isLoading, isLoadingShared, isSharedSession]);
 
   useEffect(() => {
+    if (!cloudWorkspaceEnabled || !cloudNoteId) return;
+    if (annotations.length > 0) return;
+    if (typeof window === 'undefined') return;
+
+    const migrationKey = `obsidian-reviewer-cloud-migration:${cloudNoteId}`;
+    if (window.localStorage.getItem(migrationKey) === '1') return;
+
+    const legacyAnnotations = loadAnnotations(markdown);
+    if (legacyAnnotations.success && Array.isArray(legacyAnnotations.value) && legacyAnnotations.value.length > 0) {
+      setAnnotations(legacyAnnotations.value as Annotation[]);
+    }
+
+    window.localStorage.setItem(migrationKey, '1');
+  }, [cloudWorkspaceEnabled, cloudNoteId, markdown, annotations.length]);
+
+  useEffect(() => {
     if (!cloudClient || !cloudNoteId || !cloudProfile) return;
     if (isLoading || isLoadingShared || isSharedSession) return;
+    if (!canEditActiveDocument) return;
 
     const timer = setTimeout(() => {
+      localMarkdownWriteAtRef.current = Date.now();
       cloudClient
         .from('notes')
         .update({
@@ -810,15 +1230,28 @@ const App: React.FC = () => {
           updated_at: new Date().toISOString(),
         })
         .eq('id', cloudNoteId);
+
+      if (cloudWorkspaceEnabled) {
+        setDocuments((prev) => prev.map((doc) => (
+          doc.id === cloudNoteId
+            ? { ...doc, markdown, content: markdown, updatedAt: new Date().toISOString() }
+            : doc
+        )));
+      }
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [cloudClient, cloudNoteId, cloudProfile, markdown, isLoading, isLoadingShared, isSharedSession]);
+  }, [cloudClient, cloudNoteId, cloudProfile, markdown, isLoading, isLoadingShared, isSharedSession, cloudWorkspaceEnabled, canEditActiveDocument]);
 
 
   // Check if we're in API mode (served from Bun hook server)
   // Skip if we loaded from a shared URL
   useEffect(() => {
+    if (cloudWorkspaceEnabled) {
+      setIsApiMode(false);
+      return;
+    }
+
     if (isLoadingShared) return; // Wait for share check to complete
     if (isSharedSession) return; // Already loaded from share
 
@@ -836,7 +1269,7 @@ const App: React.FC = () => {
         setIsApiMode(false);
       })
       .finally(() => setIsLoading(false));
-  }, [isLoadingShared, isSharedSession]);
+  }, [isLoadingShared, isSharedSession, cloudWorkspaceEnabled]);
 
   // Parse markdown with optional skeleton display for large content
   // Uses a threshold to avoid skeleton flash for fast parsing
@@ -949,7 +1382,9 @@ const App: React.FC = () => {
       }
       if (!e.ctrlKey && !e.metaKey && e.key === '2') {
         e.preventDefault();
-        setEditorMode('edit');
+        if (canEditActiveDocument) {
+          setEditorMode('edit');
+        }
       }
       if (!e.ctrlKey && !e.metaKey && e.key === '3') {
         e.preventDefault();
@@ -957,7 +1392,9 @@ const App: React.FC = () => {
       }
       if (!e.ctrlKey && !e.metaKey && e.key === '4') {
         e.preventDefault();
-        setEditorMode('redline');
+        if (canEditActiveDocument) {
+          setEditorMode('redline');
+        }
       }
 
       // C for global comment (without modifiers)
@@ -986,6 +1423,18 @@ const App: React.FC = () => {
         }
       }
 
+      // Ctrl/Cmd+K to open documents command modal
+      if (raycastDocumentsEnabled && (e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsDocumentsModalOpen(true);
+      }
+
+      // Ctrl/Cmd+N to create a new cloud document
+      if (cloudWorkspaceEnabled && (e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'n') {
+        e.preventDefault();
+        createAndOpenPortalDocument();
+      }
+
       // ? to open keyboard shortcuts modal
       if (e.key === '?') {
         e.preventDefault();
@@ -996,7 +1445,7 @@ const App: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [savePath, editorMode, shareUrl]);
+  }, [savePath, editorMode, shareUrl, cloudWorkspaceEnabled, raycastDocumentsEnabled, canEditActiveDocument]);
 
   // Full edit mode keyboard shortcuts
   useEffect(() => {
@@ -1050,6 +1499,15 @@ const App: React.FC = () => {
       author: ann.author || currentAuthorName || ann.author,
     };
 
+    if (!canEditActiveDocument) {
+      const isCommentType =
+        nextAnnotation.type === AnnotationType.COMMENT ||
+        nextAnnotation.type === AnnotationType.GLOBAL_COMMENT;
+      if (!isCommentType) {
+        return;
+      }
+    }
+
     setAnnotations(prev => [...prev, nextAnnotation]);
     setSelectedAnnotationId(nextAnnotation.id);
     setIsPanelOpen(true);
@@ -1058,10 +1516,12 @@ const App: React.FC = () => {
   };
 
   const handleUpdateAnnotation = (id: string, updates: Partial<Annotation>) => {
+    if (!canEditActiveDocument) return;
     setAnnotations(prev => prev.map(a => a.id === id ? { ...a, ...updates } : a));
   };
 
   const handleDeleteAnnotation = (id: string) => {
+    if (!canEditActiveDocument) return;
     viewerRef.current?.removeHighlight(id);
     setAnnotations(prev =>
       prev.map(annotation =>
@@ -1141,6 +1601,9 @@ const App: React.FC = () => {
   };
 
   const handleNotePathChange = (notePath: string) => {
+    if (cloudWorkspaceEnabled) {
+      return;
+    }
     setSavePath(notePath);
     cloudLoadedPathRef.current = null;
     setCloudNoteId(null);
@@ -1173,6 +1636,157 @@ const App: React.FC = () => {
     // Note name is handled via handleNotePathChange
   };
 
+  const handleOpenDocumentsModal = () => {
+    if (!raycastDocumentsEnabled) return;
+    setIsDocumentsModalOpen(true);
+  };
+
+  const normalizeDocumentPermissionError = (
+    error: unknown,
+    fallback: string,
+    mode: 'owner' | 'owner_or_editor' | 'generic' = 'generic',
+  ): string => {
+    const raw = String((error as any)?.message || '').trim();
+    const lowered = raw.toLowerCase();
+    if (lowered.includes('row-level security policy')) {
+      if (mode === 'owner') return 'Somente o proprietário do documento pode fazer esta ação.';
+      if (mode === 'owner_or_editor') return 'Somente proprietário ou editor podem fazer esta ação.';
+      return 'Você não tem permissão para esta ação neste documento.';
+    }
+    return raw || fallback;
+  };
+
+  const handleSelectDocument = async (documentId: string) => {
+    if (!cloudWorkspaceEnabled) return;
+    setDocumentsLoading(true);
+    setDocumentsError(null);
+    try {
+      await openPortalDocumentById(documentId);
+    } catch (error: any) {
+      setDocumentsError(error?.message || 'Falha ao abrir documento');
+    } finally {
+      setDocumentsLoading(false);
+    }
+  };
+
+  const handleDeleteDocument = async (documentId: string) => {
+    if (!cloudClient || !cloudWorkspaceEnabled) return;
+    try {
+      // Find the document before removing it (for localStorage cleanup)
+      const docToDelete = documents.find((doc) => doc.id === documentId);
+
+      await softDeleteDocument(cloudClient, documentId);
+      setDocuments((prev) => prev.filter((doc) => doc.id !== documentId));
+
+      // Clear local annotations cache for this document
+      if (docToDelete?.markdown) {
+        clearAnnotations(docToDelete.markdown);
+      }
+
+      // If we deleted the active document, open the next available one
+      if (activeDocumentId === documentId) {
+        const remaining = documents.filter((doc) => doc.id !== documentId);
+        if (remaining.length > 0) {
+          await openPortalDocumentById(remaining[0].id);
+        } else {
+          setActiveDocumentId(null);
+          setCloudNoteId(null);
+          setMarkdown('');
+          setBlocks([]);
+          setAnnotations([]);
+          syncDocumentQueryParam(null);
+        }
+      }
+
+      setIsDocumentsModalOpen(false);
+      await handleOpenTrash();
+    } catch (error: any) {
+      console.error('Falha ao excluir documento:', error);
+      setDocumentsError(
+        normalizeDocumentPermissionError(
+          error,
+          'Falha ao mover documento para a lixeira.',
+          'owner',
+        ),
+      );
+    }
+  };
+
+  const handleRenameDocument = async (documentId: string, newTitle: string) => {
+    if (!cloudClient || !cloudWorkspaceEnabled) return;
+    try {
+      const updated = await renameDocument(cloudClient, documentId, newTitle);
+      setDocuments((prev) =>
+        prev.map((doc) =>
+          doc.id === documentId ? { ...doc, title: updated.title, updatedAt: updated.updatedAt } : doc,
+        ),
+      );
+    } catch (error: any) {
+      console.error('Falha ao renomear documento:', error);
+      setDocumentsError(
+        normalizeDocumentPermissionError(
+          error,
+          'Falha ao renomear documento.',
+          'owner_or_editor',
+        ),
+      );
+    }
+  };
+
+  const handleOpenTrash = async () => {
+    if (!cloudClient) return;
+    setIsDocumentsModalOpen(false);
+    setIsTrashModalOpen(true);
+    setTrashLoading(true);
+    try {
+      // Purge expired documents silently
+      await purgeExpiredDocuments(cloudClient).catch(() => {});
+      const trashDocs = await listTrashDocuments(cloudClient);
+      setTrashDocuments(trashDocs);
+    } catch (error: any) {
+      console.error('Falha ao carregar lixeira:', error);
+    } finally {
+      setTrashLoading(false);
+    }
+  };
+
+  const handleRestoreDocument = async (documentId: string) => {
+    if (!cloudClient) return;
+    try {
+      await restoreDocument(cloudClient, documentId);
+      setTrashDocuments((prev) => prev.filter((doc) => doc.id !== documentId));
+      // Refresh main documents list
+      const docs = await listAccessibleDocuments(cloudClient);
+      setDocuments(docs);
+    } catch (error: any) {
+      console.error('Falha ao restaurar documento:', error);
+      setDocumentsError(
+        normalizeDocumentPermissionError(
+          error,
+          'Falha ao restaurar documento.',
+          'owner',
+        ),
+      );
+    }
+  };
+
+  const handlePermanentDeleteDocument = async (documentId: string) => {
+    if (!cloudClient) return;
+    try {
+      await permanentDeleteDocument(cloudClient, documentId);
+      setTrashDocuments((prev) => prev.filter((doc) => doc.id !== documentId));
+    } catch (error: any) {
+      console.error('Falha ao excluir permanentemente:', error);
+      setDocumentsError(
+        normalizeDocumentPermissionError(
+          error,
+          'Falha ao excluir documento permanentemente.',
+          'owner',
+        ),
+      );
+    }
+  };
+
   const reconstructMarkdownFromBlocks = (blocks: Block[]): string => {
     return blocks.map(block => {
       if (block.type === 'frontmatter') {
@@ -1184,6 +1798,7 @@ const App: React.FC = () => {
 
   // Full edit mode handlers
   const handleEnterFullEditMode = () => {
+    if (!canEditActiveDocument) return;
     // Reconstruct markdown from blocks
     const currentMarkdown = reconstructMarkdownFromBlocks(blocks);
     setFullEditContent(currentMarkdown);
@@ -1231,6 +1846,32 @@ const App: React.FC = () => {
   const [showCopyToast, setShowCopyToast] = useState(false);
 
   const handleSaveToVault = async () => {
+    if (cloudWorkspaceEnabled) {
+      if (!canEditActiveDocument) {
+        setSaveError('Você possui acesso somente leitura neste documento.');
+        return;
+      }
+      setIsSaving(true);
+      setSaveError(null);
+      try {
+        if (cloudClient && cloudNoteId && cloudProfile) {
+          localMarkdownWriteAtRef.current = Date.now();
+          await cloudClient
+            .from('notes')
+            .update({
+              markdown,
+              content: markdown,
+              updated_by: cloudProfile.id,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', cloudNoteId);
+        }
+      } finally {
+        setTimeout(() => setIsSaving(false), 250);
+      }
+      return;
+    }
+
     if (!savePath.trim()) {
       setSaveError(t('app.configurePath'));
       return;
@@ -1433,6 +2074,7 @@ const App: React.FC = () => {
             onNoteTypeChange={handleNoteTypeChange}
             onNotePathChange={handleNotePathChange}
             onNoteNameChange={handleNoteNameChange}
+            activeDocumentId={activeDocumentId || undefined}
             initialTab={settingsInitialTab}
             onTabChange={setSettingsInitialTab}
           />
@@ -1446,13 +2088,30 @@ const App: React.FC = () => {
               alt="Obsidian Note Reviewer"
               className="w-5 h-5 rounded object-contain opacity-70"
             />
+            {cloudWorkspaceEnabled && (
+              <div className="hidden md:flex items-center gap-2">
+                <span className="max-w-[220px] truncate text-xs font-medium text-muted-foreground">
+                  {documents.find((doc) => doc.id === activeDocumentId)?.title || 'Documento'}
+                </span>
+                {activeDocumentRole !== 'none' && (
+                  <span className="rounded-md border border-border/60 bg-muted px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                    {activeDocumentRole}
+                  </span>
+                )}
+                {activePresenceCount > 0 && (
+                  <span className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+                    {activePresenceCount} editando agora
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-1 md:gap-2">
             {/* Salvar/Alterações - PRIMEIRO da esquerda */}
             <button
               onClick={handleSaveToVault}
-              disabled={isSaving || !savePath}
+              disabled={isSaving || !savePath || !canEditActiveDocument}
               className={`
                 flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-all
                 ${isSaving || !savePath
@@ -1463,7 +2122,9 @@ const App: React.FC = () => {
                 }
               `}
               title={
-                !savePath
+                !canEditActiveDocument
+                  ? 'Apenas leitura para este documento'
+                  : !savePath
                   ? t('app.configurePath')
                   : activeAnnotations.length > 0
                     ? t('app.makeChangesInClaude')
@@ -1513,6 +2174,18 @@ const App: React.FC = () => {
                 <path d="M7 9h.01M11 9h.01M15 9h.01M7 13h.01M11 13h.01M15 13h.01M7 17h10" />
               </svg>
             </button>
+
+            {raycastDocumentsEnabled && (
+              <button
+                onClick={handleOpenDocumentsModal}
+                className="p-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+                title="Documentos (Ctrl/Cmd+K)"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 7a2 2 0 012-2h5l2 2h7a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+                </svg>
+              </button>
+            )}
 
             {/* Compartilhar (ex-Exportar) */}
             <button
@@ -1619,7 +2292,7 @@ const App: React.FC = () => {
                 {/* Botão principal - Fazer Alterações ou Salvar */}
                 <button
                   onClick={handleSaveToVault}
-                  disabled={isSaving || !savePath}
+                  disabled={isSaving || !savePath || !canEditActiveDocument}
                   className={`
                     flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-all
                     ${isSaving || !savePath
@@ -1674,6 +2347,18 @@ const App: React.FC = () => {
                   </svg>
                 </button>
 
+                {raycastDocumentsEnabled && (
+                  <button
+                    onClick={handleOpenDocumentsModal}
+                    className="p-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+                    title="Documentos (Ctrl/Cmd+K)"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 7a2 2 0 012-2h5l2 2h7a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+                    </svg>
+                  </button>
+                )}
+
                 {/* Compartilhar (ex-Exportar) */}
                 <button
                   onClick={() => setShowExport(true)}
@@ -1725,10 +2410,18 @@ const App: React.FC = () => {
         {/* Main Content */}
         <div className="flex-1 flex overflow-hidden">
           {/* Document Area */}
-          <main className="flex-1 overflow-y-auto bg-grid">
+          <main ref={documentAreaRef} className="relative flex-1 overflow-y-auto bg-grid">
             {/* Mode Switcher - Floating */}
             <div className="sticky top-3 z-[60] mx-3 md:mx-8 w-fit">
-              <ModeSwitcher mode={editorMode} onChange={setEditorMode} onEditMarkdown={handleEnterFullEditMode} onGlobalComment={() => setShowGlobalCommentModal(true)} />
+              <ModeSwitcher
+                mode={editorMode}
+                onChange={(nextMode) => {
+                  if (!canEditActiveDocument && nextMode !== 'selection') return;
+                  setEditorMode(nextMode);
+                }}
+                onEditMarkdown={handleEnterFullEditMode}
+                onGlobalComment={() => setShowGlobalCommentModal(true)}
+              />
             </div>
             <div className="min-h-full flex flex-col items-center p-3 md:p-8 pt-3">
 
@@ -1751,6 +2444,15 @@ const App: React.FC = () => {
                 />
               )}
             </div>
+
+            {livePresenceEnabled && cloudWorkspaceEnabled && activeDocumentId && (
+              <LivePresenceOverlay
+                enabled={livePresenceEnabled}
+                documentId={activeDocumentId}
+                containerRef={documentAreaRef}
+                onPresenceCountChange={setActivePresenceCount}
+              />
+            )}
           </main>
 
           {/* Annotation Panel */}
@@ -1766,6 +2468,35 @@ const App: React.FC = () => {
             shareUrl={shareUrl}
           />
         </div>
+
+        {raycastDocumentsEnabled && (
+          <>
+            <RaycastDocumentsModal
+              isOpen={isDocumentsModalOpen}
+              loading={documentsLoading}
+              documents={documents.map((doc) => ({
+                id: doc.id,
+                title: doc.title,
+                updatedAt: doc.updatedAt,
+              }))}
+              activeDocumentId={activeDocumentId}
+              onClose={() => setIsDocumentsModalOpen(false)}
+              onSelectDocument={handleSelectDocument}
+              onCreateDocument={createAndOpenPortalDocument}
+              onDeleteDocument={handleDeleteDocument}
+              onRenameDocument={handleRenameDocument}
+              onOpenTrash={handleOpenTrash}
+            />
+            <TrashDocumentsModal
+              isOpen={isTrashModalOpen}
+              loading={trashLoading}
+              documents={trashDocuments}
+              onClose={() => setIsTrashModalOpen(false)}
+              onRestore={handleRestoreDocument}
+              onPermanentDelete={handlePermanentDeleteDocument}
+            />
+          </>
+        )}
 
         {/* Export Modal */}
         <ExportModal
@@ -1884,6 +2615,12 @@ const App: React.FC = () => {
                 <p className="text-xs text-muted-foreground">{t('app.pasteInClaude')}</p>
               </div>
             </div>
+          </div>
+        )}
+
+        {documentsError && (
+          <div className="fixed bottom-20 left-1/2 z-[200] -translate-x-1/2 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-600 shadow-lg dark:text-red-300">
+            {documentsError}
           </div>
         )}
 

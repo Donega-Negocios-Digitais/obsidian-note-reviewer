@@ -13,6 +13,15 @@ import { supabase } from '@obsidian-note-reviewer/security/supabase/client';
 export type CollaboratorRole = 'owner' | 'editor' | 'viewer';
 export type CollaboratorStatus = 'active' | 'pending' | 'inactive';
 export type InviteStatus = 'pending' | 'accepted' | 'expired' | 'cancelled';
+export type CollaboratorCapability = 'hooks' | 'integrations' | 'automations' | 'invite' | 'manage_permissions';
+
+export interface CollaboratorCapabilities {
+  hooks: boolean;
+  integrations: boolean;
+  automations: boolean;
+  invite: boolean;
+  manage_permissions: boolean;
+}
 
 export interface Collaborator {
   id: string;
@@ -20,12 +29,12 @@ export interface Collaborator {
   userId: string;
   role: CollaboratorRole;
   status: CollaboratorStatus;
+  capabilities: CollaboratorCapabilities;
   invitedBy?: string;
   invitedAt: string;
   acceptedAt?: string;
   createdAt: string;
   updatedAt: string;
-  // Joined user data
   user?: {
     id: string;
     email: string;
@@ -51,12 +60,199 @@ export interface DocumentInvite {
 export interface InviteResult {
   success: boolean;
   inviteId?: string;
+  token?: string;
+  noteId?: string;
+  expiresAt?: string;
   error?: string;
 }
 
 export interface RemoveCollaboratorResult {
   success: boolean;
   error?: string;
+}
+
+const DEFAULT_CAPABILITIES: CollaboratorCapabilities = {
+  hooks: false,
+  integrations: false,
+  automations: false,
+  invite: false,
+  manage_permissions: false,
+};
+
+function normalizeCapabilities(value: unknown): CollaboratorCapabilities {
+  if (!value || typeof value !== 'object') {
+    return DEFAULT_CAPABILITIES;
+  }
+
+  const source = value as Record<string, unknown>;
+  return {
+    hooks: source.hooks === true,
+    integrations: source.integrations === true,
+    automations: source.automations === true,
+    invite: source.invite === true,
+    manage_permissions: source.manage_permissions === true,
+  };
+}
+
+function isCollaboratorRole(value: unknown): value is CollaboratorRole {
+  return value === 'owner' || value === 'editor' || value === 'viewer';
+}
+
+async function getUserDocumentRoleFallback(
+  noteId: string,
+  userId: string,
+): Promise<CollaboratorRole | 'none'> {
+  const { data: noteData } = await supabase
+    .from('notes')
+    .select('created_by,is_public')
+    .eq('id', noteId)
+    .maybeSingle();
+
+  if (noteData?.created_by === userId) {
+    return 'owner';
+  }
+
+  const { data: collaboratorData } = await supabase
+    .from('document_collaborators')
+    .select('role,status')
+    .eq('note_id', noteId)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (collaboratorData?.status === 'active' && isCollaboratorRole(collaboratorData.role)) {
+    return collaboratorData.role;
+  }
+
+  if (noteData?.is_public === true) {
+    return 'viewer';
+  }
+
+  return 'none';
+}
+
+function isMissingRpcFunction(error: unknown, functionName: string): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const rpcError = error as { code?: string; message?: string; details?: string };
+  const message = String(rpcError.message || '').toLowerCase();
+  const details = String(rpcError.details || '').toLowerCase();
+  const missingMessage = message.includes('could not find the function') || details.includes('could not find the function');
+  const expected = `public.${functionName}`.toLowerCase();
+
+  if (rpcError.code === 'PGRST202') {
+    return true;
+  }
+
+  return missingMessage && (message.includes(expected) || details.includes(expected));
+}
+
+function mapInviteResult(data: unknown): InviteResult {
+  const row = Array.isArray(data) ? data[0] : data;
+  const record = row && typeof row === 'object' ? (row as Record<string, unknown>) : {};
+
+  return {
+    success: true,
+    inviteId: typeof record.invite_id === 'string' ? record.invite_id : undefined,
+    token: typeof record.invite_token === 'string' ? record.invite_token : undefined,
+    noteId: typeof record.note_id === 'string' ? record.note_id : undefined,
+    expiresAt: typeof record.expires_at === 'string' ? record.expires_at : undefined,
+  };
+}
+
+async function inviteCollaboratorLegacy(
+  noteId: string,
+  email: string,
+  role: 'editor' | 'viewer'
+): Promise<InviteResult> {
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  const inviterId = authData?.user?.id;
+
+  if (authError || !inviterId) {
+    return {
+      success: false,
+      error: authError?.message || 'Authentication required to send invite',
+    };
+  }
+
+  const { data: inviteIdData, error } = await supabase.rpc('invite_to_document', {
+    note_uuid: noteId,
+    invite_email: email,
+    invite_role: role,
+    inviter_uuid: inviterId,
+  });
+
+  if (error) {
+    if (isMissingRpcFunction(error, 'invite_to_document')) {
+      return {
+        success: false,
+        error: 'Banco desatualizado. Rode as migrations de colaboração e recarregue o schema cache do Supabase.',
+      };
+    }
+
+    return { success: false, error: error.message };
+  }
+
+  const inviteId = typeof inviteIdData === 'string' ? inviteIdData : undefined;
+
+  if (!inviteId) {
+    return { success: true };
+  }
+
+  const { data: inviteRow } = await supabase
+    .from('document_invites')
+    .select('id, token, note_id, expires_at')
+    .eq('id', inviteId)
+    .maybeSingle();
+
+  return {
+    success: true,
+    inviteId,
+    token: typeof inviteRow?.token === 'string' ? inviteRow.token : undefined,
+    noteId: typeof inviteRow?.note_id === 'string' ? inviteRow.note_id : noteId,
+    expiresAt: typeof inviteRow?.expires_at === 'string' ? inviteRow.expires_at : undefined,
+  };
+}
+
+async function acceptInviteLegacy(token: string): Promise<string | null> {
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  const userId = authData?.user?.id;
+
+  if (authError || !userId) {
+    return null;
+  }
+
+  let noteIdFromInvite: string | null = null;
+  const { data: inviteRow } = await supabase
+    .from('document_invites')
+    .select('note_id')
+    .eq('token', token)
+    .maybeSingle();
+
+  if (typeof inviteRow?.note_id === 'string') {
+    noteIdFromInvite = inviteRow.note_id;
+  }
+
+  const { data, error } = await supabase.rpc('accept_document_invite', {
+    invite_token: token,
+    user_uuid: userId,
+  });
+
+  if (error) {
+    console.error('Error accepting legacy invite:', error);
+    return null;
+  }
+
+  if (typeof data === 'string' && data.length > 0) {
+    return data;
+  }
+
+  if (data === true) {
+    return noteIdFromInvite;
+  }
+
+  return noteIdFromInvite;
 }
 
 // ============================================
@@ -83,12 +279,10 @@ export async function getDocumentCollaborators(
     `)
     .eq('note_id', noteId);
 
-  // Se não incluir inativos, busca apenas ativos
   if (!includeInactive) {
     query.eq('status', 'active');
   } else {
-    // Incluir ativos e inativos (mas não 'removed')
-    query.in('status', ['active', 'inactive']);
+    query.in('status', ['active', 'inactive', 'pending']);
   }
 
   const { data, error } = await query.order('created_at', { ascending: true });
@@ -104,6 +298,7 @@ export async function getDocumentCollaborators(
     userId: collab.user_id,
     role: collab.role,
     status: collab.status,
+    capabilities: normalizeCapabilities(collab.capabilities),
     invitedBy: collab.invited_by,
     invitedAt: collab.invited_at,
     acceptedAt: collab.accepted_at,
@@ -124,42 +319,43 @@ export async function getDocumentCollaborators(
 export async function inviteCollaborator(
   noteId: string,
   email: string,
-  role: CollaboratorRole,
-  invitedBy: string
+  role: 'editor' | 'viewer'
 ): Promise<InviteResult> {
   try {
-    const { data, error } = await supabase.rpc('invite_to_document', {
+    const { data, error } = await supabase.rpc('create_document_invite', {
       note_uuid: noteId,
       invite_email: email,
       invite_role: role,
-      inviter_uuid: invitedBy,
     });
 
     if (error) {
+      if (isMissingRpcFunction(error, 'create_document_invite')) {
+        return inviteCollaboratorLegacy(noteId, email, role);
+      }
+
       return { success: false, error: error.message };
     }
 
-    return { success: true, inviteId: data as string };
+    return mapInviteResult(data);
   } catch (error: any) {
     return { success: false, error: error?.message || 'Failed to send invite' };
   }
 }
 
 /**
- * Remove a collaborator permanently from a document (hard delete)
+ * Remove a collaborator permanently from a document
  */
 export async function removeCollaborator(
   noteId: string,
   userId: string
 ): Promise<RemoveCollaboratorResult> {
-  const { error } = await supabase
-    .from('document_collaborators')
-    .delete()
-    .eq('note_id', noteId)
-    .eq('user_id', userId);
+  const { data, error } = await supabase.rpc('remove_document_collaborator', {
+    note_uuid: noteId,
+    collaborator_uuid: userId,
+  });
 
-  if (error) {
-    return { success: false, error: error.message };
+  if (error || data !== true) {
+    return { success: false, error: error?.message || 'Failed to remove collaborator' };
   }
 
   return { success: true };
@@ -213,14 +409,37 @@ export async function updateCollaboratorRole(
   userId: string,
   role: CollaboratorRole
 ): Promise<RemoveCollaboratorResult> {
-  const { error } = await supabase
-    .from('document_collaborators')
-    .update({ role, updated_at: new Date().toISOString() })
-    .eq('note_id', noteId)
-    .eq('user_id', userId);
+  const { data, error } = await supabase.rpc('set_document_collaborator_role', {
+    note_uuid: noteId,
+    collaborator_uuid: userId,
+    new_role: role,
+  });
 
-  if (error) {
-    return { success: false, error: error.message };
+  if (error || data !== true) {
+    return { success: false, error: error?.message || 'Failed to update collaborator role' };
+  }
+
+  return { success: true };
+}
+
+/**
+ * Update a collaborator capability
+ */
+export async function updateCollaboratorCapability(
+  noteId: string,
+  userId: string,
+  capability: CollaboratorCapability,
+  enabled: boolean
+): Promise<RemoveCollaboratorResult> {
+  const { data, error } = await supabase.rpc('set_document_collaborator_capability', {
+    note_uuid: noteId,
+    collaborator_uuid: userId,
+    capability_key: capability,
+    enabled,
+  });
+
+  if (error || data !== true) {
+    return { success: false, error: error?.message || 'Failed to update collaborator capability' };
   }
 
   return { success: true };
@@ -260,20 +479,53 @@ export async function getDocumentInvites(
 }
 
 /**
- * Accept a document invite
+ * Accept a document invite and return note id
  */
-export async function acceptInvite(token: string, userId: string): Promise<boolean> {
-  const { error } = await supabase.rpc('accept_document_invite', {
+export async function acceptInvite(token: string): Promise<string | null> {
+  const { data, error } = await supabase.rpc('accept_document_invite', {
     invite_token: token,
-    user_uuid: userId,
   });
 
   if (error) {
+    if (isMissingRpcFunction(error, 'accept_document_invite')) {
+      return acceptInviteLegacy(token);
+    }
+
     console.error('Error accepting invite:', error);
+    return null;
+  }
+
+  if (typeof data === 'string' && data.length > 0) {
+    return data;
+  }
+
+  if (data === true) {
+    const { data: inviteRow } = await supabase
+      .from('document_invites')
+      .select('note_id')
+      .eq('token', token)
+      .maybeSingle();
+
+    return typeof inviteRow?.note_id === 'string' ? inviteRow.note_id : null;
+  }
+
+  return null;
+}
+
+/**
+ * Decline a document invite
+ */
+export async function declineInvite(token: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('decline_document_invite', {
+    invite_token: token,
+  });
+
+  if (error) {
+    console.error('Error declining invite:', error);
     return false;
   }
 
-  return true;
+  return data === true;
 }
 
 /**
@@ -315,12 +567,20 @@ export async function getUserDocumentRole(
   noteId: string,
   userId: string
 ): Promise<CollaboratorRole | 'none'> {
-  const { data } = await supabase.rpc('get_note_role', {
+  const { data, error } = await supabase.rpc('get_note_role', {
     note_uuid: noteId,
     user_uuid: userId,
   });
 
-  return (data as CollaboratorRole | 'none') || 'none';
+  if (!error && (data === 'none' || isCollaboratorRole(data))) {
+    return data;
+  }
+
+  if (error) {
+    console.warn('get_note_role RPC failed, using fallback role resolution:', error);
+  }
+
+  return getUserDocumentRoleFallback(noteId, userId);
 }
 
 /**

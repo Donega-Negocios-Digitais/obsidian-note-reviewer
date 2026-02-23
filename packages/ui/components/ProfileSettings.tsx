@@ -20,6 +20,7 @@ interface ProfileSettingsProps {
     oldDisplayName?: string
     newDisplayName?: string
     avatarUrl?: string | null
+    phone?: string
   }) => void
 }
 
@@ -41,6 +42,16 @@ function getInitials(name: string): string {
   return name.trim().split(/\s+/).map(w => w[0].toUpperCase()).slice(0, 2).join('')
 }
 
+function isMissingPhoneColumnError(error: unknown): boolean {
+  const message = String((error as any)?.message || '').toLowerCase()
+  const details = String((error as any)?.details || '').toLowerCase()
+  return (
+    message.includes('column') && message.includes('phone')
+  ) || (
+    details.includes('column') && details.includes('phone')
+  )
+}
+
 
 export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactElement {
   const { t } = useTranslation()
@@ -57,11 +68,13 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
 
   // Profile state
   const [displayName, setDisplayName] = useState('')
+  const [phone, setPhone] = useState('')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [savingProfile, setSavingProfile] = useState(false)
   const [lastSavedDisplayName, setLastSavedDisplayName] = useState('')
+  const [lastSavedPhone, setLastSavedPhone] = useState('')
 
   // Password state
   const [passwordForm, setPasswordForm] = useState<PasswordForm>({
@@ -87,15 +100,18 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
     const loadProfile = async () => {
       const existingName = user.user_metadata?.full_name || user.user_metadata?.name || ''
       const existingAvatar = getAvatarUrl(user)
+      const existingPhone = typeof user.user_metadata?.phone === 'string' ? user.user_metadata.phone : ''
 
       setDisplayName(existingName)
       setLastSavedDisplayName(existingName)
       setAvatarUrl(existingAvatar)
+      setPhone(existingPhone)
+      setLastSavedPhone(existingPhone)
 
       try {
         const { data, error } = await supabase
           .from('users')
-          .select('name, avatar_url')
+          .select('name, avatar_url, phone')
           .eq('id', user.id)
           .single()
 
@@ -108,8 +124,30 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
         if (typeof data.avatar_url === 'string' && data.avatar_url.trim().length > 0) {
           setAvatarUrl(data.avatar_url)
         }
+        if (typeof data.phone === 'string') {
+          setPhone(data.phone)
+          setLastSavedPhone(data.phone)
+        }
       } catch {
-        // metadata fallback already applied
+        try {
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .from('users')
+            .select('name, avatar_url')
+            .eq('id', user.id)
+            .single()
+
+          if (cancelled || fallbackError || !fallbackData) return
+
+          if (typeof fallbackData.name === 'string' && fallbackData.name.trim().length > 0) {
+            setDisplayName(fallbackData.name)
+            setLastSavedDisplayName(fallbackData.name)
+          }
+          if (typeof fallbackData.avatar_url === 'string' && fallbackData.avatar_url.trim().length > 0) {
+            setAvatarUrl(fallbackData.avatar_url)
+          }
+        } catch {
+          // metadata fallback already applied
+        }
       }
     }
 
@@ -127,6 +165,44 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
       return () => clearTimeout(timer)
     }
   }, [savedField])
+
+  const updateUsersTableProfile = async (params: {
+    userId: string
+    name: string
+    avatarUrl: string | null
+    phone: string
+  }) => {
+    const basePayload = {
+      name: params.name,
+      avatar_url: params.avatarUrl,
+      updated_at: new Date().toISOString(),
+    }
+
+    const withPhonePayload = {
+      ...basePayload,
+      phone: params.phone || null,
+    }
+
+    const { error } = await supabase
+      .from('users')
+      .update(withPhonePayload)
+      .eq('id', params.userId)
+
+    if (!error) return
+
+    if (!isMissingPhoneColumnError(error)) {
+      throw new Error(error.message || t('settings.profile.errors.profileUpdate'))
+    }
+
+    const { error: fallbackError } = await supabase
+      .from('users')
+      .update(basePayload)
+      .eq('id', params.userId)
+
+    if (fallbackError) {
+      throw new Error(fallbackError.message || t('settings.profile.errors.profileUpdate'))
+    }
+  }
 
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -185,24 +261,21 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
 
     try {
       const nextName = displayName.trim()
+      const nextPhone = phone.trim()
       const previousName =
         (lastSavedDisplayName || user.user_metadata?.full_name || user.user_metadata?.name || '').trim()
 
       await updateProfile({
         full_name: nextName,
         avatar_url: avatarUrl,
+        phone: nextPhone,
       })
-      const { error: userUpdateError } = await supabase
-        .from('users')
-        .update({
-          name: nextName,
-          avatar_url: avatarUrl,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', user!.id)
-      if (userUpdateError) {
-        throw new Error(userUpdateError.message || t('settings.profile.errors.profileUpdate'))
-      }
+      await updateUsersTableProfile({
+        userId: user.id,
+        name: nextName,
+        avatarUrl,
+        phone: nextPhone,
+      })
 
       // Best-effort backfill so historical comments show latest profile name/avatar.
       await supabase
@@ -216,12 +289,42 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
 
       updateDisplayName(nextName)
       setLastSavedDisplayName(nextName)
+      setLastSavedPhone(nextPhone)
       setSavedField('profile')
       onSave?.({
         oldDisplayName: previousName || undefined,
         newDisplayName: nextName,
         avatarUrl,
+        phone: nextPhone,
       })
+    } catch (error: any) {
+      setPasswordErrors({ general: error.message || t('settings.profile.errors.profileUpdateGeneral') })
+    } finally {
+      setSavingProfile(false)
+    }
+  }
+
+  const handleSavePhone = async () => {
+    if (!user) return
+
+    setSavingProfile(true)
+    setPasswordErrors({})
+
+    try {
+      const nextPhone = phone.trim()
+      const nextName = displayName.trim() || lastSavedDisplayName || user.user_metadata?.full_name || user.user_metadata?.name || ''
+
+      await updateProfile({ phone: nextPhone })
+      await updateUsersTableProfile({
+        userId: user.id,
+        name: nextName,
+        avatarUrl,
+        phone: nextPhone,
+      })
+
+      setLastSavedPhone(nextPhone)
+      setSavedField('phone')
+      onSave?.({ phone: nextPhone })
     } catch (error: any) {
       setPasswordErrors({ general: error.message || t('settings.profile.errors.profileUpdateGeneral') })
     } finally {
@@ -402,6 +505,39 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
                     <><Check className="w-3.5 h-3.5" /> {t('settings.profile.saved')}</>
                   ) : (
                     t('settings.profile.saveName')
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div className="px-5 pb-4">
+              <label htmlFor="phone" className="block text-xs font-medium text-foreground mb-1">
+                Telefone
+              </label>
+              <p className="text-[11px] text-muted-foreground/70 mb-2">
+                Opcional. Usado para integrações e automações futuras.
+              </p>
+              <input
+                id="phone"
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSaveProfile()}
+                className="w-full text-sm bg-background border border-input rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground/50"
+                placeholder="+55 11 99999-9999"
+              />
+              <div className="mt-2 flex items-center gap-2">
+                <button
+                  onClick={handleSavePhone}
+                  disabled={savingProfile || uploading || phone.trim() === (lastSavedPhone || '').trim()}
+                  className="flex-shrink-0 px-3 py-2 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-40 flex items-center gap-1.5 min-w-[120px] justify-center"
+                >
+                  {savingProfile ? (
+                    <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-primary-foreground" />
+                  ) : savedField === 'phone' ? (
+                    <><Check className="w-3.5 h-3.5" /> Salvo</>
+                  ) : (
+                    'Salvar telefone'
                   )}
                 </button>
               </div>

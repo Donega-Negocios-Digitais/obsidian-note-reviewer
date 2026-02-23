@@ -602,21 +602,25 @@ export async function syncCloudAnnotations(
   const hydrated = annotations.map((annotation) => ({
     ...annotation,
     persistedId: annotation.persistedId || crypto.randomUUID(),
-    author: annotation.author || profile.name,
+    author: annotation.author || (!annotation.persistedId ? profile.name : annotation.author),
   }));
 
-  await upsertAnnotationRows(client, hydrated, noteId, profile.id);
+  const writableAnnotations = hydrated.filter((annotation) =>
+    !annotation.persistedId || annotation.author === profile.name,
+  );
 
-  const next: Annotation[] = [];
-  for (const annotation of hydrated) {
+  await upsertAnnotationRows(client, writableAnnotations, noteId, profile.id);
+
+  const writableUpdates = new Map<string, Annotation>();
+  for (const annotation of writableAnnotations) {
     const withThread = await ensureCommentThread(client, annotation, profile);
     if (withThread.threadId !== annotation.threadId || withThread.commentId !== annotation.commentId) {
       await patchAnnotationMetadata(client, withThread);
     }
-    next.push(withThread);
+    writableUpdates.set(withThread.id, withThread);
   }
 
-  return next;
+  return hydrated.map((annotation) => writableUpdates.get(annotation.id) || annotation);
 }
 
 export async function tryLoadCloudState(

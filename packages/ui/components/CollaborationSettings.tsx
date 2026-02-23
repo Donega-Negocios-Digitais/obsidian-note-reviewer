@@ -13,10 +13,15 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '@obsidian-note-reviewer/security/auth'
 import {
   getDocumentCollaborators,
+  getCurrentUserRole,
   inviteCollaborator,
   removeCollaborator,
   deactivateCollaborator,
   reactivateCollaborator,
+  updateCollaboratorRole,
+  updateCollaboratorCapability,
+  type CollaboratorCapability,
+  type CollaboratorCapabilities,
   type CollaboratorRole,
 } from '@obsidian-note-reviewer/collaboration'
 import {
@@ -43,7 +48,16 @@ interface Collaborator {
   avatar_url?: string
   role: CollaboratorRole
   status: 'active' | 'pending' | 'inactive'
+  capabilities: CollaboratorCapabilities
   invited_at?: string
+}
+
+const DEFAULT_CAPABILITIES: CollaboratorCapabilities = {
+  hooks: false,
+  integrations: false,
+  automations: false,
+  invite: false,
+  manage_permissions: false,
 }
 
 interface InviteEmailPayload {
@@ -105,6 +119,7 @@ export function CollaborationSettings({
   const [inviteError, setInviteError] = useState<string | null>(null)
   const [editingCollaborator, setEditingCollaborator] = useState<Collaborator | null>(null)
   const [editRole, setEditRole] = useState<'viewer' | 'editor'>('viewer')
+  const [editCapabilities, setEditCapabilities] = useState<CollaboratorCapabilities>(DEFAULT_CAPABILITIES)
 
   // Confirmation modal state
   const [confirmAction, setConfirmAction] = useState<{
@@ -143,11 +158,13 @@ export function CollaborationSettings({
     if (editingCollaborator) {
       localStorage.setItem('obsreview-editingCollaborator', JSON.stringify(editingCollaborator))
       localStorage.setItem('obsreview-editRole', editRole)
+      localStorage.setItem('obsreview-editCapabilities', JSON.stringify(editCapabilities))
     } else {
       localStorage.removeItem('obsreview-editingCollaborator')
       localStorage.removeItem('obsreview-editRole')
+      localStorage.removeItem('obsreview-editCapabilities')
     }
-  }, [editingCollaborator, editRole])
+  }, [editingCollaborator, editRole, editCapabilities])
 
   // Restaurar estado ao montar
   useEffect(() => {
@@ -166,12 +183,22 @@ export function CollaborationSettings({
     if (savedEditing) {
       try {
         const collab = JSON.parse(savedEditing) as Collaborator
+        const hydratedCollaborator: Collaborator = {
+          ...collab,
+          capabilities: collab.capabilities || DEFAULT_CAPABILITIES,
+        }
         const savedRole = (localStorage.getItem('obsreview-editRole') as 'viewer' | 'editor') || 'viewer'
-        setEditingCollaborator(collab)
+        const savedCapabilitiesRaw = localStorage.getItem('obsreview-editCapabilities')
+        const savedCapabilities = savedCapabilitiesRaw
+          ? { ...DEFAULT_CAPABILITIES, ...(JSON.parse(savedCapabilitiesRaw) as Partial<CollaboratorCapabilities>) }
+          : DEFAULT_CAPABILITIES
+        setEditingCollaborator(hydratedCollaborator)
         setEditRole(savedRole)
+        setEditCapabilities(savedCapabilities)
       } catch {
         localStorage.removeItem('obsreview-editingCollaborator')
         localStorage.removeItem('obsreview-editRole')
+        localStorage.removeItem('obsreview-editCapabilities')
       }
     }
   }, [])
@@ -183,50 +210,39 @@ export function CollaborationSettings({
 
 
   const loadCollaborators = async () => {
+    const ownerOnly: Collaborator[] = user ? [
+      {
+        id: user.id,
+        email: user.email || 'owner@example.com',
+        name: (user.user_metadata?.full_name as string | undefined) || 'Você',
+        avatar_url: user.user_metadata?.avatar_url as string | undefined,
+        role: 'owner',
+        status: 'active',
+        capabilities: {
+          hooks: true,
+          integrations: true,
+          automations: true,
+          invite: true,
+          manage_permissions: true,
+        },
+      },
+    ] : []
+
     if (!documentId) {
-      // Mock data for development when no documentId is provided
-      setCollaborators([
-        {
-          id: user?.id || 'owner',
-          email: user?.email || 'owner@example.com',
-          name: user?.user_metadata?.full_name || 'Você',
-          avatar_url: user?.user_metadata?.avatar_url as string | undefined,
-          role: 'owner',
-          status: 'active',
-        },
-        {
-          id: 'mock-collaborator-1',
-          email: 'alexdonega@hotmail.com',
-          name: 'Alex Teste',
-          role: 'editor',
-          status: 'pending',
-          invited_at: new Date().toISOString(),
-        },
-        {
-          id: 'mock-collaborator-2',
-          email: 'atendimento.doface@gmail.com',
-          name: 'Atendimento DoFace',
-          role: 'viewer',
-          status: 'active',
-        },
-        {
-          id: 'mock-collaborator-3',
-          email: 'desativado@example.com',
-          name: 'Usuário Desativado',
-          role: 'viewer',
-          status: 'inactive',
-        },
-      ])
+      setCollaborators(ownerOnly)
+      onCollaboratorsChange?.(ownerOnly)
       setLoading(false)
       return
     }
 
     setLoading(true)
     try {
-      const apiCollaborators = await getDocumentCollaborators(documentId)
+      const [apiCollaborators, currentRole] = await Promise.all([
+        getDocumentCollaborators(documentId),
+        getCurrentUserRole(documentId),
+      ])
 
-      // Transform API data to component format
-      const collaborators: Collaborator[] = apiCollaborators.map((collab) => ({
+      const nextCollaborators: Collaborator[] = apiCollaborators.map((collab) => ({
         id: collab.userId,
         email: collab.user?.email || '',
         name: collab.user?.name,
@@ -234,22 +250,40 @@ export function CollaborationSettings({
         role: collab.role,
         status: collab.status,
         invited_at: collab.invitedAt,
+        capabilities: collab.capabilities || DEFAULT_CAPABILITIES,
       }))
 
-      setCollaborators(collaborators)
+      const hasCurrentUser = user?.id
+        ? nextCollaborators.some((collab) => collab.id === user.id)
+        : false
+
+      if (user?.id && !hasCurrentUser && currentRole !== 'none') {
+        nextCollaborators.unshift({
+          id: user.id,
+          email: user.email || 'owner@example.com',
+          name: (user.user_metadata?.full_name as string | undefined) || 'Você',
+          avatar_url: user.user_metadata?.avatar_url as string | undefined,
+          role: currentRole,
+          status: 'active',
+          capabilities: currentRole === 'owner'
+            ? {
+              hooks: true,
+              integrations: true,
+              automations: true,
+              invite: true,
+              manage_permissions: true,
+            }
+            : DEFAULT_CAPABILITIES,
+        })
+      }
+
+      const resolvedCollaborators = nextCollaborators.length > 0 ? nextCollaborators : ownerOnly
+      setCollaborators(resolvedCollaborators)
+      onCollaboratorsChange?.(resolvedCollaborators)
     } catch (error) {
       console.error('Failed to load collaborators:', error)
-      // Fall back to owner-only list
-      setCollaborators([
-        {
-          id: user?.id || 'owner',
-          email: user?.email || 'owner@example.com',
-          name: user?.user_metadata?.full_name || 'Você',
-          avatar_url: user?.user_metadata?.avatar_url as string | undefined,
-          role: 'owner',
-          status: 'active',
-        },
-      ])
+      setCollaborators(ownerOnly)
+      onCollaboratorsChange?.(ownerOnly)
     } finally {
       setLoading(false)
     }
@@ -261,15 +295,18 @@ export function CollaborationSettings({
       return
     }
 
+    const emailToInvite = inviteEmail.trim()
+
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(inviteEmail)) {
+    if (!emailRegex.test(emailToInvite)) {
       setInviteError(t('settings.collaboration.email') + ' inválido')
       return
     }
 
     // Check if user is already a collaborator
-    const exists = collaborators.some(c => c.email === inviteEmail)
+    const normalizedInviteEmail = emailToInvite.toLowerCase()
+    const exists = collaborators.some(c => c.email.trim().toLowerCase() === normalizedInviteEmail)
     if (exists) {
       setInviteError('Este usuário já é um colaborador')
       return
@@ -287,28 +324,30 @@ export function CollaborationSettings({
 
       const result = await inviteCollaborator(
         documentId,
-        inviteEmail,
+        emailToInvite,
         inviteRole,
-        user?.id || ''
       )
 
       if (result.success) {
+        const inviteUrl = result.token && typeof window !== 'undefined'
+          ? `${window.location.origin}/invites/accept?token=${encodeURIComponent(result.token)}`
+          : (typeof window !== 'undefined' ? window.location.href : '')
+
         // Send invite email via edge function (non-blocking).
         sendInviteEmail({
-          email: inviteEmail,
+          email: emailToInvite,
           role: inviteRole,
           inviterName: user?.user_metadata?.full_name || user?.email || 'Alguém',
           documentTitle: documentId ? `Documento ${documentId.slice(0, 8)}` : 'Documento',
-          inviteUrl: typeof window !== 'undefined' ? window.location.href : '',
+          inviteUrl,
         }).catch(err => console.warn('Email invite failed (non-critical):', err))
 
         // Show success toast and close modal
-        setSuccessToast(`Convite enviado para ${inviteEmail}!`)
+        setSuccessToast(`Convite enviado para ${emailToInvite}!`)
         setInviteEmail('')
         setShowInviteForm(false)
         // Reload collaborators to show the new one
         await loadCollaborators()
-        onCollaboratorsChange?.(collaborators)
       } else {
         setInviteError(result.error || 'Erro ao enviar convite')
       }
@@ -348,8 +387,9 @@ export function CollaborationSettings({
       const result = await removeCollaborator(documentId, collaborator.id)
 
       if (result.success) {
-        setCollaborators(collaborators.filter(c => c.id !== collaborator.id))
-        onCollaboratorsChange?.(collaborators.filter(c => c.id !== collaborator.id))
+        const updated = collaborators.filter(c => c.id !== collaborator.id)
+        setCollaborators(updated)
+        onCollaboratorsChange?.(updated)
       } else {
         console.error('Failed to remove collaborator:', result.error)
       }
@@ -397,7 +437,7 @@ export function CollaborationSettings({
 
       if (result.success) {
         // Atualizar estado local
-        setCollaborators(collaborators.map(c => {
+        const updated = collaborators.map(c => {
           if (c.id === collaborator.id) {
             return {
               ...c,
@@ -405,7 +445,9 @@ export function CollaborationSettings({
             }
           }
           return c
-        }))
+        })
+        setCollaborators(updated)
+        onCollaboratorsChange?.(updated)
       } else {
         console.error('Failed to toggle collaborator status:', result.error)
       }
@@ -450,10 +492,10 @@ export function CollaborationSettings({
     return (
       <button
         onClick={() => handleToggleStatus(collaborator.id)}
-        className={`p-2 rounded-md transition-colors ${
+        className={`rounded-md p-1.5 transition-colors ${
           isActive
-            ? 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-            : 'text-green-600 hover:text-green-700 hover:bg-green-500/10'
+            ? 'text-muted-foreground hover:text-orange-500 hover:bg-orange-500/10'
+            : 'text-green-500 bg-green-500/10 hover:text-green-600 hover:bg-green-500/20'
         }`}
         title={isActive ? t('settings.collaboration.deactivate') : t('settings.collaboration.activate')}
         aria-label={isActive ? t('settings.collaboration.deactivate') : t('settings.collaboration.activate')}
@@ -466,32 +508,83 @@ export function CollaborationSettings({
   const handleEditCollaborator = (collaborator: Collaborator) => {
     setEditingCollaborator(collaborator)
     setEditRole(collaborator.role as 'viewer' | 'editor')
+    setEditCapabilities(collaborator.capabilities || DEFAULT_CAPABILITIES)
   }
 
-  const handleSaveEdit = () => {
-    if (!editingCollaborator) return
+  const handleSaveEdit = async () => {
+    if (!editingCollaborator || !documentId) return
 
-    setCollaborators(collaborators.map(c => {
+    const previous = collaborators.find((c) => c.id === editingCollaborator.id)
+    if (!previous) return
+
+    const roleChanged = previous.role !== editRole
+
+    if (roleChanged) {
+      const roleResult = await updateCollaboratorRole(documentId, editingCollaborator.id, editRole)
+      if (!roleResult.success) {
+        setInviteError(roleResult.error || 'Erro ao salvar permissões do colaborador')
+        return
+      }
+    }
+
+    const capabilityKeys: CollaboratorCapability[] = ['hooks', 'integrations', 'automations', 'invite', 'manage_permissions']
+    for (const capability of capabilityKeys) {
+      const previousValue = previous.capabilities?.[capability] === true
+      const nextValue = editCapabilities?.[capability] === true
+      if (previousValue === nextValue) continue
+
+      const capabilityResult = await updateCollaboratorCapability(
+        documentId,
+        editingCollaborator.id,
+        capability,
+        nextValue,
+      )
+
+      if (!capabilityResult.success) {
+        setInviteError(capabilityResult.error || 'Erro ao salvar capabilities do colaborador')
+        return
+      }
+    }
+
+    const updatedCollaborators = collaborators.map(c => {
       if (c.id === editingCollaborator.id) {
         return {
           ...c,
-          role: editRole
+          role: editRole,
+          capabilities: { ...editCapabilities },
         }
       }
       return c
-    }))
+    })
 
+    setCollaborators(updatedCollaborators)
+    onCollaboratorsChange?.(updatedCollaborators)
     setEditingCollaborator(null)
   }
 
   const closeEditCollaboratorModal = () => {
     setEditingCollaborator(null)
+    setEditCapabilities(DEFAULT_CAPABILITIES)
   }
 
   const closeConfirmModal = () => {
     setConfirmAction(null)
   }
 
+  const capabilityOptions: Array<{ key: CollaboratorCapability; label: string; description: string }> = [
+    { key: 'hooks', label: 'Hooks', description: 'Pode configurar hooks deste documento' },
+    { key: 'integrations', label: 'Integrações', description: 'Pode configurar integrações deste documento' },
+    { key: 'automations', label: 'Automações', description: 'Pode configurar automações deste documento' },
+    { key: 'invite', label: 'Convites', description: 'Pode convidar novos colaboradores' },
+    { key: 'manage_permissions', label: 'Permissões', description: 'Pode alterar papéis e capabilities' },
+  ]
+
+  const toggleEditCapability = (capability: CollaboratorCapability) => {
+    setEditCapabilities((prev) => ({
+      ...prev,
+      [capability]: !prev[capability],
+    }))
+  }
 
   const getRoleIcon = (role: PermissionRole) => {
     switch (role) {
@@ -526,44 +619,68 @@ export function CollaborationSettings({
     }
   }
 
-  const getAvatar = (collaborator: Collaborator) => {
+  const getAvatar = (collaborator: Collaborator, size: 'sm' | 'md' | 'lg' = 'md') => {
+    const sizeClasses = size === 'sm' ? 'w-8 h-8' : size === 'lg' ? 'w-12 h-12' : 'w-10 h-10'
+    const textSize = size === 'sm' ? 'text-xs' : size === 'lg' ? 'text-lg' : 'text-sm'
     if (collaborator.avatar_url) {
       return (
         <img
           src={collaborator.avatar_url}
           alt={collaborator.name || collaborator.email}
-          className="w-8 h-8 rounded-full object-cover"
+          className={`${sizeClasses} rounded-full object-cover ring-2 ring-border/30`}
         />
       )
     }
     const initial = (collaborator.name || collaborator.email)?.charAt(0).toUpperCase()
     return (
-      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-        <span className="text-sm font-medium text-primary">{initial}</span>
+      <div className={`${sizeClasses} rounded-full bg-primary/15 flex items-center justify-center ring-2 ring-primary/20`}>
+        <span className={`${textSize} font-semibold text-primary`}>{initial}</span>
       </div>
     )
   }
 
+  const getStatusAccentColor = (status: 'active' | 'pending' | 'inactive') => {
+    switch (status) {
+      case 'active': return 'bg-green-500'
+      case 'pending': return 'bg-yellow-500'
+      case 'inactive': return 'bg-gray-400 dark:bg-gray-600'
+    }
+  }
+
   return (
-    <div className="space-y-6">
-      {/* Collaborators Section */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Users className="w-5 h-5 text-muted-foreground" />
-            <h3 className="font-medium">{t('settings.collaboration.title')}</h3>
-            <span className="text-sm text-muted-foreground">
-              ({collaborators.length})
-            </span>
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Users className="w-5 h-5 text-primary" />
           </div>
-          <button
-            onClick={() => setShowInviteForm(!showInviteForm)}
-            className="px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors flex items-center gap-2"
-          >
-            <UserPlus className="w-4 h-4" />
-            {t('settings.collaboration.invite')}
-          </button>
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">{t('settings.collaboration.title')}</h3>
+            <p className="text-xs text-muted-foreground">
+              {collaborators.length} {collaborators.length === 1 ? 'membro' : 'membros'}
+            </p>
+          </div>
         </div>
+        <button
+          onClick={() => setShowInviteForm(!showInviteForm)}
+          disabled={!documentId}
+          className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+          title={!documentId ? 'Selecione um documento para convidar colaboradores' : t('settings.collaboration.invite')}
+        >
+          <UserPlus className="w-4 h-4" />
+          {t('settings.collaboration.invite')}
+        </button>
+      </div>
+
+      {!documentId && (
+        <div className="rounded-xl bg-muted/30 p-4 text-sm text-muted-foreground flex items-center gap-3">
+          <Info className="w-5 h-5 text-muted-foreground/60 flex-shrink-0" />
+          Selecione um documento ativo para convidar colaboradores.
+        </div>
+      )}
+
+      <div className="space-y-4">
 
         {/* Invite Form Modal */}
         {showInviteForm && (
@@ -572,89 +689,111 @@ export function CollaborationSettings({
             onRequestClose={closeInviteForm}
             closeOnBackdropClick={false}
             overlayClassName="z-[70]"
-            contentClassName="bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-6 animate-in fade-in slide-in-from-bottom-4 duration-200"
+            contentClassName="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200"
           >
-            <div>
-              {/* Header */}
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Mail className="w-5 h-5 text-primary" />
-                  <h3 className="text-lg font-semibold text-foreground">
-                    {t('settings.collaboration.inviteNew')}
+            <div className="flex flex-col max-h-[90vh]">
+              {/* Header with gradient - matching edit modal */}
+              <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent px-6 pt-6 pb-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                    Novo Colaborador
                   </h3>
+                  <button
+                    onClick={closeInviteForm}
+                    className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-background/50 transition-colors rounded-lg"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
                 </div>
-                <button
-                  onClick={closeInviteForm}
-                  className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors rounded-md"
-                >
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-primary/15 flex items-center justify-center ring-2 ring-primary/20">
+                    <UserPlus className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-base font-bold text-foreground">
+                      {t('settings.collaboration.inviteNew')}
+                    </p>
+                    <p className="text-sm text-muted-foreground">Envie um convite por e-mail</p>
+                  </div>
+                </div>
               </div>
 
-              {/* Error message */}
-              {inviteError && (
-                <div className="mb-4 p-3 rounded-md bg-destructive/15 text-destructive text-sm flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                  {inviteError}
-                </div>
-              )}
+              {/* Scrollable content */}
+              <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+                {/* Error message */}
+                {inviteError && (
+                  <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    {inviteError}
+                  </div>
+                )}
 
-              {/* Form */}
-              <div className="space-y-4">
+                {/* Email */}
                 <div>
-                  <label htmlFor="inviteEmail" className="block text-sm font-medium text-foreground mb-1.5">
+                  <label htmlFor="inviteEmail" className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">
                     {t('settings.collaboration.email')}
-                    <span className="text-red-500 ml-1">*</span>
                   </label>
                   <input
                     id="inviteEmail"
                     type="email"
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
-                    className="w-full p-2.5 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-sm"
+                    className="w-full p-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-sm"
                     placeholder={t('settings.collaboration.emailPlaceholder')}
                   />
                 </div>
 
+                {/* Role - matching edit modal style */}
                 <div>
-                  <label className="block text-sm font-semibold text-foreground mb-3">
-                    {t('settings.collaboration.permission')}
-                    <span className="text-red-500 ml-1">*</span>
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 block">
+                    Papel
                   </label>
-
-                  {/* Segmented Control - Permissões */}
-                  <div className="grid grid-cols-2 gap-2 p-1 bg-muted/30 rounded-xl">
+                  <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
                       onClick={() => setInviteRole('viewer')}
-                      className={`flex flex-col items-center gap-2 py-3 px-4 rounded-lg transition-all ${
+                      className={`relative flex items-center gap-3 p-3 rounded-xl border-2 transition-all ${
                         inviteRole === 'viewer'
-                          ? 'bg-primary text-primary-foreground shadow-md'
-                          : 'bg-card/50 text-muted-foreground hover:text-foreground hover:bg-card'
+                          ? 'border-primary bg-primary/5 shadow-sm'
+                          : 'border-border/50 hover:border-border hover:bg-muted/30'
                       }`}
                     >
-                      <Eye className={`w-5 h-5 ${inviteRole === 'viewer' ? 'text-primary-foreground' : 'text-gray-500'}`} />
-                      <span className="text-sm font-medium">{t('settings.collaboration.viewer')}</span>
+                      <Eye className={`w-5 h-5 flex-shrink-0 ${inviteRole === 'viewer' ? 'text-primary' : 'text-muted-foreground'}`} />
+                      <div className="text-left">
+                        <p className={`text-sm font-semibold ${inviteRole === 'viewer' ? 'text-primary' : 'text-foreground'}`}>
+                          {t('settings.collaboration.viewer')}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">Somente leitura</p>
+                      </div>
+                      {inviteRole === 'viewer' && (
+                        <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary" />
+                      )}
                     </button>
                     <button
                       type="button"
                       onClick={() => setInviteRole('editor')}
-                      className={`flex flex-col items-center gap-2 py-3 px-4 rounded-lg transition-all ${
+                      className={`relative flex items-center gap-3 p-3 rounded-xl border-2 transition-all ${
                         inviteRole === 'editor'
-                          ? 'bg-primary text-primary-foreground shadow-md'
-                          : 'bg-card/50 text-muted-foreground hover:text-foreground hover:bg-card'
+                          ? 'border-primary bg-primary/5 shadow-sm'
+                          : 'border-border/50 hover:border-border hover:bg-muted/30'
                       }`}
                     >
-                      <Edit3 className={`w-5 h-5 ${inviteRole === 'editor' ? 'text-primary-foreground' : 'text-blue-500'}`} />
-                      <span className="text-sm font-medium">{t('settings.collaboration.editor')}</span>
+                      <Edit3 className={`w-5 h-5 flex-shrink-0 ${inviteRole === 'editor' ? 'text-primary' : 'text-muted-foreground'}`} />
+                      <div className="text-left">
+                        <p className={`text-sm font-semibold ${inviteRole === 'editor' ? 'text-primary' : 'text-foreground'}`}>
+                          {t('settings.collaboration.editor')}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">Leitura e escrita</p>
+                      </div>
+                      {inviteRole === 'editor' && (
+                        <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary" />
+                      )}
                     </button>
                   </div>
-
-                  {/* Descrição da permissão selecionada */}
-                  <div className="mt-3 p-3 bg-muted/30 rounded-lg border border-border/50">
-                    <p className="text-xs text-muted-foreground flex items-start gap-2">
+                  <div className="mt-3 p-3 bg-muted/20 rounded-xl">
+                    <p className="text-[11px] text-muted-foreground flex items-start gap-2">
                       <Info className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
                       {getRoleDescription(inviteRole)}
                     </p>
@@ -662,104 +801,113 @@ export function CollaborationSettings({
                 </div>
               </div>
 
-              {/* Actions */}
-              <div className="flex gap-3 mt-6">
-                <button
-                  onClick={closeInviteForm}
-                  className="flex-1 px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors text-sm font-medium"
-                >
-                  {t('settings.actions.cancel')}
-                </button>
-                <button
-                  onClick={handleInvite}
-                  disabled={inviting}
-                  className="flex-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {inviting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      {t('settings.collaboration.sending')}
-                    </>
-                  ) : (
-                    <>
-                      <Mail className="w-4 h-4" />
-                      {t('settings.collaboration.sendInvite')}
-                    </>
-                  )}
-                </button>
+              {/* Footer - matching edit modal */}
+              <div className="border-t border-border/50 px-6 py-4 bg-card">
+                <div className="flex gap-3">
+                  <button
+                    onClick={closeInviteForm}
+                    className="flex-1 px-4 py-2.5 rounded-xl border border-border text-muted-foreground hover:bg-muted transition-colors text-sm font-medium"
+                  >
+                    {t('settings.actions.cancel')}
+                  </button>
+                  <button
+                    onClick={handleInvite}
+                    disabled={inviting}
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm"
+                  >
+                    {inviting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        {t('settings.collaboration.sending')}
+                      </>
+                    ) : (
+                      <>
+                        <Mail className="w-4 h-4" />
+                        {t('settings.collaboration.sendInvite')}
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           </BaseModal>
         )}
 
-        {/* Collaborators List */}
+        {/* Collaborators Grid */}
         {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          <div className="flex flex-col items-center justify-center py-12 gap-3">
+            <Loader2 className="w-7 h-7 animate-spin text-primary/60" />
+            <p className="text-xs text-muted-foreground">Carregando membros...</p>
           </div>
         ) : collaborators.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
-            <p>{t('settings.collaboration.noneYet')}</p>
-            <p className="text-sm">{t('settings.collaboration.invitePeople')}</p>
+          <div className="flex flex-col items-center justify-center py-12 gap-3 text-muted-foreground">
+            <div className="w-14 h-14 rounded-2xl bg-muted/40 flex items-center justify-center">
+              <Users className="w-7 h-7 opacity-40" />
+            </div>
+            <p className="text-sm font-medium">{t('settings.collaboration.noneYet')}</p>
+            <p className="text-xs">{t('settings.collaboration.invitePeople')}</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             {collaborators.map((collaborator) => (
               <div
                 key={collaborator.id}
-                onClick={() => handleEditCollaborator(collaborator)}
-                className="bg-card/50 rounded-xl border border-border/50 p-5 transition-all hover:border-primary/30 hover:bg-accent/30 flex flex-col gap-4 cursor-pointer"
+                className="group relative rounded-2xl border border-border/50 bg-card/60 hover:bg-card hover:border-border hover:shadow-md transition-all duration-200 p-4 flex flex-col"
               >
-                {/* Header: Nome + Status Badge */}
-                <div className="flex items-start justify-between gap-2">
-                  <h4 className="font-semibold text-base text-foreground">
+                {/* Status dot - top right */}
+                <div className={`absolute top-3 right-3 w-2.5 h-2.5 rounded-full ring-2 ring-card ${getStatusAccentColor(collaborator.status)}`} />
+
+                {/* Avatar centered */}
+                <div className="flex justify-center mb-3">
+                  {getAvatar(collaborator, 'lg')}
+                </div>
+
+                {/* Name + role */}
+                <div className="text-center min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-foreground">
                     {collaborator.name || collaborator.email.split('@')[0]}
-                  </h4>
-                  {getStatusBadge(collaborator.status)}
-                </div>
-
-                {/* Descrição: Email */}
-                <p className="text-sm text-muted-foreground -mt-2">
-                  {collaborator.email}
-                </p>
-
-                {/* Role Badge (estilo código) */}
-                <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-muted/50 w-fit font-mono text-xs">
-                  {getRoleIcon(collaborator.role)}
-                  <span className="text-muted-foreground">{getRoleLabel(collaborator.role)}</span>
-                </div>
-
-                {/* Footer: Avatar + Ações */}
-                <div className="flex items-center justify-between mt-auto pt-3 border-t border-border/30">
-                  {/* Avatar */}
-                  {collaborator.id === user?.id || collaborator.role === 'owner' ? (
-                    <div className="flex items-center gap-2">
-                      {getAvatar(collaborator)}
+                  </p>
+                  <p className="truncate text-[11px] text-muted-foreground mt-0.5">{collaborator.email}</p>
+                  <div className="flex items-center justify-center gap-1.5 mt-2">
+                    <div className="inline-flex items-center gap-1 text-[11px]">
+                      {getRoleIcon(collaborator.role)}
+                      <span className="text-muted-foreground font-medium">{getRoleLabel(collaborator.role)}</span>
                     </div>
-                  ) : (
-                    <div className="text-xs text-muted-foreground">
-                      {collaborator.status === 'pending' && t('settings.collaboration.pending')}
-                    </div>
+                  </div>
+                  {collaborator.id === user?.id && (
+                    <span className="inline-block mt-1.5 text-[9px] font-bold uppercase tracking-widest text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                      você
+                    </span>
                   )}
-
-                  {/* Botões de ação */}
-                  {collaborator.id !== user?.id && collaborator.role !== 'owner' && (
-                    <div className="flex items-center gap-1">
-                      {getActionButton(collaborator)}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRemoveCollaborator(collaborator.id);
-                        }}
-                        className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-md transition-colors"
-                        aria-label={t('settings.collaboration.removeCollaborator')}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+                  {collaborator.role === 'owner' && collaborator.id !== user?.id && (
+                    <span className="inline-block mt-1.5 text-[9px] font-bold uppercase tracking-widest text-yellow-600 dark:text-yellow-400 bg-yellow-500/10 px-2 py-0.5 rounded-full">
+                      owner
+                    </span>
                   )}
                 </div>
+
+                {/* Action buttons - bottom */}
+                {collaborator.id !== user?.id && collaborator.role !== 'owner' && (
+                  <div className="flex items-center justify-center gap-1 mt-3 pt-3 border-t border-border/30 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => handleEditCollaborator(collaborator)}
+                      className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                      aria-label={t('common.edit')}
+                      title={t('common.edit')}
+                    >
+                      <Edit3 className="h-3.5 w-3.5" />
+                    </button>
+                    {getActionButton(collaborator)}
+                    <button
+                      onClick={() => handleRemoveCollaborator(collaborator.id)}
+                      className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500"
+                      aria-label={t('settings.collaboration.removeCollaborator')}
+                      title={t('settings.collaboration.removeCollaborator')}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -773,88 +921,139 @@ export function CollaborationSettings({
           onRequestClose={closeEditCollaboratorModal}
           closeOnBackdropClick={false}
           overlayClassName="z-[70]"
-          contentClassName="bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-6 animate-in fade-in slide-in-from-bottom-4 duration-200"
+          contentClassName="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200"
         >
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-foreground">{t('settings.collaboration.editCollaborator')}</h3>
-              <button
-                onClick={closeEditCollaboratorModal}
-                className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors rounded-md"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+          <div className="flex flex-col max-h-[90vh]">
+            {/* Profile header card */}
+            <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent px-6 pt-6 pb-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                  Editar Colaborador
+                </h3>
+                <button
+                  onClick={closeEditCollaboratorModal}
+                  className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-background/50 transition-colors rounded-lg"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="flex items-center gap-4">
+                {getAvatar(editingCollaborator, 'lg')}
+                <div className="flex-1 min-w-0">
+                  <p className="text-base font-bold text-foreground truncate">
+                    {editingCollaborator.name || editingCollaborator.email.split('@')[0]}
+                  </p>
+                  <p className="text-sm text-muted-foreground truncate">{editingCollaborator.email}</p>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    {getStatusBadge(editingCollaborator.status)}
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div className="space-y-4">
+            {/* Scrollable content */}
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+              {/* Role Section */}
               <div>
-                <label className="block text-sm font-medium mb-1">{t('common.name')}</label>
-                <p className="text-sm text-muted-foreground">{editingCollaborator.name || editingCollaborator.email}</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">{t('common.email')}</label>
-                <p className="text-sm text-muted-foreground">{editingCollaborator.email}</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-foreground mb-3">
-                  {t('common.permission')}
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 block">
+                  Papel
                 </label>
-
-                {/* Segmented Control - Permissões */}
-                <div className="grid grid-cols-2 gap-2 p-1 bg-muted/30 rounded-xl">
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => setEditRole('viewer')}
-                    className={`flex flex-col items-center gap-2 py-3 px-4 rounded-lg transition-all ${
+                    className={`relative flex items-center gap-3 p-3 rounded-xl border-2 transition-all ${
                       editRole === 'viewer'
-                        ? 'bg-primary text-primary-foreground shadow-md'
-                        : 'bg-card/50 text-muted-foreground hover:text-foreground hover:bg-card'
+                        ? 'border-primary bg-primary/5 shadow-sm'
+                        : 'border-border/50 hover:border-border hover:bg-muted/30'
                     }`}
                   >
-                    <Eye className={`w-5 h-5 ${editRole === 'viewer' ? 'text-primary-foreground' : 'text-gray-500'}`} />
-                    <span className="text-sm font-medium">{t('settings.collaboration.viewer')}</span>
+                    <Eye className={`w-5 h-5 flex-shrink-0 ${editRole === 'viewer' ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <div className="text-left">
+                      <p className={`text-sm font-semibold ${editRole === 'viewer' ? 'text-primary' : 'text-foreground'}`}>
+                        {t('settings.collaboration.viewer')}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">Somente leitura</p>
+                    </div>
+                    {editRole === 'viewer' && (
+                      <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary" />
+                    )}
                   </button>
                   <button
                     type="button"
                     onClick={() => setEditRole('editor')}
-                    className={`flex flex-col items-center gap-2 py-3 px-4 rounded-lg transition-all ${
+                    className={`relative flex items-center gap-3 p-3 rounded-xl border-2 transition-all ${
                       editRole === 'editor'
-                        ? 'bg-primary text-primary-foreground shadow-md'
-                        : 'bg-card/50 text-muted-foreground hover:text-foreground hover:bg-card'
+                        ? 'border-primary bg-primary/5 shadow-sm'
+                        : 'border-border/50 hover:border-border hover:bg-muted/30'
                     }`}
                   >
-                    <Edit3 className={`w-5 h-5 ${editRole === 'editor' ? 'text-primary-foreground' : 'text-blue-500'}`} />
-                    <span className="text-sm font-medium">{t('settings.collaboration.editor')}</span>
+                    <Edit3 className={`w-5 h-5 flex-shrink-0 ${editRole === 'editor' ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <div className="text-left">
+                      <p className={`text-sm font-semibold ${editRole === 'editor' ? 'text-primary' : 'text-foreground'}`}>
+                        {t('settings.collaboration.editor')}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">Leitura e escrita</p>
+                    </div>
+                    {editRole === 'editor' && (
+                      <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary" />
+                    )}
                   </button>
                 </div>
+              </div>
 
-                {/* Descrição da permissão selecionada */}
-                <div className="mt-3 p-3 bg-muted/30 rounded-lg border border-border/50">
-                  <p className="text-xs text-muted-foreground flex items-start gap-2">
-                    <Info className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
-                    {getRoleDescription(editRole)}
-                  </p>
+              {/* Capabilities Section with Toggle Switches */}
+              <div>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 block">
+                  Permissões
+                </label>
+                <div className="space-y-1">
+                  {capabilityOptions.map((option) => (
+                    <button
+                      key={option.key}
+                      type="button"
+                      onClick={() => toggleEditCapability(option.key)}
+                      className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted/30 transition-colors group/cap"
+                    >
+                      <div className="flex-1 text-left">
+                        <p className="text-sm font-medium text-foreground">{option.label}</p>
+                        <p className="text-[11px] text-muted-foreground leading-tight">{option.description}</p>
+                      </div>
+                      {/* Toggle switch visual */}
+                      <div className={`relative w-10 h-6 rounded-full transition-colors flex-shrink-0 ${
+                        editCapabilities[option.key]
+                          ? 'bg-primary'
+                          : 'bg-muted-foreground/20'
+                      }`}>
+                        <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-all ${
+                          editCapabilities[option.key] ? 'left-[18px]' : 'left-0.5'
+                        }`} />
+                      </div>
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
 
-            <div className="flex gap-2 mt-6">
-              <button
-                onClick={handleSaveEdit}
-                className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-              >
-                {t('common.save')}
-              </button>
-              <button
-                onClick={closeEditCollaboratorModal}
-                className="flex-1 px-4 py-2 border border-input rounded-md hover:bg-accent transition-colors"
-              >
-                {t('common.cancel')}
-              </button>
+            {/* Footer */}
+            <div className="border-t border-border/50 px-6 py-4 bg-card">
+              <div className="flex gap-3">
+                <button
+                  onClick={closeEditCollaboratorModal}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-border text-muted-foreground hover:bg-muted transition-colors text-sm font-medium"
+                >
+                  {t('common.cancel')}
+                </button>
+                <button
+                  onClick={handleSaveEdit}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm font-medium flex items-center justify-center gap-2 shadow-sm"
+                >
+                  <Check className="w-4 h-4" />
+                  {t('common.save')}
+                </button>
+              </div>
             </div>
           </div>
         </BaseModal>
@@ -867,7 +1066,7 @@ export function CollaborationSettings({
           onRequestClose={closeConfirmModal}
           closeOnBackdropClick={false}
           overlayClassName="z-[70]"
-          contentClassName="bg-card border border-border rounded-xl shadow-xl w-full max-w-sm p-6 animate-in fade-in slide-in-from-bottom-4 duration-200"
+          contentClassName="bg-card border border-border rounded-xl shadow-xl w-full max-w-sm max-h-[90vh] overflow-y-auto p-6 animate-in fade-in slide-in-from-bottom-4 duration-200"
         >
           <div>
             {/* Header */}

@@ -47,7 +47,8 @@ export function useSharing(
   annotations: Annotation[],
   setMarkdown: (m: string) => void,
   setAnnotations: (a: Annotation[]) => void,
-  onSharedLoad?: () => void
+  onSharedLoad?: () => void,
+  enabled: boolean = true
 ): UseSharingResult {
   const [isSharedSession, setIsSharedSession] = useState(false);
   const [isLoadingShared, setIsLoadingShared] = useState(true);
@@ -62,6 +63,10 @@ export function useSharing(
 
   // Load shared state from URL hash
   const loadFromHash = useCallback(async () => {
+    if (!enabled) {
+      return false;
+    }
+
     try {
       const payload = await parseShareHash();
 
@@ -96,15 +101,22 @@ export function useSharing(
       console.error('Failed to load from share hash:', e);
       return false;
     }
-  }, [setMarkdown, setAnnotations, onSharedLoad]);
+  }, [setMarkdown, setAnnotations, onSharedLoad, enabled]);
 
   // Load from hash on mount
   useEffect(() => {
+    if (!enabled) {
+      setIsLoadingShared(false);
+      return;
+    }
+
     loadFromHash().finally(() => setIsLoadingShared(false));
-  }, []); // Only run on mount
+  }, [enabled]); // Only run on mount
 
   // Listen for hash changes (when user pastes a new share URL)
   useEffect(() => {
+    if (!enabled) return;
+
     const handleHashChange = () => {
       if (window.location.hash.length > 1) {
         loadFromHash();
@@ -113,10 +125,17 @@ export function useSharing(
 
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
-  }, [loadFromHash]);
+  }, [loadFromHash, enabled]);
 
   // Generate share URL when markdown or annotations change
   const refreshShareUrl = useCallback(async () => {
+    if (!enabled) {
+      setShareUrl('');
+      setShareUrlSize('');
+      setShareError(null);
+      return;
+    }
+
     try {
       const url = await generateShareUrl(markdown, annotations);
       setShareUrl(url);
@@ -128,7 +147,7 @@ export function useSharing(
       setShareUrlSize('');
       setShareError('Não foi possível gerar o link de compartilhamento.');
     }
-  }, [markdown, annotations]);
+  }, [markdown, annotations, enabled]);
 
   // Auto-refresh share URL when dependencies change
   useEffect(() => {

@@ -10,6 +10,17 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@obsidian-note-reviewer/security/auth'
 import { uploadAvatar, getAvatarUrl } from '@obsidian-note-reviewer/security/supabase/storage'
+import { supabase } from '@obsidian-note-reviewer/security/supabase/client'
+
+function isMissingPhoneColumnError(error: unknown): boolean {
+  const message = String((error as any)?.message || '').toLowerCase()
+  const details = String((error as any)?.details || '').toLowerCase()
+  return (
+    message.includes('column') && message.includes('phone')
+  ) || (
+    details.includes('column') && details.includes('phone')
+  )
+}
 
 export interface ProfileFormProps {
   /** Optional callback when profile is completed or skipped */
@@ -22,6 +33,7 @@ export function ProfileForm({ onComplete }: ProfileFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [displayName, setDisplayName] = useState('')
+  const [phone, setPhone] = useState('')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -30,11 +42,60 @@ export function ProfileForm({ onComplete }: ProfileFormProps) {
 
   // Load existing user data on mount
   useEffect(() => {
-    if (user) {
+    let cancelled = false
+
+    const loadProfile = async () => {
+      if (!user) return
+
       const existingName = user.user_metadata?.full_name || user.user_metadata?.name || ''
       setDisplayName(existingName)
+      const existingPhone = typeof user.user_metadata?.phone === 'string' ? user.user_metadata.phone : ''
+      setPhone(existingPhone)
       const existingAvatar = getAvatarUrl(user)
       setAvatarUrl(existingAvatar)
+
+      const { data, error } = await supabase
+        .from('users')
+        .select('name, phone, avatar_url')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      if (cancelled) return
+
+      if (!error && data) {
+        if (typeof data.name === 'string' && data.name.trim().length > 0) {
+          setDisplayName(data.name)
+        }
+        if (typeof data.phone === 'string') {
+          setPhone(data.phone)
+        }
+        if (typeof data.avatar_url === 'string' && data.avatar_url.trim().length > 0) {
+          setAvatarUrl(data.avatar_url)
+        }
+        return
+      }
+
+      if (!isMissingPhoneColumnError(error)) return
+
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from('users')
+        .select('name, avatar_url')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      if (cancelled || fallbackError || !fallbackData) return
+
+      if (typeof fallbackData.name === 'string' && fallbackData.name.trim().length > 0) {
+        setDisplayName(fallbackData.name)
+      }
+      if (typeof fallbackData.avatar_url === 'string' && fallbackData.avatar_url.trim().length > 0) {
+        setAvatarUrl(fallbackData.avatar_url)
+      }
+    }
+
+    loadProfile()
+    return () => {
+      cancelled = true
     }
   }, [user])
 
@@ -92,7 +153,39 @@ export function ProfileForm({ onComplete }: ProfileFormProps) {
       await updateProfile({
         full_name: displayName.trim(),
         avatar_url: avatarUrl,
+        phone: phone.trim(),
       })
+
+      if (user?.id) {
+        const withPhonePayload = {
+          name: displayName.trim(),
+          avatar_url: avatarUrl,
+          phone: phone.trim() || null,
+          updated_at: new Date().toISOString(),
+        }
+
+        const { error: updateError } = await supabase
+          .from('users')
+          .update(withPhonePayload)
+          .eq('id', user.id)
+
+        if (updateError && isMissingPhoneColumnError(updateError)) {
+          const { error: fallbackError } = await supabase
+            .from('users')
+            .update({
+              name: displayName.trim(),
+              avatar_url: avatarUrl,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', user.id)
+
+          if (fallbackError) {
+            throw fallbackError
+          }
+        } else if (updateError) {
+          throw updateError
+        }
+      }
 
       if (onComplete) {
         onComplete()
@@ -180,6 +273,20 @@ export function ProfileForm({ onComplete }: ProfileFormProps) {
           required
           className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-background"
           placeholder="Como você gostaria de ser chamado?"
+        />
+      </div>
+
+      <div>
+        <label htmlFor="phone" className="block text-sm font-medium mb-1">
+          Telefone <span className="text-muted-foreground">(opcional)</span>
+        </label>
+        <input
+          id="phone"
+          type="tel"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring bg-background"
+          placeholder="+55 11 99999-9999"
         />
       </div>
 

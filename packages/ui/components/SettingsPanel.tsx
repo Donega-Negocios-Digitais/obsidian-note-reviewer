@@ -72,6 +72,7 @@ interface SettingsPanelProps {
   onNoteTypeChange?: (tipo: TipoNota) => void;
   onNoteNameChange?: (name: string) => void;
   onNotePathChange?: (path: string) => void;
+  activeDocumentId?: string;
   initialTab?: CategoryTab;
   onTabChange?: (tab: CategoryTab) => void;
 }
@@ -229,6 +230,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   onClose,
   onIdentityChange,
   onNotePathChange,
+  activeDocumentId,
   initialTab,
   onTabChange,
 }) => {
@@ -575,19 +577,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         const savedLang = i18n.resolvedLanguage || i18n.language || localStorage.getItem('app-language') || 'pt-BR';
         setCurrentLanguage(savedLang);
 
-        // Load hooks from localStorage
-        const savedHooks = localStorage.getItem('obsreview-hooks');
-        if (savedHooks) {
-          try {
-            const parsedHooks = JSON.parse(savedHooks);
-            if (Array.isArray(parsedHooks)) {
-              setHooks(parsedHooks);
-            }
-          } catch (error) {
-            console.error('Failed to load hooks:', error);
-            // Keep default hooks if loading fails
-          }
-        }
       } catch (error) {
         console.error('Failed to load settings:', error);
         // Set defaults if loading fails
@@ -596,6 +585,118 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       }
     }
   }, [isOpen, onNotePathChange]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let cancelled = false;
+
+    const loadHooksConfig = async () => {
+      if (!activeDocumentId) {
+        const savedHooks = localStorage.getItem('obsreview-hooks');
+        if (!savedHooks) return;
+        try {
+          const parsedHooks = JSON.parse(savedHooks);
+          if (!cancelled && Array.isArray(parsedHooks)) {
+            setHooks(parsedHooks);
+          }
+        } catch (error) {
+          console.error('Failed to load hooks from local storage:', error);
+        }
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('document_feature_configs')
+        .select('config')
+        .eq('note_id', activeDocumentId)
+        .eq('feature_type', 'hooks')
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (error || !data?.config) {
+        const defaultHooks: Hook[] = [
+          {
+            id: 'plan-mode',
+            name: 'Plan Mode',
+            description: '',
+            trigger: '/plan',
+            enabled: true,
+          },
+          {
+            id: 'obsidian-note',
+            name: 'Create Obsidian Note',
+            description: '',
+            trigger: 'nota-obsidian',
+            enabled: true,
+          },
+        ];
+
+        const savedHooks = localStorage.getItem('obsreview-hooks');
+        if (savedHooks) {
+          try {
+            const parsedHooks = JSON.parse(savedHooks);
+            if (Array.isArray(parsedHooks)) {
+              const migratedHooks = parsedHooks as Hook[];
+              setHooks(migratedHooks);
+              if (activeDocumentId && user?.id) {
+                await supabase
+                  .from('document_feature_configs')
+                  .upsert({
+                    note_id: activeDocumentId,
+                    feature_type: 'hooks',
+                    config: { hooks: migratedHooks },
+                    updated_by: user.id,
+                    updated_at: new Date().toISOString(),
+                  }, { onConflict: 'note_id,feature_type' });
+              }
+              return;
+            }
+          } catch {
+            // ignore invalid saved hooks payload
+          }
+        }
+
+        setHooks(defaultHooks);
+        return;
+      }
+
+      const config = data.config as Record<string, unknown>;
+      if (Array.isArray(config.hooks)) {
+        setHooks(config.hooks as Hook[]);
+      }
+    };
+
+    loadHooksConfig();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, activeDocumentId, user?.id]);
+
+  const persistHooks = async (nextHooks: Hook[]) => {
+    setHooks(nextHooks);
+    localStorage.setItem('obsreview-hooks', JSON.stringify(nextHooks));
+
+    if (!activeDocumentId || !user?.id) {
+      return;
+    }
+
+    const { error } = await supabase
+      .from('document_feature_configs')
+      .upsert({
+        note_id: activeDocumentId,
+        feature_type: 'hooks',
+        config: { hooks: nextHooks },
+        updated_by: user.id,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'note_id,feature_type' });
+
+    if (error) {
+      console.error('Failed to persist hooks in cloud:', error);
+    }
+  };
 
   const handleRegenerateIdentity = () => {
     const oldIdentity = identity;
@@ -801,12 +902,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   };
 
   const toggleHook = (id: string) => {
-    setHooks(hooks.map(hook =>
-      hook.id === id ? { ...hook, enabled: !hook.enabled } : hook
-    ));
-    // TODO: Salvar no localStorage
     const enabledHooks = hooks.map(h => h.id === id ? { ...h, enabled: !h.enabled } : h);
-    localStorage.setItem('obsreview-hooks', JSON.stringify(enabledHooks));
+    persistHooks(enabledHooks);
   };
 
   const addHook = () => {
@@ -821,8 +918,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     };
 
     const updatedHooks = [...hooks, hook];
-    setHooks(updatedHooks);
-    localStorage.setItem('obsreview-hooks', JSON.stringify(updatedHooks));
+    persistHooks(updatedHooks);
 
     setShowAddHookModal(false);
     setNewHook({ name: '', description: '', trigger: '', enabled: true });
@@ -843,8 +939,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         ? { ...h, name: newHook.name, description: newHook.description, trigger: newHook.trigger, enabled: newHook.enabled }
         : h
     );
-    setHooks(updatedHooks);
-    localStorage.setItem('obsreview-hooks', JSON.stringify(updatedHooks));
+    persistHooks(updatedHooks);
     setShowAddHookModal(false);
     setEditingHook(null);
     setNewHook({ name: '', description: '', trigger: '', enabled: true });
@@ -946,8 +1041,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     // Hook customizado
     if (deleteTarget.tipo.startsWith('hook-')) {
       const updatedHooks = hooks.filter((hook) => hook.id !== deleteTarget.tipo);
-      setHooks(updatedHooks);
-      localStorage.setItem('obsreview-hooks', JSON.stringify(updatedHooks));
+      persistHooks(updatedHooks);
       showSuccessToast(t('settings.common.itemDeleted', { name: deleteTarget.label }));
       setShowDeleteConfirm(false);
       setDeleteTarget(null);
@@ -2508,10 +2602,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               <h4 className="text-base font-semibold text-foreground">{t('settings.collaboration.title')}</h4>
               <p className="text-sm text-muted-foreground/90">{t('settings.integrations.subtitle')}</p>
             </div>
-            <CollaborationSettings />
+            <CollaborationSettings documentId={activeDocumentId} />
           </div>
         ) : activeTab === 'integracoes' ? (
           <IntegrationsSettings
+            documentId={activeDocumentId}
             hooks={hooks}
             onTestConnection={async (type, target) => {
               if (type === 'telegram') {

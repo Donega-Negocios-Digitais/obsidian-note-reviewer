@@ -53,7 +53,7 @@ export function useDocumentPresence(documentId: string) {
         }
 
         // Enter the room
-        room = LiveblocksClient.enterRoom(`document:${documentId}`, {
+        room = LiveblocksClient.enterRoom(`doc-${documentId}`, {
           initialPresence: {
             ...currentUser,
             cursor: null,
@@ -76,7 +76,7 @@ export function useDocumentPresence(documentId: string) {
           })
 
           setRoomInfo({
-            id: `document:${documentId}`,
+            id: `doc-${documentId}`,
             documentId,
           })
         })
@@ -85,7 +85,7 @@ export function useDocumentPresence(documentId: string) {
         return () => {
           unsubscribe()
           if (room) {
-            LiveblocksClient.leaveRoom(`document:${documentId}`)
+            LiveblocksClient.leaveRoom(`doc-${documentId}`)
           }
         }
       } catch (error) {
@@ -137,7 +137,7 @@ export function useDocumentPresence(documentId: string) {
 
     const { client, room } = liveblocksRef.current
     room.unsubscribe()
-    client.leaveRoom(`document:${documentId}`)
+    client.leaveRoom(`doc-${documentId}`)
     liveblocksRef.current = null
 
     setPresence({

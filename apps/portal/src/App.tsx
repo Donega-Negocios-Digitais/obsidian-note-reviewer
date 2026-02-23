@@ -9,6 +9,7 @@ import { ForgotPasswordPage } from './pages/forgot-password'
 import { ResetPasswordPage } from './pages/reset-password'
 import { WelcomePage } from './pages/welcome'
 import { SharedDocument } from './pages/SharedDocument'
+import { AcceptInvite } from './pages/AcceptInvite'
 import { CollaborationPreview } from './pages/preview/CollaborationPreview'
 import { Pricing } from './pages/Pricing'
 import { CheckoutSuccess } from './pages/CheckoutSuccess'
@@ -134,7 +135,7 @@ export function App() {
             path="/editor"
             element={
               <ProtectedRoute>
-                <EditorApp />
+                <EditorApp runtime="portal" />
               </ProtectedRoute>
             }
           />
@@ -156,6 +157,7 @@ export function App() {
 
           {/* Public shared document route - no auth required */}
           <Route path="/shared/:slug" element={<SharedDocument />} />
+          <Route path="/invites/accept" element={<AcceptInvite />} />
 
           {/* Preview routes for UI/UX testing */}
           <Route path="/preview/collaboration" element={<CollaborationPreview />} />

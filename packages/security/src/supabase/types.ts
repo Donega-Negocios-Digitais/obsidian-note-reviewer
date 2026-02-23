@@ -58,6 +58,7 @@ export interface UserProfile {
   display_name: string
   avatar_url?: string
   full_name?: string
+  phone?: string
 }
 
 /**

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Edit, Check, AlertCircle, Power, Zap } from 'lucide-react';
+import { useAuth } from '@obsidian-note-reviewer/security/auth';
+import { supabase } from '@obsidian-note-reviewer/security/supabase/client';
 import { getIntegrations, saveIntegrations, type IntegrationConfig } from '../utils/storage';
 import { BaseModal } from './BaseModal';
 
@@ -40,6 +42,7 @@ interface Hook {
 }
 
 interface IntegrationsSettingsProps {
+  documentId?: string;
   hooks?: Hook[];
   onTestConnection?: (type: IntegrationConfig['type'], target: string) => Promise<{ success: boolean; error?: string }>;
 }
@@ -91,8 +94,9 @@ const DEFAULT_INTEGRATIONS: IntegrationConfig[] = [
   },
 ];
 
-export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({ hooks = [], onTestConnection }) => {
+export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({ documentId, hooks = [], onTestConnection }) => {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const [integrations, setIntegrations] = useState<IntegrationConfig[]>([]);
   const [configuring, setConfiguring] = useState<string | null>(null);
   const [configForm, setConfigForm] = useState<{
@@ -107,20 +111,96 @@ export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({ hook
     autoSendLink: false,
   });
   const [testStatus, setTestStatus] = useState<Record<string, 'success' | 'error' | null>>({});
+  const [remoteSyncing, setRemoteSyncing] = useState(false);
+
+  const resolveIntegrations = (raw: unknown): IntegrationConfig[] => {
+    if (!Array.isArray(raw)) return DEFAULT_INTEGRATIONS;
+
+    const parsed = raw as IntegrationConfig[];
+    return DEFAULT_INTEGRATIONS.map((def) => {
+      const existing = parsed.find((item) => item.id === def.id);
+      return existing || def;
+    });
+  };
+
+  const persistIntegrations = async (nextIntegrations: IntegrationConfig[]) => {
+    setIntegrations(nextIntegrations);
+
+    if (!documentId || !user?.id) {
+      saveIntegrations(nextIntegrations);
+      return;
+    }
+
+    setRemoteSyncing(true);
+    const { error } = await supabase
+      .from('document_feature_configs')
+      .upsert({
+        note_id: documentId,
+        feature_type: 'integrations',
+        config: { integrations: nextIntegrations },
+        updated_by: user.id,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'note_id,feature_type' });
+
+    if (error) {
+      console.warn('Failed to persist integrations in cloud config:', error);
+    }
+    setRemoteSyncing(false);
+  };
 
   useEffect(() => {
-    const saved = getIntegrations();
-    if (saved.length > 0) {
-      // Merge saved with defaults to ensure all integrations exist
-      const merged = DEFAULT_INTEGRATIONS.map(def => {
-        const existing = saved.find(s => s.id === def.id);
-        return existing || def;
-      });
-      setIntegrations(merged);
-    } else {
-      setIntegrations(DEFAULT_INTEGRATIONS);
-    }
-  }, []);
+    let cancelled = false;
+
+    const loadIntegrations = async () => {
+      if (!documentId) {
+        const saved = getIntegrations();
+        if (cancelled) return;
+        if (saved.length > 0) {
+          setIntegrations(resolveIntegrations(saved));
+        } else {
+          setIntegrations(DEFAULT_INTEGRATIONS);
+        }
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('document_feature_configs')
+        .select('config')
+        .eq('note_id', documentId)
+        .eq('feature_type', 'integrations')
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (error || !data?.config) {
+        const saved = getIntegrations();
+        const fallback = saved.length > 0 ? resolveIntegrations(saved) : DEFAULT_INTEGRATIONS;
+        setIntegrations(fallback);
+
+        if (saved.length > 0 && user?.id) {
+          await supabase
+            .from('document_feature_configs')
+            .upsert({
+              note_id: documentId,
+              feature_type: 'integrations',
+              config: { integrations: fallback },
+              updated_by: user.id,
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'note_id,feature_type' });
+        }
+        return;
+      }
+
+      const config = data.config as Record<string, unknown>;
+      setIntegrations(resolveIntegrations(config.integrations));
+    };
+
+    loadIntegrations();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [documentId]);
 
   useEffect(() => {
     if (configuring) {
@@ -159,8 +239,7 @@ export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({ hook
     const updated = integrations.map(i =>
       i.id === id ? { ...i, enabled: !i.enabled } : i
     );
-    setIntegrations(updated);
-    saveIntegrations(updated);
+    persistIntegrations(updated);
   };
 
   const openConfig = (integration: IntegrationConfig) => {
@@ -186,8 +265,7 @@ export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({ hook
         }
       } : i
     );
-    setIntegrations(updated);
-    saveIntegrations(updated);
+    persistIntegrations(updated);
     setConfiguring(null);
   };
 
@@ -252,6 +330,9 @@ export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({ hook
       <div className="mb-3">
         <h4 className="text-base font-semibold text-foreground">{t('settings.integrations.title')}</h4>
         <p className="text-sm text-muted-foreground/90">{t('settings.integrations.subtitle')}</p>
+        {documentId && remoteSyncing && (
+          <p className="mt-1 text-xs text-muted-foreground">Sincronizando integrações no documento...</p>
+        )}
       </div>
 
       {/* Integration cards */}
