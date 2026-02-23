@@ -6,6 +6,7 @@ type SupabaseClientLike = {
     getUser: () => Promise<{ data?: { user?: any | null } }>;
   };
   from: (table: string) => any;
+  rpc: (fn: string, args?: Record<string, unknown>) => Promise<{ data?: any; error?: any }>;
 };
 
 interface CloudProfile {
@@ -148,17 +149,42 @@ async function resolveCloudProfile(client: SupabaseClientLike): Promise<CloudPro
 
   let tableProfile: Record<string, unknown> | null = null;
   try {
-    const { data, error } = await client
-      .from('users')
-      .select('id, org_id, name, avatar_url')
-      .eq('id', user.id)
-      .single();
-
+    const { data, error } = await client.rpc('resolve_current_user_profile');
     if (!error) {
-      tableProfile = data as Record<string, unknown>;
+      const row = Array.isArray(data) ? data[0] : data;
+      if (row && typeof row === 'object') {
+        tableProfile = row as Record<string, unknown>;
+      }
+    }
+  } catch {
+    // fallback to table read
+  }
+
+  try {
+    if (!tableProfile) {
+      const { data, error } = await client
+        .from('users')
+        .select('id, org_id, name, avatar_url')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (!error && data) {
+        tableProfile = data as Record<string, unknown>;
+      }
     }
   } catch {
     // silent fallback to auth metadata
+  }
+
+  if (!tableProfile?.org_id) {
+    try {
+      const { data: orgIdData, error: orgIdError } = await client.rpc('current_user_org_id');
+      if (!orgIdError && typeof orgIdData === 'string' && orgIdData) {
+        tableProfile = { ...(tableProfile || {}), org_id: orgIdData };
+      }
+    } catch {
+      // no-op
+    }
   }
 
   const fallbackName =

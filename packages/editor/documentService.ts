@@ -24,6 +24,7 @@ type SupabaseClientLike = {
     getUser: () => Promise<{ data?: { user?: any | null } }>;
   };
   from: (table: string) => any;
+  rpc: (fn: string, args?: Record<string, unknown>) => Promise<{ data?: any; error?: any }>;
 };
 
 type NoteRow = {
@@ -68,6 +69,96 @@ type CommentRow = {
   parent_id: string | null;
   deleted_at?: string | null;
 };
+
+export interface ResolvedWorkspaceProfile {
+  orgId: string | null;
+  email: string | null;
+  name: string | null;
+  avatarUrl: string | null;
+}
+
+function normalizeResolvedWorkspaceProfile(data: unknown): ResolvedWorkspaceProfile | null {
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row || typeof row !== 'object') return null;
+
+  const record = row as Record<string, unknown>;
+  const orgId = typeof record.org_id === 'string' ? record.org_id : null;
+  const email = typeof record.email === 'string' ? record.email : null;
+  const name = typeof record.name === 'string' ? record.name : null;
+  const avatarUrl = typeof record.avatar_url === 'string' ? record.avatar_url : null;
+
+  return { orgId, email, name, avatarUrl };
+}
+
+export async function resolveCurrentWorkspaceProfile(
+  client: SupabaseClientLike,
+): Promise<ResolvedWorkspaceProfile | null> {
+  try {
+    const { data, error } = await client.rpc('resolve_current_user_profile');
+    if (!error) {
+      const normalized = normalizeResolvedWorkspaceProfile(data);
+      if (normalized) return normalized;
+    }
+  } catch {
+    // fallback below
+  }
+
+  const { data: authData } = await client.auth.getUser();
+  const user = authData?.user;
+  if (!user?.id) return null;
+
+  const { data: profile } = await client
+    .from('users')
+    .select('org_id,email,name,avatar_url')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  const fallbackOrgId = typeof profile?.org_id === 'string' ? profile.org_id : null;
+  const fallbackEmail =
+    typeof profile?.email === 'string'
+      ? profile.email
+      : (typeof user.email === 'string' ? user.email : null);
+  const fallbackName =
+    typeof profile?.name === 'string'
+      ? profile.name
+      : (typeof user.user_metadata?.full_name === 'string'
+        ? user.user_metadata.full_name
+        : (typeof user.user_metadata?.name === 'string' ? user.user_metadata.name : null));
+  const fallbackAvatar =
+    typeof profile?.avatar_url === 'string'
+      ? profile.avatar_url
+      : (typeof user.user_metadata?.avatar_url === 'string' ? user.user_metadata.avatar_url : null);
+
+  if (fallbackOrgId) {
+    return {
+      orgId: fallbackOrgId,
+      email: fallbackEmail,
+      name: fallbackName,
+      avatarUrl: fallbackAvatar,
+    };
+  }
+
+  try {
+    const { data: orgIdByRpc, error: orgIdError } = await client.rpc('current_user_org_id');
+    if (!orgIdError && typeof orgIdByRpc === 'string' && orgIdByRpc) {
+      return {
+        orgId: orgIdByRpc,
+        email: fallbackEmail,
+        name: fallbackName,
+        avatarUrl: fallbackAvatar,
+      };
+    }
+  } catch {
+    // no-op
+  }
+
+  return {
+    orgId: null,
+    email: fallbackEmail,
+    name: fallbackName,
+    avatarUrl: fallbackAvatar,
+  };
+}
 
 function toDocumentRecord(row: NoteRow): DocumentRecord {
   return {
@@ -292,13 +383,10 @@ export async function createDocument(
     throw new Error('Usuário não autenticado');
   }
 
-  const { data: profile, error: profileError } = await client
-    .from('users')
-    .select('org_id')
-    .eq('id', user.id)
-    .single();
+  const resolvedProfile = await resolveCurrentWorkspaceProfile(client);
+  const orgId = resolvedProfile?.orgId || null;
 
-  if (profileError || !profile?.org_id) {
+  if (!orgId) {
     throw new Error('Não foi possível resolver a organização do usuário');
   }
 
@@ -311,7 +399,7 @@ export async function createDocument(
   const { data: inserted, error } = await client
     .from('notes')
     .insert({
-      org_id: profile.org_id,
+      org_id: orgId,
       slug,
       title,
       content: markdown,

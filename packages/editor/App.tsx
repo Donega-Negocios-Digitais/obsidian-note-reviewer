@@ -49,6 +49,7 @@ import {
   permanentDeleteDocument,
   listTrashDocuments,
   purgeExpiredDocuments,
+  resolveCurrentWorkspaceProfile,
   type DocumentRecord,
   type TrashDocumentRecord,
 } from './documentService';
@@ -853,7 +854,7 @@ const App: React.FC<EditorAppProps> = ({
   useEffect(() => {
     let cancelled = false;
 
-    import('@obsidian-note-reviewer/ui/lib/supabase')
+    import('@obsidian-note-reviewer/security/supabase/client')
       .then((module) => {
         if (!cancelled) {
           setCloudClient(module.supabase);
@@ -959,17 +960,22 @@ const App: React.FC<EditorAppProps> = ({
         const authUser = authData?.user;
 
         if (authUser?.id) {
-          const { data: profileData } = await cloudClient
-            .from('users')
-            .select('id,name,avatar_url,email')
-            .eq('id', authUser.id)
-            .single();
+          const resolvedProfile = await resolveCurrentWorkspaceProfile(cloudClient);
+          const resolvedName =
+            resolvedProfile?.name ||
+            authUser.user_metadata?.full_name ||
+            authUser.user_metadata?.name ||
+            authUser.email ||
+            'Usuário';
+          const resolvedAvatar =
+            resolvedProfile?.avatarUrl ||
+            (authUser.user_metadata?.avatar_url as string | null) ||
+            null;
 
-          if (!cancelled && profileData) {
-            const resolvedName = profileData.name || authUser.user_metadata?.full_name || authUser.email || 'Usuário';
+          if (!cancelled) {
             setCloudProfile({ id: authUser.id, name: resolvedName });
             setCurrentAuthorName(resolvedName);
-            setCurrentAuthorAvatar(profileData.avatar_url || (authUser.user_metadata?.avatar_url as string | null) || null);
+            setCurrentAuthorAvatar(resolvedAvatar);
             updateDisplayName(resolvedName);
           }
         }
