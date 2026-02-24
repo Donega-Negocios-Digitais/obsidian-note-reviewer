@@ -115,6 +115,7 @@ export function CollaborationSettings({
   const [showInviteForm, setShowInviteForm] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState<'viewer' | 'editor'>('viewer')
+  const [inviteCapabilities, setInviteCapabilities] = useState<CollaboratorCapabilities>(DEFAULT_CAPABILITIES)
   const [inviting, setInviting] = useState(false)
   const [inviteError, setInviteError] = useState<string | null>(null)
   const [editingCollaborator, setEditingCollaborator] = useState<Collaborator | null>(null)
@@ -144,14 +145,16 @@ export function CollaborationSettings({
       localStorage.setItem('obsreview-showInviteForm', 'true')
       localStorage.setItem('obsreview-inviteEmail', inviteEmail)
       localStorage.setItem('obsreview-inviteRole', inviteRole)
+      localStorage.setItem('obsreview-inviteCapabilities', JSON.stringify(inviteCapabilities))
       localStorage.setItem('obsreview-inviteError', inviteError || '')
     } else {
       localStorage.removeItem('obsreview-showInviteForm')
       localStorage.removeItem('obsreview-inviteEmail')
       localStorage.removeItem('obsreview-inviteRole')
+      localStorage.removeItem('obsreview-inviteCapabilities')
       localStorage.removeItem('obsreview-inviteError')
     }
-  }, [showInviteForm, inviteEmail, inviteRole, inviteError])
+  }, [showInviteForm, inviteEmail, inviteRole, inviteCapabilities, inviteError])
 
   // Persistência do modal de edição
   useEffect(() => {
@@ -172,10 +175,15 @@ export function CollaborationSettings({
     if (savedShowInvite === 'true') {
       const savedEmail = localStorage.getItem('obsreview-inviteEmail') || ''
       const savedRole = (localStorage.getItem('obsreview-inviteRole') as 'viewer' | 'editor') || 'viewer'
+      const savedCapabilitiesRaw = localStorage.getItem('obsreview-inviteCapabilities')
+      const savedCapabilities = savedCapabilitiesRaw
+        ? { ...DEFAULT_CAPABILITIES, ...(JSON.parse(savedCapabilitiesRaw) as Partial<CollaboratorCapabilities>) }
+        : DEFAULT_CAPABILITIES
       const savedError = localStorage.getItem('obsreview-inviteError') || null
       setShowInviteForm(true)
       setInviteEmail(savedEmail)
       setInviteRole(savedRole)
+      setInviteCapabilities(savedCapabilities)
       setInviteError(savedError)
     }
 
@@ -207,6 +215,13 @@ export function CollaborationSettings({
   useEffect(() => {
     loadCollaborators()
   }, [documentId])
+
+  // Sync capabilities when role changes to viewer
+  useEffect(() => {
+    if (inviteRole === 'viewer') {
+      setInviteCapabilities(DEFAULT_CAPABILITIES)
+    }
+  }, [inviteRole])
 
 
   const loadCollaborators = async () => {
@@ -326,6 +341,7 @@ export function CollaborationSettings({
         documentId,
         emailToInvite,
         inviteRole,
+        inviteCapabilities,
       )
 
       if (result.success) {
@@ -361,6 +377,8 @@ export function CollaborationSettings({
   const closeInviteForm = () => {
     setShowInviteForm(false)
     setInviteEmail('')
+    setInviteRole('viewer')
+    setInviteCapabilities(DEFAULT_CAPABILITIES)
     setInviteError(null)
   }
 
@@ -586,6 +604,13 @@ export function CollaborationSettings({
     }))
   }
 
+  const toggleInviteCapability = (capability: CollaboratorCapability) => {
+    setInviteCapabilities((prev) => ({
+      ...prev,
+      [capability]: !prev[capability],
+    }))
+  }
+
   const getRoleIcon = (role: PermissionRole) => {
     switch (role) {
       case 'owner':
@@ -797,6 +822,38 @@ export function CollaborationSettings({
                       <Info className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
                       {getRoleDescription(inviteRole)}
                     </p>
+                  </div>
+                </div>
+
+                {/* Capabilities Section with Toggle Switches - same as edit modal */}
+                <div>
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 block">
+                    Permissões
+                  </label>
+                  <div className="space-y-1">
+                    {capabilityOptions.map((option) => (
+                      <button
+                        key={option.key}
+                        type="button"
+                        onClick={() => toggleInviteCapability(option.key)}
+                        className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted/30 transition-colors group/cap"
+                      >
+                        <div className="flex-1 text-left">
+                          <p className="text-sm font-medium text-foreground">{option.label}</p>
+                          <p className="text-[11px] text-muted-foreground leading-tight">{option.description}</p>
+                        </div>
+                        {/* Toggle switch visual */}
+                        <div className={`relative w-10 h-6 rounded-full transition-colors flex-shrink-0 ${
+                          inviteCapabilities[option.key]
+                            ? 'bg-primary'
+                            : 'bg-muted-foreground/20'
+                        }`}>
+                          <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-all ${
+                            inviteCapabilities[option.key] ? 'left-[18px]' : 'left-0.5'
+                          }`} />
+                        </div>
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>

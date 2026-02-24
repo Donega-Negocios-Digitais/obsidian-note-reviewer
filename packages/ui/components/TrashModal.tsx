@@ -59,38 +59,36 @@ export const TrashModal: React.FC<TrashModalProps> = ({
       isOpen={isOpen}
       onRequestClose={onClose}
       closeOnBackdropClick={false}
-      overlayClassName="z-[70]"
-      contentClassName="bg-card border border-border rounded-lg shadow-lg w-full max-w-lg max-h-[75vh] flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-200"
+      overlayClassName="z-[80]"
+      contentClassName="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-lg max-h-[75vh] flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-200"
     >
       <div className="h-full flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border">
-          <div className="flex items-start gap-2">
-            <div className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center text-muted-foreground flex-shrink-0 mt-0.5">
-              <LucideIcons.Trash2 className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-base font-semibold text-foreground">Lixeira</h3>
-                {totalItems > 0 && (
-                  <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-muted/50 text-muted-foreground">
-                    {totalItems}
-                  </span>
-                )}
+        {/* Header with gradient - matching other modals */}
+        <div className="bg-gradient-to-br from-destructive/10 via-destructive/5 to-transparent px-5 py-4 border-b border-border/40">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-destructive/15 flex items-center justify-center">
+                <LucideIcons.Trash2 className="w-5 h-5 text-destructive" />
               </div>
-              <p className="text-xs text-muted-foreground">
-                Itens deletados são removidos automaticamente após 30 dias
-              </p>
+              <div>
+                <h3 className="text-base font-semibold text-foreground">Lixeira</h3>
+                <p className="text-sm text-muted-foreground">Templates e Categorias</p>
+              </div>
             </div>
+            <button
+              onClick={onClose}
+              className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors rounded-lg"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors rounded-md"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          {totalItems > 0 && (
+            <p className="text-xs text-muted-foreground mt-2">
+              {totalItems} {totalItems === 1 ? 'item deletado' : 'itens deletados'} • Remoção automática em 30 dias
+            </p>
+          )}
         </div>
 
         <div className="px-4 pt-4 pb-2 border-b border-border bg-muted/10">

@@ -319,13 +319,25 @@ export async function getDocumentCollaborators(
 export async function inviteCollaborator(
   noteId: string,
   email: string,
-  role: 'editor' | 'viewer'
+  role: 'editor' | 'viewer',
+  capabilities?: CollaboratorCapabilities
 ): Promise<InviteResult> {
+  const defaultCapabilities: CollaboratorCapabilities = {
+    hooks: false,
+    integrations: false,
+    automations: false,
+    invite: false,
+    manage_permissions: false,
+  };
+
+  const inviteCapabilities = capabilities || defaultCapabilities;
+
   try {
     const { data, error } = await supabase.rpc('create_document_invite', {
       note_uuid: noteId,
       invite_email: email,
       invite_role: role,
+      invite_capabilities: inviteCapabilities,
     });
 
     if (error) {

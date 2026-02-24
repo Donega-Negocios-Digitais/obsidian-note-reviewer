@@ -9,11 +9,13 @@
 
 import React, { useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+import PhoneInput from 'react-phone-number-input'
 import { useAuth } from '@obsidian-note-reviewer/security/auth'
 import { supabase } from '@obsidian-note-reviewer/security/supabase/client'
 import { uploadAvatar, getAvatarUrl } from '@obsidian-note-reviewer/security/supabase/storage'
 import { updateDisplayName } from '../utils/identity'
 import { Camera, Key, User, Check, X, Mail, ImagePlus } from 'lucide-react'
+import 'react-phone-number-input/style.css'
 
 interface ProfileSettingsProps {
   onSave?: (payload?: {
@@ -90,6 +92,9 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
 
   // General state
   const [savedField, setSavedField] = useState<string | null>(null)
+
+  // Track if there are unsaved changes
+  const hasChanges = displayName.trim() !== lastSavedDisplayName.trim() || phone.trim() !== (lastSavedPhone || '').trim()
 
   // Load existing user data on mount
   useEffect(() => {
@@ -267,7 +272,7 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
 
     try {
       const nextName = displayName.trim()
-      const nextPhone = phone.trim()
+      const nextPhone = phone ? phone.replace(/\D/g, '') : ''
       const previousName =
         (lastSavedDisplayName || user.user_metadata?.full_name || user.user_metadata?.name || '').trim()
 
@@ -407,6 +412,51 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
   const displayAvatar = previewUrl || avatarUrl
 
   return (
+    <>
+      <style>{`
+        .phone-input-container {
+          width: 100%;
+        }
+        .phone-input {
+          display: flex;
+          align-items: center;
+          width: 100%;
+          background: var(--background);
+          border: 1px solid var(--input);
+          border-radius: 0.5rem;
+          overflow: hidden;
+          transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .phone-input:focus-within {
+          border-color: hsl(var(--ring));
+          box-shadow: 0 0 0 2px hsl(var(--ring) / 0.2);
+        }
+        .phone-country-select {
+          display: flex;
+          align-items: center;
+          padding: 0 0.5rem;
+          background: transparent;
+          border: none;
+          cursor: pointer;
+          color: var(--foreground);
+        }
+        .phone-country-select:hover {
+          background: hsl(var(--muted) / 0.5);
+        }
+        .phone-input-field {
+          flex: 1;
+          width: 100%;
+          background: transparent;
+          border: none;
+          padding: 0.5rem 0.75rem;
+          font-size: 0.875rem;
+          color: var(--foreground);
+          outline: none;
+        }
+        .phone-input-field::placeholder {
+          color: hsl(var(--muted-foreground) / 0.5);
+        }
+      `}</style>
     <div className="space-y-6">
 
       {/* ── Two-column: Conta | Segurança ────────────── */}
@@ -490,30 +540,15 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
                 {t('settings.profile.displayName')}
               </label>
               <p className="text-[11px] text-muted-foreground/70 mb-2">{t('settings.profile.publicNameHint')}</p>
-              <div className="flex items-center gap-2">
-                <input
-                  id="displayName"
-                  type="text"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSaveProfile()}
-                  className="flex-1 text-sm bg-background border border-input rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground/50"
-                  placeholder={t('settings.profile.displayNamePlaceholder')}
-                />
-                <button
-                  onClick={handleSaveProfile}
-                  disabled={savingProfile || uploading}
-                  className="flex-shrink-0 px-3 py-2 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-40 flex items-center gap-1.5 min-w-[80px] justify-center"
-                >
-                  {savingProfile ? (
-                    <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-primary-foreground" />
-                  ) : savedField === 'profile' ? (
-                    <><Check className="w-3.5 h-3.5" /> {t('settings.profile.saved')}</>
-                  ) : (
-                    t('settings.profile.saveName')
-                  )}
-                </button>
-              </div>
+              <input
+                id="displayName"
+                type="text"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && hasChanges && handleSaveProfile()}
+                className="w-full text-sm bg-background border border-input rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground/50"
+                placeholder={t('settings.profile.displayNamePlaceholder')}
+              />
             </div>
 
             <div className="px-5 pb-4">
@@ -523,27 +558,30 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
               <p className="text-[11px] text-muted-foreground/70 mb-2">
                 Opcional. Usado para integrações e automações futuras.
               </p>
-              <input
+              <PhoneInput
                 id="phone"
-                type="tel"
+                international
+                defaultCountry="BR"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSaveProfile()}
-                className="w-full text-sm bg-background border border-input rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground/50"
-                placeholder="+55 11 99999-9999"
+                onChange={(value) => setPhone(value || '')}
+                onKeyDown={(e) => e.key === 'Enter' && hasChanges && handleSaveProfile()}
+                className="phone-input"
+                containerClassName="phone-input-container w-full"
+                countrySelectClassName="phone-country-select"
+                inputClassName="phone-input-field"
               />
-              <div className="mt-2 flex items-center gap-2">
+              <div className="mt-3 flex items-center justify-end">
                 <button
-                  onClick={handleSavePhone}
-                  disabled={savingProfile || uploading || phone.trim() === (lastSavedPhone || '').trim()}
-                  className="flex-shrink-0 px-3 py-2 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-40 flex items-center gap-1.5 min-w-[120px] justify-center"
+                  onClick={handleSaveProfile}
+                  disabled={!hasChanges || savingProfile || uploading}
+                  className="flex-shrink-0 px-4 py-2 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {savingProfile ? (
-                    <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-primary-foreground" />
-                  ) : savedField === 'phone' ? (
-                    <><Check className="w-3.5 h-3.5" /> Salvo</>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground" />
+                  ) : savedField === 'profile' ? (
+                    <><Check className="w-4 h-4" /> Salvo</>
                   ) : (
-                    'Salvar telefone'
+                    'Salvar'
                   )}
                 </button>
               </div>
@@ -691,5 +729,6 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
       )}
 
     </div>
+    </>
   )
 }
