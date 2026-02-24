@@ -25,6 +25,7 @@
     "react-mentions": "^4.4.10",
     "react-phone-number-input": "^3.4.16",
     "react-syntax-highlighter": "^16.1.0",
+    "rehype-sanitize": "^6.0.0",
     "remark-gfm": "^4.0.1",
     "unique-username-generator": "^1.5.1",
     "web-highlighter": "^0.7.4"

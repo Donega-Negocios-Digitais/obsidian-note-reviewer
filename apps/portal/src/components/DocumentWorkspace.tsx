@@ -12,7 +12,7 @@ import { useResponsive } from '../hooks/useResponsive';
 import { useCrossReferences } from '../hooks/useCrossReferences';
 import { CrossReferencePanel, ReferenceCountBadge } from './CrossReferencePanel';
 import { BreakpointPreview } from './BreakpointPreview';
-import { MarkdownRenderer } from '@obsidian-note-reviewer/ui/markdown';
+import { MarkdownRenderer } from '@obsidian-note-reviewer/ui/components/MarkdownRenderer';
 import { AnnotationExport } from '@obsidian-note-reviewer/ui/annotation';
 import type { Annotation } from '@obsidian-note-reviewer/ui/types';
 import { ShareButton } from '@/components/ShareButton';

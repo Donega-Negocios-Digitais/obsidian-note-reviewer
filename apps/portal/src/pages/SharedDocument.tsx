@@ -9,7 +9,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@obsidian-note-reviewer/security/auth';
-import { MarkdownRenderer } from '@obsidian-note-reviewer/ui/markdown';
+import { MarkdownRenderer } from '@obsidian-note-reviewer/ui/components/MarkdownRenderer';
 import { GuestBanner } from '../components/GuestBanner';
 import { getDocumentBySlug } from '@/lib/supabase/sharing';
 
