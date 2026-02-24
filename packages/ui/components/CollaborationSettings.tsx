@@ -114,7 +114,7 @@ export function CollaborationSettings({
   const [loading, setLoading] = useState(true)
   const [showInviteForm, setShowInviteForm] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
-  const [inviteRole, setInviteRole] = useState<'viewer' | 'editor'>('viewer')
+  const [inviteRole, setInviteRole] = useState<'viewer' | 'editor'>('editor')
   const [inviteCapabilities, setInviteCapabilities] = useState<CollaboratorCapabilities>(DEFAULT_CAPABILITIES)
   const [inviting, setInviting] = useState(false)
   const [inviteError, setInviteError] = useState<string | null>(null)
@@ -174,7 +174,7 @@ export function CollaborationSettings({
     const savedShowInvite = localStorage.getItem('obsreview-showInviteForm')
     if (savedShowInvite === 'true') {
       const savedEmail = localStorage.getItem('obsreview-inviteEmail') || ''
-      const savedRole = (localStorage.getItem('obsreview-inviteRole') as 'viewer' | 'editor') || 'viewer'
+      const savedRole = (localStorage.getItem('obsreview-inviteRole') as 'viewer' | 'editor') || 'editor'
       const savedCapabilitiesRaw = localStorage.getItem('obsreview-inviteCapabilities')
       const savedCapabilities = savedCapabilitiesRaw
         ? { ...DEFAULT_CAPABILITIES, ...(JSON.parse(savedCapabilitiesRaw) as Partial<CollaboratorCapabilities>) }
@@ -304,26 +304,48 @@ export function CollaborationSettings({
     }
   }
 
+  const parseInviteEmails = (rawValue: string): string[] => {
+    return rawValue
+      .split(/[\n,;]+/)
+      .map((entry) => entry.trim())
+      .filter((entry) => entry.length > 0)
+  }
+
+  const dedupeInviteEmails = (emails: string[]): string[] => {
+    const seen = new Set<string>()
+    const unique: string[] = []
+    for (const email of emails) {
+      const normalized = email.toLowerCase()
+      if (seen.has(normalized)) continue
+      seen.add(normalized)
+      unique.push(email)
+    }
+    return unique
+  }
+
   const handleInvite = async () => {
-    if (!inviteEmail.trim()) {
-      setInviteError(t('settings.collaboration.email') + ' é obrigatório')
+    const parsedEmails = dedupeInviteEmails(parseInviteEmails(inviteEmail))
+    if (parsedEmails.length === 0) {
+      setInviteError(`${t('settings.collaboration.email')} é obrigatório`)
       return
     }
-
-    const emailToInvite = inviteEmail.trim()
 
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(emailToInvite)) {
-      setInviteError(t('settings.collaboration.email') + ' inválido')
+    const invalidEmails = parsedEmails.filter((email) => !emailRegex.test(email))
+    if (invalidEmails.length > 0) {
+      const preview = invalidEmails.slice(0, 3).join(', ')
+      const suffix = invalidEmails.length > 3 ? ` +${invalidEmails.length - 3}` : ''
+      setInviteError(`Emails inválidos: ${preview}${suffix}`)
       return
     }
 
-    // Check if user is already a collaborator
-    const normalizedInviteEmail = emailToInvite.toLowerCase()
-    const exists = collaborators.some(c => c.email.trim().toLowerCase() === normalizedInviteEmail)
-    if (exists) {
-      setInviteError('Este usuário já é um colaborador')
+    const collaboratorEmails = new Set(collaborators.map((c) => c.email.trim().toLowerCase()))
+    const existingEmails = parsedEmails.filter((email) => collaboratorEmails.has(email.toLowerCase()))
+    const emailsToInvite = parsedEmails.filter((email) => !collaboratorEmails.has(email.toLowerCase()))
+
+    if (emailsToInvite.length === 0) {
+      setInviteError('Todos os emails informados já são colaboradores.')
       return
     }
 
@@ -337,35 +359,71 @@ export function CollaborationSettings({
         return
       }
 
-      const result = await inviteCollaborator(
-        documentId,
-        emailToInvite,
-        inviteRole,
-        inviteCapabilities,
-      )
+      const successfulEmails: string[] = []
+      const failedInvites: Array<{ email: string; reason: string }> = []
 
-      if (result.success) {
-        const inviteUrl = result.token && typeof window !== 'undefined'
-          ? `${window.location.origin}/invites/accept?token=${encodeURIComponent(result.token)}`
-          : (typeof window !== 'undefined' ? window.location.href : '')
+      for (const emailToInvite of emailsToInvite) {
+        const result = await inviteCollaborator(
+          documentId,
+          emailToInvite,
+          inviteRole,
+          inviteCapabilities,
+        )
 
-        // Send invite email via edge function (non-blocking).
-        sendInviteEmail({
-          email: emailToInvite,
-          role: inviteRole,
-          inviterName: user?.user_metadata?.full_name || user?.email || 'Alguém',
-          documentTitle: documentId ? `Documento ${documentId.slice(0, 8)}` : 'Documento',
-          inviteUrl,
-        }).catch(err => console.warn('Email invite failed (non-critical):', err))
+        if (result.success) {
+          successfulEmails.push(emailToInvite)
 
-        // Show success toast and close modal
-        setSuccessToast(`Convite enviado para ${emailToInvite}!`)
+          const inviteUrl = result.token && typeof window !== 'undefined'
+            ? `${window.location.origin}/invites/accept?token=${encodeURIComponent(result.token)}`
+            : (typeof window !== 'undefined' ? window.location.href : '')
+
+          // Send invite email via edge function (non-blocking).
+          sendInviteEmail({
+            email: emailToInvite,
+            role: inviteRole,
+            inviterName: user?.user_metadata?.full_name || user?.email || 'Alguém',
+            documentTitle: documentId ? `Documento ${documentId.slice(0, 8)}` : 'Documento',
+            inviteUrl,
+          }).catch(err => console.warn('Email invite failed (non-critical):', err))
+        } else {
+          failedInvites.push({
+            email: emailToInvite,
+            reason: result.error || 'Erro ao enviar convite',
+          })
+        }
+      }
+
+      if (successfulEmails.length > 0) {
+        setSuccessToast(
+          successfulEmails.length === 1
+            ? `Convite enviado para ${successfulEmails[0]}!`
+            : `${successfulEmails.length} convites enviados com sucesso!`,
+        )
+        await loadCollaborators()
+      }
+
+      if (failedInvites.length === 0 && existingEmails.length === 0) {
         setInviteEmail('')
         setShowInviteForm(false)
-        // Reload collaborators to show the new one
-        await loadCollaborators()
-      } else {
-        setInviteError(result.error || 'Erro ao enviar convite')
+      } else if (failedInvites.length > 0) {
+        const preview = failedInvites
+          .slice(0, 3)
+          .map((invite) => `${invite.email} (${invite.reason})`)
+          .join(', ')
+        const suffix = failedInvites.length > 3 ? ` +${failedInvites.length - 3}` : ''
+        setInviteError(`Falha em ${failedInvites.length} convite(s): ${preview}${suffix}`)
+
+        const remainingEmails = failedInvites.map((invite) => invite.email)
+        setInviteEmail(remainingEmails.join('\n'))
+      }
+
+      if (existingEmails.length > 0) {
+        const preview = existingEmails.slice(0, 3).join(', ')
+        const suffix = existingEmails.length > 3 ? ` +${existingEmails.length - 3}` : ''
+        setInviteError((current) => {
+          const base = current ? `${current} ` : ''
+          return `${base}Já colaboradores: ${preview}${suffix}`.trim()
+        })
       }
     } catch (error: any) {
       setInviteError(error.message || 'Erro ao enviar convite')
@@ -377,7 +435,7 @@ export function CollaborationSettings({
   const closeInviteForm = () => {
     setShowInviteForm(false)
     setInviteEmail('')
-    setInviteRole('viewer')
+    setInviteRole('editor')
     setInviteCapabilities(DEFAULT_CAPABILITIES)
     setInviteError(null)
   }
@@ -760,14 +818,16 @@ export function CollaborationSettings({
                   <label htmlFor="inviteEmail" className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">
                     {t('settings.collaboration.email')}
                   </label>
-                  <input
+                  <textarea
                     id="inviteEmail"
-                    type="email"
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
-                    className="w-full p-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-sm"
-                    placeholder={t('settings.collaboration.emailPlaceholder')}
+                    className="w-full min-h-[96px] p-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-sm resize-y"
+                    placeholder={`${t('settings.collaboration.emailPlaceholder')}\nuser2@example.com`}
                   />
+                  <p className="mt-2 text-[11px] text-muted-foreground">
+                    Separe múltiplos emails com vírgula, ponto e vírgula ou quebra de linha.
+                  </p>
                 </div>
 
                 {/* Role - matching edit modal style */}
@@ -938,7 +998,7 @@ export function CollaborationSettings({
                   )}
                   {collaborator.role === 'owner' && collaborator.id !== user?.id && (
                     <span className="inline-block mt-1.5 text-[9px] font-bold uppercase tracking-widest text-yellow-600 dark:text-yellow-400 bg-yellow-500/10 px-2 py-0.5 rounded-full">
-                      owner
+                      {t('settings.collaboration.owner')}
                     </span>
                   )}
                 </div>

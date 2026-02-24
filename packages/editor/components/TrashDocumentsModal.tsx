@@ -144,7 +144,7 @@ export function TrashDocumentsModal({
 
   const modal = (
     <div
-      className="fixed inset-0 z-[310] flex items-start justify-center"
+      className="fixed inset-0 z-[500] flex items-start justify-center"
       onClick={onClose}
       style={{ backgroundColor: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
     >
