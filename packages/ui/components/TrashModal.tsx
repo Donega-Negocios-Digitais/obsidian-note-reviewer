@@ -59,7 +59,7 @@ export const TrashModal: React.FC<TrashModalProps> = ({
       isOpen={isOpen}
       onRequestClose={onClose}
       closeOnBackdropClick={false}
-      overlayClassName="z-[80]"
+      overlayClassName="z-[1000]"
       contentClassName="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-lg max-h-[75vh] flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-200"
     >
       <div className="h-full flex flex-col">

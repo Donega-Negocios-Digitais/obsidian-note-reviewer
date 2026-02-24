@@ -6,7 +6,7 @@
  */
 
 import { supabase } from "@obsidian-note-reviewer/security/supabase/client";
-import { generateSlug, isSlugValid, getShareUrl } from "@/lib/slugGenerator";
+import { generateSlug, getShareUrl } from "@/lib/slugGenerator";
 
 /**
  * Shared document result with document data
@@ -68,14 +68,15 @@ export async function createSharedLink(documentId: string): Promise<{ slug: stri
  * Get document by slug (for SharedDocument page)
  */
 export async function getDocumentBySlug(slug: string): Promise<SharedDocumentResult> {
-  if (!isSlugValid(slug)) {
+  const normalizedSlug = slug.trim();
+  if (!normalizedSlug) {
     throw new Error("Invalid slug format");
   }
 
   const { data: note, error } = await supabase
     .from("notes")
     .select("id, title, content, is_public, share_hash, created_at")
-    .eq("share_hash", slug)
+    .eq("share_hash", normalizedSlug)
     .eq("is_public", true)
     .maybeSingle();
 
@@ -92,7 +93,7 @@ export async function getDocumentBySlug(slug: string): Promise<SharedDocumentRes
   return {
     id: note.id,
     document_id: note.id,
-    slug: note.share_hash || slug,
+    slug: note.share_hash || normalizedSlug,
     is_public: note.is_public,
     created_at: note.created_at,
     document: {

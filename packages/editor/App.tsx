@@ -2213,6 +2213,19 @@ const App: React.FC<EditorAppProps> = ({
               </button>
             )}
 
+            {cloudWorkspaceEnabled && activeDocumentId && (
+              <button
+                onClick={handleOpenCollaborate}
+                className="p-1.5 rounded-md text-xs font-medium text-primary hover:text-primary hover:bg-primary/10 transition-all"
+                title={t('app.collaborate')}
+                aria-label={t('app.collaborate')}
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a4 4 0 00-5-3.87M17 20H7m10 0v-2c0-.653-.126-1.277-.355-1.848M7 20H2v-2a4 4 0 015-3.87M7 20v-2c0-.653.126-1.277.355-1.848m0 0a5 5 0 019.29 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </button>
+            )}
+
             {/* Compartilhar (ex-Exportar) */}
             <button
               onClick={() => setShowExport(true)}
@@ -2224,19 +2237,6 @@ const App: React.FC<EditorAppProps> = ({
               </svg>
               <span className="hidden md:inline">{t('app.share')}</span>
             </button>
-
-            {cloudWorkspaceEnabled && activeDocumentId && (
-              <button
-                onClick={handleOpenCollaborate}
-                className="p-1.5 md:px-2.5 md:py-1 rounded-md text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors flex items-center gap-1.5"
-                title={t('app.collaborate')}
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a4 4 0 00-5-3.87M17 20H7m10 0v-2c0-.653-.126-1.277-.355-1.848M7 20H2v-2a4 4 0 015-3.87M7 20v-2c0-.653.126-1.277.355-1.848m0 0a5 5 0 019.29 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-                <span className="hidden md:inline">{t('app.collaborate')}</span>
-              </button>
-            )}
 
             {/* Toggle Painel */}
             <button
@@ -2398,6 +2398,19 @@ const App: React.FC<EditorAppProps> = ({
                   </button>
                 )}
 
+                {cloudWorkspaceEnabled && activeDocumentId && (
+                  <button
+                    onClick={handleOpenCollaborate}
+                    className="p-1.5 rounded-md text-xs font-medium text-primary hover:text-primary hover:bg-primary/10 transition-all"
+                    title={t('app.collaborate')}
+                    aria-label={t('app.collaborate')}
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a4 4 0 00-5-3.87M17 20H7m10 0v-2c0-.653-.126-1.277-.355-1.848M7 20H2v-2a4 4 0 015-3.87M7 20v-2c0-.653.126-1.277.355-1.848m0 0a5 5 0 019.29 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                  </button>
+                )}
+
                 {/* Compartilhar (ex-Exportar) */}
                 <button
                   onClick={() => setShowExport(true)}
@@ -2409,19 +2422,6 @@ const App: React.FC<EditorAppProps> = ({
                   </svg>
                   <span className="hidden md:inline">{t('app.share')}</span>
                 </button>
-
-                {cloudWorkspaceEnabled && activeDocumentId && (
-                  <button
-                    onClick={handleOpenCollaborate}
-                    className="p-1.5 md:px-2.5 md:py-1 rounded-md text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors flex items-center gap-1.5"
-                    title={t('app.collaborate')}
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a4 4 0 00-5-3.87M17 20H7m10 0v-2c0-.653-.126-1.277-.355-1.848M7 20H2v-2a4 4 0 015-3.87M7 20v-2c0-.653.126-1.277.355-1.848m0 0a5 5 0 019.29 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                    <span className="hidden md:inline">{t('app.collaborate')}</span>
-                  </button>
-                )}
 
                 {/* Toggle painel de anotações */}
                 <button
