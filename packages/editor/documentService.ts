@@ -77,6 +77,8 @@ export interface ResolvedWorkspaceProfile {
   avatarUrl: string | null;
 }
 
+const PROFILE_SYNC_ERROR_MESSAGE = 'Não foi possível sincronizar seu perfil nesta conta. Faça logout e login novamente e tente criar o documento.';
+
 function normalizeResolvedWorkspaceProfile(data: unknown): ResolvedWorkspaceProfile | null {
   const row = Array.isArray(data) ? data[0] : data;
   if (!row || typeof row !== 'object') return null;
@@ -88,6 +90,20 @@ function normalizeResolvedWorkspaceProfile(data: unknown): ResolvedWorkspaceProf
   const avatarUrl = typeof record.avatar_url === 'string' ? record.avatar_url : null;
 
   return { orgId, email, name, avatarUrl };
+}
+
+function isNotesCreatedByForeignKeyError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+
+  const supabaseError = error as { code?: string; message?: string; details?: string };
+  const message = String(supabaseError.message || '').toLowerCase();
+  const details = String(supabaseError.details || '').toLowerCase();
+
+  if (supabaseError.code === '23503' && (message.includes('notes_created_by_fkey') || details.includes('notes_created_by_fkey'))) {
+    return true;
+  }
+
+  return message.includes('notes_created_by_fkey') || details.includes('notes_created_by_fkey');
 }
 
 export async function resolveCurrentWorkspaceProfile(
@@ -164,6 +180,85 @@ export async function resolveCurrentWorkspaceProfile(
     name: fallbackName,
     avatarUrl: fallbackAvatar,
   };
+}
+
+async function resolveCurrentWorkspaceProfileForWrite(
+  client: SupabaseClientLike,
+): Promise<ResolvedWorkspaceProfile> {
+  const { data: authData } = await client.auth.getUser();
+  const user = authData?.user;
+  if (!user?.id) {
+    throw new Error('Usuário não autenticado');
+  }
+
+  let lastErrorMessage: string | null = null;
+
+  const resolveByRpc = async (): Promise<ResolvedWorkspaceProfile | null> => {
+    try {
+      const { data, error } = await client.rpc('resolve_current_user_profile');
+      if (error) {
+        lastErrorMessage = error.message || lastErrorMessage;
+        return null;
+      }
+
+      const normalized = normalizeResolvedWorkspaceProfile(data);
+      if (!normalized?.orgId) {
+        lastErrorMessage = 'Perfil sem organização vinculada';
+        return null;
+      }
+
+      return normalized;
+    } catch (error: any) {
+      lastErrorMessage = error?.message || lastErrorMessage;
+      return null;
+    }
+  };
+
+  const firstAttempt = await resolveByRpc();
+  if (firstAttempt?.orgId) {
+    return firstAttempt;
+  }
+
+  // Best-effort relink when auth/public rows are temporarily desynchronized.
+  try {
+    await client.rpc('ensure_public_user_linked', { p_auth_user_id: user.id });
+  } catch {
+    // no-op: we'll validate with a strict profile check below.
+  }
+
+  const secondAttempt = await resolveByRpc();
+  if (secondAttempt?.orgId) {
+    return secondAttempt;
+  }
+
+  const { data: strictProfile, error: strictProfileError } = await client
+    .from('users')
+    .select('id,org_id,email,name,avatar_url')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  if (strictProfileError) {
+    lastErrorMessage = strictProfileError.message || lastErrorMessage;
+  }
+
+  if (strictProfile && typeof strictProfile.org_id === 'string' && strictProfile.org_id.length > 0) {
+    return {
+      orgId: strictProfile.org_id,
+      email: typeof strictProfile.email === 'string' ? strictProfile.email : user.email || null,
+      name:
+        typeof strictProfile.name === 'string'
+          ? strictProfile.name
+          : (typeof user.user_metadata?.full_name === 'string'
+            ? user.user_metadata.full_name
+            : (typeof user.user_metadata?.name === 'string' ? user.user_metadata.name : null)),
+      avatarUrl:
+        typeof strictProfile.avatar_url === 'string'
+          ? strictProfile.avatar_url
+          : (typeof user.user_metadata?.avatar_url === 'string' ? user.user_metadata.avatar_url : null),
+    };
+  }
+
+  throw new Error(lastErrorMessage || PROFILE_SYNC_ERROR_MESSAGE);
 }
 
 function toDocumentRecord(row: NoteRow): DocumentRecord {
@@ -468,7 +563,7 @@ export async function createDocument(
     throw new Error('Usuário não autenticado');
   }
 
-  const resolvedProfile = await resolveCurrentWorkspaceProfile(client);
+  const resolvedProfile = await resolveCurrentWorkspaceProfileForWrite(client);
   const orgId = resolvedProfile?.orgId || null;
 
   if (!orgId) {
@@ -498,6 +593,9 @@ export async function createDocument(
     .single();
 
   if (error || !inserted) {
+    if (isNotesCreatedByForeignKeyError(error)) {
+      throw new Error(PROFILE_SYNC_ERROR_MESSAGE);
+    }
     throw new Error(error?.message || 'Falha ao criar documento');
   }
 

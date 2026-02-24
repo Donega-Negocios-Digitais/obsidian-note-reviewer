@@ -13,13 +13,17 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '@obsidian-note-reviewer/security/auth'
 import {
   getDocumentCollaborators,
+  getDocumentInvites,
   getCurrentUserRole,
+  canInviteCollaborators,
   inviteCollaborator,
+  cancelInvite,
   removeCollaborator,
   deactivateCollaborator,
   reactivateCollaborator,
   updateCollaboratorRole,
   updateCollaboratorCapability,
+  type DocumentInvite,
   type CollaboratorCapability,
   type CollaboratorCapabilities,
   type CollaboratorRole,
@@ -37,7 +41,10 @@ import {
   Ban,
   Power,
   AlertCircle,
-  Info
+  Info,
+  Link2,
+  RotateCcw,
+  X
 } from 'lucide-react'
 import { BaseModal } from './BaseModal'
 
@@ -118,6 +125,10 @@ export function CollaborationSettings({
   const [inviteCapabilities, setInviteCapabilities] = useState<CollaboratorCapabilities>(DEFAULT_CAPABILITIES)
   const [inviting, setInviting] = useState(false)
   const [inviteError, setInviteError] = useState<string | null>(null)
+  const [pendingInvites, setPendingInvites] = useState<DocumentInvite[]>([])
+  const [canInvite, setCanInvite] = useState(false)
+  const [invitesLoading, setInvitesLoading] = useState(false)
+  const [inviteActionId, setInviteActionId] = useState<string | null>(null)
   const [editingCollaborator, setEditingCollaborator] = useState<Collaborator | null>(null)
   const [editRole, setEditRole] = useState<'viewer' | 'editor'>('viewer')
   const [editCapabilities, setEditCapabilities] = useState<CollaboratorCapabilities>(DEFAULT_CAPABILITIES)
@@ -245,16 +256,22 @@ export function CollaborationSettings({
 
     if (!documentId) {
       setCollaborators(ownerOnly)
+      setPendingInvites([])
+      setCanInvite(false)
       onCollaboratorsChange?.(ownerOnly)
       setLoading(false)
+      setInvitesLoading(false)
       return
     }
 
     setLoading(true)
+    setInvitesLoading(true)
     try {
-      const [apiCollaborators, currentRole] = await Promise.all([
+      const [apiCollaborators, currentRole, invites, canManageInvites] = await Promise.all([
         getDocumentCollaborators(documentId),
         getCurrentUserRole(documentId),
+        getDocumentInvites(documentId),
+        canInviteCollaborators(documentId),
       ])
 
       const nextCollaborators: Collaborator[] = apiCollaborators.map((collab) => ({
@@ -294,14 +311,52 @@ export function CollaborationSettings({
 
       const resolvedCollaborators = nextCollaborators.length > 0 ? nextCollaborators : ownerOnly
       setCollaborators(resolvedCollaborators)
+      setPendingInvites(invites)
+      setCanInvite(canManageInvites || currentRole === 'owner')
       onCollaboratorsChange?.(resolvedCollaborators)
     } catch (error) {
       console.error('Failed to load collaborators:', error)
       setCollaborators(ownerOnly)
+      setPendingInvites([])
+      setCanInvite(false)
       onCollaboratorsChange?.(ownerOnly)
     } finally {
       setLoading(false)
+      setInvitesLoading(false)
     }
+  }
+
+  const mapInviteFailureReason = (reason: string): string => {
+    const normalized = reason.toLowerCase()
+
+    if (normalized.includes('you do not have permission to invite collaborators')) {
+      return 'Você não tem permissão para convidar pessoas neste documento.'
+    }
+
+    if (normalized.includes('this user already has access to the document')) {
+      return 'Este usuário já tem acesso ao documento.'
+    }
+
+    if (normalized.includes('a pending invite already exists for this email')) {
+      return 'Já existe um convite pendente para este e-mail.'
+    }
+
+    if (normalized.includes('authentication required')) {
+      return 'Sua sessão expirou. Faça login novamente para convidar colaboradores.'
+    }
+
+    return reason
+  }
+
+  const buildInviteUrl = (token?: string): string => {
+    if (typeof window === 'undefined') return ''
+    if (!token) return window.location.href
+    return `${window.location.origin}/invites/accept?token=${encodeURIComponent(token)}`
+  }
+
+  const getInviteDocumentLabel = (): string => {
+    if (!documentId) return 'Documento'
+    return `Documento ${documentId.slice(0, 8)}`
   }
 
   const parseInviteEmails = (rawValue: string): string[] => {
@@ -324,6 +379,16 @@ export function CollaborationSettings({
   }
 
   const handleInvite = async () => {
+    if (!documentId) {
+      setInviteError('ID do documento não encontrado')
+      return
+    }
+
+    if (!canInvite) {
+      setInviteError('Você não tem permissão para convidar pessoas neste documento. Seu acesso é somente leitura.')
+      return
+    }
+
     const parsedEmails = dedupeInviteEmails(parseInviteEmails(inviteEmail))
     if (parsedEmails.length === 0) {
       setInviteError(`${t('settings.collaboration.email')} é obrigatório`)
@@ -340,7 +405,11 @@ export function CollaborationSettings({
       return
     }
 
-    const collaboratorEmails = new Set(collaborators.map((c) => c.email.trim().toLowerCase()))
+    const collaboratorEmails = new Set(
+      collaborators
+        .map((c) => c.email.trim().toLowerCase())
+        .filter((email) => email.length > 0),
+    )
     const existingEmails = parsedEmails.filter((email) => collaboratorEmails.has(email.toLowerCase()))
     const emailsToInvite = parsedEmails.filter((email) => !collaboratorEmails.has(email.toLowerCase()))
 
@@ -353,13 +422,9 @@ export function CollaborationSettings({
     setInviteError(null)
 
     try {
-      if (!documentId) {
-        setInviteError('ID do documento não encontrado')
-        setInviting(false)
-        return
-      }
-
       const successfulEmails: string[] = []
+      const emailsSent: string[] = []
+      const emailsNotSent: string[] = []
       const failedInvites: Array<{ email: string; reason: string }> = []
 
       for (const emailToInvite of emailsToInvite) {
@@ -372,33 +437,40 @@ export function CollaborationSettings({
 
         if (result.success) {
           successfulEmails.push(emailToInvite)
+          const inviteUrl = buildInviteUrl(result.token)
 
-          const inviteUrl = result.token && typeof window !== 'undefined'
-            ? `${window.location.origin}/invites/accept?token=${encodeURIComponent(result.token)}`
-            : (typeof window !== 'undefined' ? window.location.href : '')
-
-          // Send invite email via edge function (non-blocking).
-          sendInviteEmail({
-            email: emailToInvite,
-            role: inviteRole,
-            inviterName: user?.user_metadata?.full_name || user?.email || 'Alguém',
-            documentTitle: documentId ? `Documento ${documentId.slice(0, 8)}` : 'Documento',
-            inviteUrl,
-          }).catch(err => console.warn('Email invite failed (non-critical):', err))
+          try {
+            await sendInviteEmail({
+              email: emailToInvite,
+              role: inviteRole,
+              inviterName: user?.user_metadata?.full_name || user?.email || 'Alguém',
+              documentTitle: getInviteDocumentLabel(),
+              inviteUrl,
+            })
+            emailsSent.push(emailToInvite)
+          } catch (error) {
+            console.warn('Email invite failed (non-critical):', error)
+            emailsNotSent.push(emailToInvite)
+          }
         } else {
           failedInvites.push({
             email: emailToInvite,
-            reason: result.error || 'Erro ao enviar convite',
+            reason: mapInviteFailureReason(result.error || 'Erro ao enviar convite'),
           })
         }
       }
 
       if (successfulEmails.length > 0) {
-        setSuccessToast(
-          successfulEmails.length === 1
-            ? `Convite enviado para ${successfulEmails[0]}!`
-            : `${successfulEmails.length} convites enviados com sucesso!`,
-        )
+        const createdMessage = successfulEmails.length === 1
+          ? `Convite criado no app para ${successfulEmails[0]}.`
+          : `${successfulEmails.length} convites criados no app.`
+        const emailMessage = emailsSent.length === successfulEmails.length
+          ? ` E-mail enviado para ${emailsSent.length === 1 ? '1 pessoa' : `${emailsSent.length} pessoas`}.`
+          : emailsSent.length > 0
+            ? ` ${emailsSent.length} e-mail(s) enviado(s). ${emailsNotSent.length} convite(s) ficaram disponíveis no app sem e-mail.`
+            : ' Convite salvo no app. E-mail não enviado, use o link em convites pendentes.'
+
+        setSuccessToast(`${createdMessage}${emailMessage}`)
         await loadCollaborators()
       }
 
@@ -426,7 +498,7 @@ export function CollaborationSettings({
         })
       }
     } catch (error: any) {
-      setInviteError(error.message || 'Erro ao enviar convite')
+      setInviteError(mapInviteFailureReason(error?.message || 'Erro ao enviar convite'))
     } finally {
       setInviting(false)
     }
@@ -438,6 +510,60 @@ export function CollaborationSettings({
     setInviteRole('editor')
     setInviteCapabilities(DEFAULT_CAPABILITIES)
     setInviteError(null)
+  }
+
+  const handleCopyInviteLink = async (invite: DocumentInvite) => {
+    try {
+      const inviteUrl = buildInviteUrl(invite.token)
+      await navigator.clipboard.writeText(inviteUrl)
+      setSuccessToast(`Link de convite copiado para ${invite.email}.`)
+    } catch {
+      setInviteError('Não foi possível copiar o link do convite.')
+    }
+  }
+
+  const handleResendInviteEmail = async (invite: DocumentInvite) => {
+    if (!canInvite) {
+      setInviteError('Você não tem permissão para reenviar convites neste documento.')
+      return
+    }
+
+    setInviteActionId(`resend:${invite.id}`)
+    try {
+      await sendInviteEmail({
+        email: invite.email,
+        role: invite.role === 'editor' ? 'editor' : 'viewer',
+        inviterName: user?.user_metadata?.full_name || user?.email || 'Alguém',
+        documentTitle: getInviteDocumentLabel(),
+        inviteUrl: buildInviteUrl(invite.token),
+      })
+      setSuccessToast(`E-mail reenviado para ${invite.email}.`)
+    } catch {
+      setInviteError(`Não foi possível reenviar o e-mail para ${invite.email}.`)
+    } finally {
+      setInviteActionId(null)
+    }
+  }
+
+  const handleCancelPendingInvite = async (invite: DocumentInvite) => {
+    if (!canInvite) {
+      setInviteError('Você não tem permissão para cancelar convites neste documento.')
+      return
+    }
+
+    setInviteActionId(`cancel:${invite.id}`)
+    try {
+      const cancelled = await cancelInvite(invite.id)
+      if (!cancelled) {
+        setInviteError(`Não foi possível cancelar o convite para ${invite.email}.`)
+        return
+      }
+
+      setPendingInvites((current) => current.filter((item) => item.id !== invite.id))
+      setSuccessToast(`Convite cancelado para ${invite.email}.`)
+    } finally {
+      setInviteActionId(null)
+    }
   }
 
   const handleRemoveCollaborator = async (collaboratorId: string) => {
@@ -746,10 +872,23 @@ export function CollaborationSettings({
           </div>
         </div>
         <button
-          onClick={() => setShowInviteForm(!showInviteForm)}
-          disabled={!documentId}
+          onClick={() => {
+            if (!documentId) return
+            if (!canInvite) {
+              setInviteError('Você não tem permissão para convidar pessoas neste documento. Seu acesso é somente leitura.')
+              return
+            }
+            setShowInviteForm(!showInviteForm)
+          }}
+          disabled={!documentId || !canInvite}
           className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-          title={!documentId ? 'Selecione um documento para convidar colaboradores' : t('settings.collaboration.invite')}
+          title={
+            !documentId
+              ? 'Selecione um documento para convidar colaboradores'
+              : !canInvite
+                ? 'Você tem permissão somente de leitura neste documento'
+                : t('settings.collaboration.invite')
+          }
         >
           <UserPlus className="w-4 h-4" />
           {t('settings.collaboration.invite')}
@@ -760,6 +899,13 @@ export function CollaborationSettings({
         <div className="rounded-xl bg-muted/30 p-4 text-sm text-muted-foreground flex items-center gap-3">
           <Info className="w-5 h-5 text-muted-foreground/60 flex-shrink-0" />
           Selecione um documento ativo para convidar colaboradores.
+        </div>
+      )}
+
+      {documentId && !canInvite && (
+        <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-4 text-sm text-amber-700 dark:text-amber-300 flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+          <span>Você tem permissão somente para leitura neste documento. Peça ao proprietário para liberar convites.</span>
         </div>
       )}
 
@@ -1027,6 +1173,82 @@ export function CollaborationSettings({
                 )}
               </div>
             ))}
+          </div>
+        )}
+
+        {documentId && canInvite && (
+          <div className="rounded-2xl border border-border/60 bg-card/40 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-semibold text-foreground">Convites pendentes</h4>
+                <p className="text-xs text-muted-foreground">
+                  {invitesLoading ? 'Carregando convites...' : `${pendingInvites.length} pendente(s)`}
+                </p>
+              </div>
+            </div>
+
+            {invitesLoading ? (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Atualizando lista de convites...
+              </div>
+            ) : pendingInvites.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Nenhum convite pendente no momento.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {pendingInvites.map((invite) => (
+                  <div
+                    key={invite.id}
+                    className="rounded-xl border border-border/50 bg-background/70 px-3 py-2 flex items-start justify-between gap-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{invite.email}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {invite.role === 'editor' ? 'Editor' : 'Visualizador'} • expira em {new Date(invite.expiresAt).toLocaleDateString('pt-BR')}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleCopyInviteLink(invite)}
+                        className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                        title="Copiar link do convite"
+                        aria-label="Copiar link do convite"
+                      >
+                        <Link2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleResendInviteEmail(invite)}
+                        disabled={inviteActionId === `resend:${invite.id}`}
+                        className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Reenviar e-mail"
+                        aria-label="Reenviar e-mail"
+                      >
+                        {inviteActionId === `resend:${invite.id}` ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <RotateCcw className="w-4 h-4" />
+                        )}
+                      </button>
+                      <button
+                        onClick={() => handleCancelPendingInvite(invite)}
+                        disabled={inviteActionId === `cancel:${invite.id}`}
+                        className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Cancelar convite"
+                        aria-label="Cancelar convite"
+                      >
+                        {inviteActionId === `cancel:${invite.id}` ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <X className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

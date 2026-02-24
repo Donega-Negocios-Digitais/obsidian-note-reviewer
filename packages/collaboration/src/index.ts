@@ -149,6 +149,7 @@ export {
   checkDocumentAccess,
   getUserDocumentRole,
   getCurrentUserRole,
+  canInviteCollaborators,
 } from './collaborators';
 
 export type {

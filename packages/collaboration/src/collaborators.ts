@@ -98,6 +98,11 @@ function isCollaboratorRole(value: unknown): value is CollaboratorRole {
   return value === 'owner' || value === 'editor' || value === 'viewer';
 }
 
+function hasInviteManagementCapability(value: unknown): boolean {
+  const capabilities = normalizeCapabilities(value);
+  return capabilities.invite || capabilities.manage_permissions;
+}
+
 async function getUserDocumentRoleFallback(
   noteId: string,
   userId: string,
@@ -649,4 +654,55 @@ export async function getCurrentUserRole(noteId: string): Promise<CollaboratorRo
   }
 
   return getUserDocumentRole(noteId, user.id);
+}
+
+/**
+ * Check whether current authenticated user can invite collaborators on a document.
+ * Uses RPC when available and falls back to role/capability lookup for drifted schemas.
+ */
+export async function canInviteCollaborators(noteId: string): Promise<boolean> {
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  const userId = authData?.user?.id;
+
+  if (authError || !userId) {
+    return false;
+  }
+
+  const { data, error } = await supabase.rpc('can_manage_collaborators', {
+    note_uuid: noteId,
+    user_uuid: userId,
+  });
+
+  if (!error && typeof data === 'boolean') {
+    return data;
+  }
+
+  // Fallback for missing functions or RPC resolution issues.
+  if (
+    error
+    && (
+      isMissingRpcFunction(error, 'can_manage_collaborators')
+      || isMissingDatabaseFunction(error, 'can_manage_collaborators')
+    )
+  ) {
+    const role = await getUserDocumentRole(noteId, userId);
+    if (role === 'owner') {
+      return true;
+    }
+
+    if (role === 'none') {
+      return false;
+    }
+
+    const { data: collaborator } = await supabase
+      .from('document_collaborators')
+      .select('status,capabilities')
+      .eq('note_id', noteId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    return collaborator?.status === 'active' && hasInviteManagementCapability(collaborator?.capabilities);
+  }
+
+  return false;
 }
