@@ -783,7 +783,7 @@ export function CollaborationSettings({
                   </h3>
                   <button
                     onClick={closeInviteForm}
-                    className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-background/50 transition-colors rounded-lg"
+                    className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors rounded-lg"
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />

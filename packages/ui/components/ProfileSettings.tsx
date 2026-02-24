@@ -9,7 +9,7 @@
 
 import React, { useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import PhoneInput from 'react-phone-number-input'
+import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input'
 import { useAuth } from '@obsidian-note-reviewer/security/auth'
 import { supabase } from '@obsidian-note-reviewer/security/supabase/client'
 import { uploadAvatar, getAvatarUrl } from '@obsidian-note-reviewer/security/supabase/storage'
@@ -54,19 +54,47 @@ function isMissingPhoneColumnError(error: unknown): boolean {
   )
 }
 
+function getAuthProviders(user: { app_metadata?: Record<string, unknown>; identities?: Array<{ provider?: string | null } | null> } | null | undefined): string[] {
+  const resolved = new Set<string>()
+  const identities = Array.isArray(user?.identities) ? user.identities : []
+
+  for (const identity of identities) {
+    const provider = String(identity?.provider || '').trim().toLowerCase()
+    if (provider) {
+      resolved.add(provider)
+    }
+  }
+
+  const appProvider = String(user?.app_metadata?.provider || '').trim().toLowerCase()
+  if (appProvider) {
+    resolved.add(appProvider)
+  }
+
+  if (resolved.size === 0) {
+    resolved.add('email')
+  }
+
+  return Array.from(resolved)
+}
+
+function getAuthProviderLabel(authProviders: string[]): string {
+  const hasGoogle = authProviders.includes('google')
+  const hasGithub = authProviders.includes('github')
+
+  if (hasGoogle && hasGithub) return 'Google + GitHub'
+  if (hasGoogle) return 'Google'
+  if (hasGithub) return 'GitHub'
+  return 'Email'
+}
+
 
 export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactElement {
   const { t } = useTranslation()
   const { user, updateProfile } = useAuth()
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const authProvider = (user?.app_metadata?.provider as string | undefined) || 'email'
-  const isOAuthUser = authProvider !== 'email'
-  const authProviderLabel =
-    authProvider === 'google'
-      ? 'Google'
-      : authProvider === 'github'
-        ? 'GitHub'
-        : 'OAuth'
+  const authProviders = getAuthProviders(user)
+  const isOAuthUser = authProviders.includes('google') || authProviders.includes('github')
+  const authProviderLabel = getAuthProviderLabel(authProviders)
 
   // Profile state
   const [displayName, setDisplayName] = useState('')
@@ -272,7 +300,11 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
 
     try {
       const nextName = displayName.trim()
-      const nextPhone = phone ? phone.replace(/\D/g, '') : ''
+      const nextPhone = phone.trim()
+      if (nextPhone && !isValidPhoneNumber(nextPhone)) {
+        setPasswordErrors({ general: t('settings.profile.errors.invalidPhone') })
+        return
+      }
       const previousName =
         (lastSavedDisplayName || user.user_metadata?.full_name || user.user_metadata?.name || '').trim()
 
@@ -323,6 +355,10 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
 
     try {
       const nextPhone = phone.trim()
+      if (nextPhone && !isValidPhoneNumber(nextPhone)) {
+        setPasswordErrors({ general: t('settings.profile.errors.invalidPhone') })
+        return
+      }
       const nextName = displayName.trim() || lastSavedDisplayName || user.user_metadata?.full_name || user.user_metadata?.name || ''
 
       await updateProfile({ phone: nextPhone })
@@ -434,14 +470,17 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
         .phone-country-select {
           display: flex;
           align-items: center;
-          padding: 0 0.5rem;
-          background: transparent;
+          justify-content: center;
+          width: 3.25rem;
+          padding: 0;
+          background: hsl(var(--muted) / 0.35);
           border: none;
+          border-right: 1px solid var(--input);
           cursor: pointer;
           color: var(--foreground);
         }
         .phone-country-select:hover {
-          background: hsl(var(--muted) / 0.5);
+          background: hsl(var(--muted) / 0.55);
         }
         .phone-input-field {
           flex: 1;
@@ -562,6 +601,8 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
                 id="phone"
                 international
                 defaultCountry="BR"
+                countryCallingCodeEditable={false}
+                limitMaxLength
                 value={phone}
                 onChange={(value) => setPhone(value || '')}
                 onKeyDown={(e) => e.key === 'Enter' && hasChanges && handleSaveProfile()}
@@ -569,6 +610,7 @@ export function ProfileSettings({ onSave }: ProfileSettingsProps): React.ReactEl
                 containerClassName="phone-input-container w-full"
                 countrySelectClassName="phone-country-select"
                 inputClassName="phone-input-field"
+                placeholder="+55 11 99999-9999"
               />
               <div className="mt-3 flex items-center justify-end">
                 <button

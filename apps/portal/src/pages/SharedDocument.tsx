@@ -8,6 +8,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '@obsidian-note-reviewer/security/auth';
+import { MarkdownRenderer } from '@obsidian-note-reviewer/ui/markdown';
 import { GuestBanner } from '../components/GuestBanner';
 import { getDocumentBySlug } from '@/lib/supabase/sharing';
 
@@ -28,6 +30,7 @@ interface Document {
 export function SharedDocument() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
   const [document, setDocument] = useState<Document | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +42,10 @@ export function SharedDocument() {
       return;
     }
 
+    if (authLoading) {
+      return;
+    }
+
     // Fetch document by slug from Supabase
     const fetchDocument = async () => {
       try {
@@ -47,6 +54,10 @@ export function SharedDocument() {
 
         // Use actual Supabase fetch with NanoID slug
         const sharedData = await getDocumentBySlug(slug);
+        if (user?.id) {
+          navigate(`/editor?document=${encodeURIComponent(sharedData.document_id)}`, { replace: true });
+          return;
+        }
 
         setDocument({
           id: sharedData.document_id,
@@ -66,7 +77,7 @@ export function SharedDocument() {
     };
 
     fetchDocument();
-  }, [slug]);
+  }, [slug, user?.id, authLoading, navigate]);
 
   // Loading state
   if (loading) {
@@ -74,7 +85,7 @@ export function SharedDocument() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600 dark:text-gray-400">Carregando documento...</p>
+          <p className="text-gray-600 dark:text-gray-400">{user?.id ? 'Abrindo documento...' : 'Carregando documento...'}</p>
         </div>
       </div>
     );
@@ -146,7 +157,7 @@ export function SharedDocument() {
       <main className="max-w-7xl mx-auto px-4 py-8">
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 md:p-8">
           <div className="prose dark:prose-invert max-w-none">
-            <pre className="whitespace-pre-wrap">{document.content}</pre>
+            <MarkdownRenderer content={document.content} />
           </div>
         </div>
       </main>

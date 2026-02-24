@@ -148,6 +148,25 @@ function isMissingRpcFunction(error: unknown, functionName: string): boolean {
   return missingMessage && (message.includes(expected) || details.includes(expected));
 }
 
+function isMissingDatabaseFunction(error: unknown, functionName: string): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const rpcError = error as { code?: string; message?: string; details?: string };
+  const message = String(rpcError.message || '').toLowerCase();
+  const details = String(rpcError.details || '').toLowerCase();
+  const expected = `function public.${functionName}`.toLowerCase();
+  const signature = `${functionName}(`.toLowerCase();
+  const missingFunction = message.includes('does not exist') || details.includes('does not exist');
+
+  if (rpcError.code === '42883') {
+    return message.includes(expected) || details.includes(expected) || message.includes(signature) || details.includes(signature);
+  }
+
+  return missingFunction && (message.includes(expected) || details.includes(expected) || message.includes(signature) || details.includes(signature));
+}
+
 function mapInviteResult(data: unknown): InviteResult {
   const row = Array.isArray(data) ? data[0] : data;
   const record = row && typeof row === 'object' ? (row as Record<string, unknown>) : {};
@@ -341,7 +360,10 @@ export async function inviteCollaborator(
     });
 
     if (error) {
-      if (isMissingRpcFunction(error, 'create_document_invite')) {
+      if (
+        isMissingRpcFunction(error, 'create_document_invite')
+        || isMissingDatabaseFunction(error, 'can_manage_collaborators')
+      ) {
         return inviteCollaboratorLegacy(noteId, email, role);
       }
 
@@ -366,11 +388,32 @@ export async function removeCollaborator(
     collaborator_uuid: userId,
   });
 
-  if (error || data !== true) {
-    return { success: false, error: error?.message || 'Failed to remove collaborator' };
+  if (!error && data === true) {
+    return { success: true };
   }
 
-  return { success: true };
+  if (
+    error
+    && (
+      isMissingRpcFunction(error, 'remove_document_collaborator')
+      || isMissingDatabaseFunction(error, 'remove_document_collaborator')
+      || isMissingDatabaseFunction(error, 'can_manage_collaborators')
+    )
+  ) {
+    const { error: fallbackError } = await supabase
+      .from('document_collaborators')
+      .delete()
+      .eq('note_id', noteId)
+      .eq('user_id', userId);
+
+    if (!fallbackError) {
+      return { success: true };
+    }
+
+    return { success: false, error: fallbackError.message || 'Failed to remove collaborator' };
+  }
+
+  return { success: false, error: error?.message || 'Failed to remove collaborator' };
 }
 
 /**

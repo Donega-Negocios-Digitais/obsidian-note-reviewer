@@ -703,6 +703,18 @@ const App: React.FC<EditorAppProps> = ({
     [savePath]
   );
   const canEditActiveDocument = activeDocumentRole === 'owner' || activeDocumentRole === 'editor' || !cloudWorkspaceEnabled;
+  const activeDocumentRoleLabel = useMemo(() => {
+    switch (activeDocumentRole) {
+      case 'owner':
+        return t('app.roleOwner');
+      case 'editor':
+        return t('app.roleEditor');
+      case 'viewer':
+        return t('app.roleViewer');
+      default:
+        return '';
+    }
+  }, [activeDocumentRole, t]);
   const resolvePublicShareUrl = useCallback(async (): Promise<string | null> => {
     if (!cloudWorkspaceEnabled || !cloudClient || !activeDocumentId) {
       return null;
@@ -1725,7 +1737,14 @@ const App: React.FC<EditorAppProps> = ({
       }
 
       setIsDocumentsModalOpen(false);
-      await handleOpenTrash();
+      void (async () => {
+        try {
+          const trashDocs = await listTrashDocuments(cloudClient);
+          setTrashDocuments(trashDocs);
+        } catch {
+          // Keep the deletion flow non-blocking if trash refresh fails.
+        }
+      })();
     } catch (error: any) {
       console.error('Falha ao excluir documento:', error);
       setDocumentsError(
@@ -2121,7 +2140,7 @@ const App: React.FC<EditorAppProps> = ({
                 </span>
                 {activeDocumentRole !== 'none' && (
                   <span className="rounded-md border border-border/60 bg-muted px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                    {activeDocumentRole}
+                    {activeDocumentRoleLabel}
                   </span>
                 )}
                 {activePresenceCount > 0 && (
