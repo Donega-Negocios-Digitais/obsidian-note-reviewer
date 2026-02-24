@@ -356,7 +356,7 @@
     "selectText": "选择文本以添加注释",
     "globalComments": "全局评论",
     "textAnnotations": "文本注释",
-    "share": "分享",
+    "share": "公开分享链接",
     "copied": "已复制",
     "me": "（我）",
     "selected": "已选择",
@@ -404,7 +404,7 @@
     "downloadDiff": "下载.diff",
     "annotationsCount": "{{count}}个注释",
     "annotationsCount_one": "{{count}}个注释",
-    "urlDescription": "此链接是分享时笔记和注释的快照。任何拥有链接的人都可以查看并在自己的副本上编辑，修改不会同步回你的原始文档。"
+    "urlDescription": "这是一个公开只读链接。任何拿到链接的人都可以在不登录的情况下查看文档，但不能编辑。若要协作编辑，请使用“协作”按钮。"
   },
   "decisionBar": {
     "noteApproved": "笔记已批准",
@@ -508,6 +508,7 @@
     "save": "保存",
     "export": "导出",
     "share": "分享",
+    "collaborate": "协作",
     "howItWorks": "如何使用？",
     "keyboardShortcuts": "键盘快捷键 (?)",
     "settings": "设置",

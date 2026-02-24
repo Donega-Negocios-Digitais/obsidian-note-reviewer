@@ -356,7 +356,7 @@
     "selectText": "Selecciona texto para añadir anotaciones",
     "globalComments": "Comentarios Globales",
     "textAnnotations": "Anotaciones de Texto",
-    "share": "Compartir",
+    "share": "Compartir enlace público",
     "copied": "Copiado",
     "me": "(yo)",
     "selected": "seleccionados",
@@ -404,7 +404,7 @@
     "downloadDiff": "Descargar .diff",
     "annotationsCount": "{{count}} anotaciones",
     "annotationsCount_one": "{{count}} anotación",
-    "urlDescription": "Este enlace es una instantánea de la nota y las anotaciones en el momento de compartir. Quien lo abra puede verlo y trabajar en su propia copia; los cambios no se sincronizan con tu documento original."
+    "urlDescription": "Este es un enlace público de solo lectura. Cualquiera con el enlace puede ver el documento sin iniciar sesión, pero no puede editarlo. Para edición colaborativa, usa el botón Colaborar."
   },
   "decisionBar": {
     "noteApproved": "Nota Aprobada",
@@ -508,6 +508,7 @@
     "save": "Guardar",
     "export": "Exportar",
     "share": "Compartir",
+    "collaborate": "Colaborar",
     "howItWorks": "¿Cómo funciona?",
     "keyboardShortcuts": "Atajos de Teclado (?)",
     "settings": "Configuración",

@@ -1,5 +1,5 @@
 ﻿/* eslint-disable @typescript-eslint/no-unused-vars, no-console, react-hooks/exhaustive-deps */
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import '@obsidian-note-reviewer/ui/i18n/config'; // Initialize i18n
@@ -44,6 +44,7 @@ import {
   createDocument,
   openDocument,
   renameDocument,
+  ensurePublicShareLink,
   softDeleteDocument,
   restoreDocument,
   permanentDeleteDocument,
@@ -702,6 +703,13 @@ const App: React.FC<EditorAppProps> = ({
     [savePath]
   );
   const canEditActiveDocument = activeDocumentRole === 'owner' || activeDocumentRole === 'editor' || !cloudWorkspaceEnabled;
+  const resolvePublicShareUrl = useCallback(async (): Promise<string | null> => {
+    if (!cloudWorkspaceEnabled || !cloudClient || !activeDocumentId) {
+      return null;
+    }
+
+    return ensurePublicShareLink(cloudClient, activeDocumentId);
+  }, [cloudWorkspaceEnabled, cloudClient, activeDocumentId]);
 
   useEffect(() => {
     if (!livePresenceEnabled || !activeDocumentId) {
@@ -734,6 +742,7 @@ const App: React.FC<EditorAppProps> = ({
       setIsLoading(false);
     },
     legacyShareReadOnlyEnabled,
+    cloudWorkspaceEnabled ? resolvePublicShareUrl : undefined,
   );
 
   // Track if annotations were loaded from localStorage to avoid re-saving immediately
@@ -1647,6 +1656,17 @@ const App: React.FC<EditorAppProps> = ({
     setIsDocumentsModalOpen(true);
   };
 
+  const handleOpenCollaborate = () => {
+    setSettingsInitialTab('colaboracao');
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('obsreview-showInviteForm', 'true');
+      window.localStorage.setItem('obsreview-inviteRole', 'editor');
+      window.localStorage.removeItem('obsreview-inviteError');
+    }
+    setIsSettingsPanelOpen(true);
+    setShowStickyBar(false);
+  };
+
   const normalizeDocumentPermissionError = (
     error: unknown,
     fallback: string,
@@ -2205,6 +2225,19 @@ const App: React.FC<EditorAppProps> = ({
               <span className="hidden md:inline">{t('app.share')}</span>
             </button>
 
+            {cloudWorkspaceEnabled && activeDocumentId && (
+              <button
+                onClick={handleOpenCollaborate}
+                className="p-1.5 md:px-2.5 md:py-1 rounded-md text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors flex items-center gap-1.5"
+                title={t('app.collaborate')}
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a4 4 0 00-5-3.87M17 20H7m10 0v-2c0-.653-.126-1.277-.355-1.848M7 20H2v-2a4 4 0 015-3.87M7 20v-2c0-.653.126-1.277.355-1.848m0 0a5 5 0 019.29 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                <span className="hidden md:inline">{t('app.collaborate')}</span>
+              </button>
+            )}
+
             {/* Toggle Painel */}
             <button
               onClick={() => setIsPanelOpen(!isPanelOpen)}
@@ -2376,6 +2409,19 @@ const App: React.FC<EditorAppProps> = ({
                   </svg>
                   <span className="hidden md:inline">{t('app.share')}</span>
                 </button>
+
+                {cloudWorkspaceEnabled && activeDocumentId && (
+                  <button
+                    onClick={handleOpenCollaborate}
+                    className="p-1.5 md:px-2.5 md:py-1 rounded-md text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors flex items-center gap-1.5"
+                    title={t('app.collaborate')}
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a4 4 0 00-5-3.87M17 20H7m10 0v-2c0-.653-.126-1.277-.355-1.848M7 20H2v-2a4 4 0 015-3.87M7 20v-2c0-.653.126-1.277.355-1.848m0 0a5 5 0 019.29 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <span className="hidden md:inline">{t('app.collaborate')}</span>
+                  </button>
+                )}
 
                 {/* Toggle painel de anotações */}
                 <button

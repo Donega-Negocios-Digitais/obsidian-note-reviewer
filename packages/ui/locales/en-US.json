@@ -356,7 +356,7 @@
     "selectText": "Select text to add annotations",
     "globalComments": "Global Comments",
     "textAnnotations": "Text Annotations",
-    "share": "Share",
+    "share": "Share Public Link",
     "copied": "Copied",
     "me": "(me)",
     "selected": "selected",
@@ -404,7 +404,7 @@
     "downloadDiff": "Download .diff",
     "annotationsCount": "{{count}} annotations",
     "annotationsCount_one": "{{count}} annotation",
-    "urlDescription": "This link is a snapshot of the note and annotations at the time of sharing. Anyone with the link can view it and work on their own copy; changes do not sync back to your original document."
+    "urlDescription": "This is a public read-only link. Anyone with the link can view the document without login, but cannot edit it. For collaborative editing, use the Collaborate button."
   },
   "decisionBar": {
     "noteApproved": "Note Approved",
@@ -508,6 +508,7 @@
     "save": "Save",
     "export": "Export",
     "share": "Share",
+    "collaborate": "Collaborate",
     "howItWorks": "How it works?",
     "keyboardShortcuts": "Keyboard Shortcuts (?)",
     "settings": "Settings",

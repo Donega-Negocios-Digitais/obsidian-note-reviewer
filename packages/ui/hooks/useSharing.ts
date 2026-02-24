@@ -42,13 +42,16 @@ interface UseSharingResult {
   refreshShareUrl: () => Promise<void>;
 }
 
+type ShareUrlResolver = () => Promise<string | null>;
+
 export function useSharing(
   markdown: string,
   annotations: Annotation[],
   setMarkdown: (m: string) => void,
   setAnnotations: (a: Annotation[]) => void,
   onSharedLoad?: () => void,
-  enabled: boolean = true
+  enabled: boolean = true,
+  resolveShareUrl?: ShareUrlResolver,
 ): UseSharingResult {
   const [isSharedSession, setIsSharedSession] = useState(false);
   const [isLoadingShared, setIsLoadingShared] = useState(true);
@@ -127,8 +130,7 @@ export function useSharing(
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, [loadFromHash, enabled]);
 
-  // Generate share URL when markdown or annotations change
-  const refreshShareUrl = useCallback(async () => {
+  const refreshLegacyShareUrl = useCallback(async () => {
     if (!enabled) {
       setShareUrl('');
       setShareUrlSize('');
@@ -149,10 +151,58 @@ export function useSharing(
     }
   }, [markdown, annotations, enabled]);
 
-  // Auto-refresh share URL when dependencies change
+  const refreshResolvedShareUrl = useCallback(async () => {
+    if (!enabled) {
+      setShareUrl('');
+      setShareUrlSize('');
+      setShareError(null);
+      return;
+    }
+
+    if (!resolveShareUrl) {
+      return;
+    }
+
+    try {
+      const url = await resolveShareUrl();
+      if (!url) {
+        setShareUrl('');
+        setShareUrlSize('');
+        setShareError(null);
+        return;
+      }
+
+      setShareUrl(url);
+      setShareUrlSize(formatUrlSize(url));
+      setShareError(null);
+    } catch (e) {
+      console.error('Failed to resolve public share URL:', e);
+      setShareUrl('');
+      setShareUrlSize('');
+      setShareError('Não foi possível gerar o link público de compartilhamento.');
+    }
+  }, [enabled, resolveShareUrl]);
+
+  const refreshShareUrl = useCallback(async () => {
+    if (resolveShareUrl) {
+      await refreshResolvedShareUrl();
+      return;
+    }
+
+    await refreshLegacyShareUrl();
+  }, [resolveShareUrl, refreshLegacyShareUrl, refreshResolvedShareUrl]);
+
+  // Auto-refresh public share URL when resolver changes
   useEffect(() => {
-    refreshShareUrl();
-  }, [refreshShareUrl]);
+    if (!resolveShareUrl) return;
+    refreshResolvedShareUrl();
+  }, [resolveShareUrl, refreshResolvedShareUrl]);
+
+  // Auto-refresh legacy share URL when content changes
+  useEffect(() => {
+    if (resolveShareUrl) return;
+    refreshLegacyShareUrl();
+  }, [resolveShareUrl, refreshLegacyShareUrl]);
 
   return {
     isSharedSession,

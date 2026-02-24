@@ -214,6 +214,85 @@ function slugify(value: string): string {
     .replace(/-+/g, '-');
 }
 
+const SHARE_SLUG_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789';
+
+function createLegacyShareSlug(length = 10): string {
+  let slug = '';
+  for (let index = 0; index < length; index += 1) {
+    const randomIndex = Math.floor(Math.random() * SHARE_SLUG_CHARS.length);
+    slug += SHARE_SLUG_CHARS[randomIndex];
+  }
+  return slug;
+}
+
+export async function ensurePublicShareLink(
+  client: SupabaseClientLike,
+  noteId: string,
+  baseUrl?: string,
+): Promise<string> {
+  const { data: noteRow, error: noteError } = await client
+    .from('notes')
+    .select('id,share_hash,is_public')
+    .eq('id', noteId)
+    .maybeSingle();
+
+  if (noteError || !noteRow) {
+    throw new Error(noteError?.message || 'Documento não encontrado para compartilhamento');
+  }
+
+  let slug = typeof noteRow.share_hash === 'string' && noteRow.share_hash.trim().length > 0
+    ? noteRow.share_hash.trim()
+    : null;
+
+  if (!slug) {
+    let attempts = 0;
+    while (attempts < 12 && !slug) {
+      attempts += 1;
+      const candidate = createLegacyShareSlug(10);
+      const { data: existingRow, error: existingError } = await client
+        .from('notes')
+        .select('id')
+        .eq('share_hash', candidate)
+        .maybeSingle();
+
+      if (existingError) {
+        throw new Error(existingError.message || 'Falha ao verificar slug de compartilhamento');
+      }
+
+      if (!existingRow) {
+        slug = candidate;
+      }
+    }
+  }
+
+  if (!slug) {
+    throw new Error('Falha ao gerar link público único');
+  }
+
+  const needsUpdate = noteRow.is_public !== true || noteRow.share_hash !== slug;
+  if (needsUpdate) {
+    const { error: updateError } = await client
+      .from('notes')
+      .update({
+        is_public: true,
+        share_hash: slug,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', noteId);
+
+    if (updateError) {
+      throw new Error(updateError.message || 'Falha ao publicar documento');
+    }
+  }
+
+  const origin = (baseUrl || (typeof window !== 'undefined' ? window.location.origin : '')).replace(/\/+$/, '');
+  if (!origin) {
+    throw new Error('Base URL indisponível para gerar link público');
+  }
+
+  return `${origin}/shared/${slug}`;
+}
+
 function mapAnnotation(
   row: AnnotationRow,
   linkedComment?: CommentRow,
