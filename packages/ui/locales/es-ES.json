@@ -404,7 +404,7 @@
     "downloadDiff": "Descargar .diff",
     "annotationsCount": "{{count}} anotaciones",
     "annotationsCount_one": "{{count}} anotación",
-    "urlDescription": "Esta URL contiene la nota completa y todas las anotações. Cualquier persona con este enlace puede ver y añadir a tus anotaciones."
+    "urlDescription": "Este enlace es una instantánea de la nota y las anotaciones en el momento de compartir. Quien lo abra puede verlo y trabajar en su propia copia; los cambios no se sincronizan con tu documento original."
   },
   "decisionBar": {
     "noteApproved": "Nota Aprobada",

@@ -404,7 +404,7 @@
     "downloadDiff": "下载.diff",
     "annotationsCount": "{{count}}个注释",
     "annotationsCount_one": "{{count}}个注释",
-    "urlDescription": "此URL包含完整的笔记和所有注释。任何拥有此链接的人都可以查看并添加您的注释。"
+    "urlDescription": "此链接是分享时笔记和注释的快照。任何拥有链接的人都可以查看并在自己的副本上编辑，修改不会同步回你的原始文档。"
   },
   "decisionBar": {
     "noteApproved": "笔记已批准",

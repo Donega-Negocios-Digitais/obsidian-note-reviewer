@@ -404,7 +404,7 @@
     "downloadDiff": "Download .diff",
     "annotationsCount": "{{count}} annotations",
     "annotationsCount_one": "{{count}} annotation",
-    "urlDescription": "This URL contains the complete note and all annotations. Anyone with this link can view and add to your annotations."
+    "urlDescription": "This link is a snapshot of the note and annotations at the time of sharing. Anyone with the link can view it and work on their own copy; changes do not sync back to your original document."
   },
   "decisionBar": {
     "noteApproved": "Note Approved",
