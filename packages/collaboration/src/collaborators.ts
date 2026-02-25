@@ -14,6 +14,14 @@ export type CollaboratorRole = 'owner' | 'editor' | 'viewer';
 export type CollaboratorStatus = 'active' | 'pending' | 'inactive';
 export type InviteStatus = 'pending' | 'accepted' | 'expired' | 'cancelled';
 export type CollaboratorCapability = 'hooks' | 'integrations' | 'automations' | 'invite' | 'manage_permissions';
+export type InviteErrorCode =
+  | 'auth_required'
+  | 'permission_denied'
+  | 'document_not_found'
+  | 'already_collaborator'
+  | 'invite_exists'
+  | 'database_outdated'
+  | 'unknown';
 
 export interface CollaboratorCapabilities {
   hooks: boolean;
@@ -64,6 +72,7 @@ export interface InviteResult {
   noteId?: string;
   expiresAt?: string;
   error?: string;
+  errorCode?: InviteErrorCode;
 }
 
 export interface RemoveCollaboratorResult {
@@ -98,9 +107,73 @@ function isCollaboratorRole(value: unknown): value is CollaboratorRole {
   return value === 'owner' || value === 'editor' || value === 'viewer';
 }
 
+function isCollaboratorStatus(value: unknown): value is CollaboratorStatus {
+  return value === 'active' || value === 'pending' || value === 'inactive';
+}
+
 function hasInviteManagementCapability(value: unknown): boolean {
   const capabilities = normalizeCapabilities(value);
   return capabilities.invite || capabilities.manage_permissions;
+}
+
+function normalizeCollaboratorDisplayEmail(email: unknown, userId: string): string {
+  const normalized = typeof email === 'string' ? email.trim() : '';
+  if (normalized.length > 0) {
+    return normalized;
+  }
+
+  return `colaborador-${userId.slice(0, 8)}@indisponivel.local`;
+}
+
+function normalizeCollaboratorDisplayName(
+  name: unknown,
+  email: string,
+  userId: string,
+): string {
+  const normalized = typeof name === 'string' ? name.trim() : '';
+  if (normalized.length > 0) {
+    return normalized;
+  }
+
+  if (email.includes('@')) {
+    return email.split('@')[0];
+  }
+
+  return `Colaborador ${userId.slice(0, 8)}`;
+}
+
+function mapCollaboratorRecord(record: Record<string, unknown>): Collaborator {
+  const userId = String(record.user_id || '');
+  const createdAt = typeof record.created_at === 'string' ? record.created_at : new Date().toISOString();
+  const invitedAt = typeof record.invited_at === 'string' ? record.invited_at : createdAt;
+  const updatedAt = typeof record.updated_at === 'string' ? record.updated_at : createdAt;
+  const roleValue = record.role;
+  const statusValue = record.status;
+  const role = isCollaboratorRole(roleValue) ? roleValue : 'viewer';
+  const status = isCollaboratorStatus(statusValue) ? statusValue : 'inactive';
+  const email = normalizeCollaboratorDisplayEmail(record.email, userId);
+  const name = normalizeCollaboratorDisplayName(record.name, email, userId);
+  const avatarUrl = typeof record.avatar_url === 'string' ? record.avatar_url : undefined;
+
+  return {
+    id: String(record.collaborator_id || record.id || userId),
+    noteId: String(record.note_id || ''),
+    userId,
+    role,
+    status,
+    capabilities: normalizeCapabilities(record.capabilities),
+    invitedBy: typeof record.invited_by === 'string' ? record.invited_by : undefined,
+    invitedAt,
+    acceptedAt: typeof record.accepted_at === 'string' ? record.accepted_at : undefined,
+    createdAt,
+    updatedAt,
+    user: {
+      id: userId,
+      email,
+      name,
+      avatarUrl,
+    },
+  };
 }
 
 async function getUserDocumentRoleFallback(
@@ -185,6 +258,104 @@ function mapInviteResult(data: unknown): InviteResult {
   };
 }
 
+type RpcErrorLike = {
+  code?: string;
+  message?: string;
+  details?: string;
+};
+
+function parseRpcError(error: unknown): RpcErrorLike {
+  return (error && typeof error === 'object' ? error : {}) as RpcErrorLike;
+}
+
+function isDocumentCollaboratorUserForeignKeyError(error: unknown): boolean {
+  const rpcError = parseRpcError(error);
+  const message = String(rpcError.message || '').toLowerCase();
+  const details = String(rpcError.details || '').toLowerCase();
+
+  if (rpcError.code === '23503' && message.includes('document_collaborators_user_id_fkey')) {
+    return true;
+  }
+
+  return (
+    message.includes('violates foreign key constraint')
+    && (message.includes('document_collaborators_user_id_fkey') || details.includes('document_collaborators_user_id_fkey'))
+  );
+}
+
+function isProfileSyncError(error: unknown): boolean {
+  const rpcError = parseRpcError(error);
+  const message = String(rpcError.message || '').toLowerCase();
+  return (
+    message.includes('unable to resolve current user profile')
+    || message.includes('user not found')
+    || message.includes('perfil')
+  );
+}
+
+function mapInviteError(error: unknown): { message: string; code: InviteErrorCode } {
+  const rpcError = parseRpcError(error);
+  const message = String(rpcError.message || '').trim();
+  const normalizedMessage = message.toLowerCase();
+  const details = String(rpcError.details || '').toLowerCase();
+
+  if (normalizedMessage.includes('authentication required')) {
+    return { message: message || 'Authentication required', code: 'auth_required' };
+  }
+
+  if (
+    normalizedMessage.includes('you only have read permission on this document')
+    || normalizedMessage.includes('you do not have permission to invite collaborators')
+  ) {
+    return { message: message || 'You do not have permission to invite collaborators', code: 'permission_denied' };
+  }
+
+  if (normalizedMessage.includes('document not found')) {
+    return { message: message || 'Document not found', code: 'document_not_found' };
+  }
+
+  if (normalizedMessage.includes('this user already has access to the document')) {
+    return { message: message || 'This user already has access to the document', code: 'already_collaborator' };
+  }
+
+  if (normalizedMessage.includes('a pending invite already exists for this email')) {
+    return { message: message || 'A pending invite already exists for this email', code: 'invite_exists' };
+  }
+
+  if (isMissingRpcFunction(rpcError, 'create_document_invite') || isMissingRpcFunction(rpcError, 'invite_to_document')) {
+    return {
+      message: 'Banco desatualizado. Rode as migrations de colaboração e recarregue o schema cache do Supabase.',
+      code: 'database_outdated',
+    };
+  }
+
+  if (isMissingDatabaseFunction(rpcError, 'can_manage_collaborators')) {
+    return {
+      message: 'Banco desatualizado. Rode as migrations de colaboração e recarregue o schema cache do Supabase.',
+      code: 'database_outdated',
+    };
+  }
+
+  if (normalizedMessage.includes('violates foreign key constraint') && details.includes('document_collaborators_user_id_fkey')) {
+    return {
+      message: 'Perfil da conta ainda não sincronizado. Saia e entre novamente para concluir o convite.',
+      code: 'auth_required',
+    };
+  }
+
+  return { message: message || 'Failed to send invite', code: 'unknown' };
+}
+
+async function getInviteNoteIdByToken(token: string): Promise<string | null> {
+  const { data: inviteRow } = await supabase
+    .from('document_invites')
+    .select('note_id')
+    .eq('token', token)
+    .maybeSingle();
+
+  return typeof inviteRow?.note_id === 'string' ? inviteRow.note_id : null;
+}
+
 async function inviteCollaboratorLegacy(
   noteId: string,
   email: string,
@@ -197,6 +368,7 @@ async function inviteCollaboratorLegacy(
     return {
       success: false,
       error: authError?.message || 'Authentication required to send invite',
+      errorCode: 'auth_required',
     };
   }
 
@@ -212,10 +384,12 @@ async function inviteCollaboratorLegacy(
       return {
         success: false,
         error: 'Banco desatualizado. Rode as migrations de colaboração e recarregue o schema cache do Supabase.',
+        errorCode: 'database_outdated',
       };
     }
 
-    return { success: false, error: error.message };
+    const mapped = mapInviteError(error);
+    return { success: false, error: mapped.message, errorCode: mapped.code };
   }
 
   const inviteId = typeof inviteIdData === 'string' ? inviteIdData : undefined;
@@ -247,20 +421,26 @@ async function acceptInviteLegacy(token: string): Promise<string | null> {
     return null;
   }
 
-  let noteIdFromInvite: string | null = null;
-  const { data: inviteRow } = await supabase
-    .from('document_invites')
-    .select('note_id')
-    .eq('token', token)
-    .maybeSingle();
+  const noteIdFromInvite = await getInviteNoteIdByToken(token);
+  let linkedUserId = userId;
 
-  if (typeof inviteRow?.note_id === 'string') {
-    noteIdFromInvite = inviteRow.note_id;
+  try {
+    const { data: linkedData } = await supabase.rpc('ensure_public_user_linked', {
+      p_auth_user_id: userId,
+    });
+
+    if (typeof linkedData === 'string' && linkedData.length > 0) {
+      linkedUserId = linkedData;
+    } else if (Array.isArray(linkedData) && typeof linkedData[0] === 'string' && linkedData[0].length > 0) {
+      linkedUserId = linkedData[0];
+    }
+  } catch {
+    // Best-effort only; legacy path keeps previous behavior if relink RPC is unavailable.
   }
 
   const { data, error } = await supabase.rpc('accept_document_invite', {
     invite_token: token,
-    user_uuid: userId,
+    user_uuid: linkedUserId,
   });
 
   if (error) {
@@ -279,6 +459,22 @@ async function acceptInviteLegacy(token: string): Promise<string | null> {
   return noteIdFromInvite;
 }
 
+async function revokePublicSharingAfterRemoval(noteId: string): Promise<void> {
+  const { error } = await supabase
+    .from('notes')
+    .update({
+      is_public: false,
+      share_hash: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', noteId);
+
+  if (error) {
+    // Best-effort fallback: backend migration enforces this consistently.
+    console.warn('Failed to revoke public sharing after collaborator removal:', error);
+  }
+}
+
 // ============================================
 // API Functions
 // ============================================
@@ -290,6 +486,22 @@ export async function getDocumentCollaborators(
   noteId: string,
   includeInactive: boolean = true
 ): Promise<Collaborator[]> {
+  const { data: rpcData, error: rpcError } = await supabase.rpc(
+    'get_document_collaborators_with_identity',
+    {
+      note_uuid: noteId,
+      include_inactive: includeInactive,
+    },
+  );
+
+  if (!rpcError && Array.isArray(rpcData)) {
+    return rpcData.map((row: any) => mapCollaboratorRecord(row as Record<string, unknown>));
+  }
+
+  if (rpcError && !isMissingRpcFunction(rpcError, 'get_document_collaborators_with_identity')) {
+    console.warn('get_document_collaborators_with_identity failed, falling back to legacy query:', rpcError);
+  }
+
   const query = supabase
     .from('document_collaborators')
     .select(`
@@ -316,25 +528,24 @@ export async function getDocumentCollaborators(
     return [];
   }
 
-  return (data || []).map((collab: any) => ({
-    id: collab.id,
-    noteId: collab.note_id,
-    userId: collab.user_id,
-    role: collab.role,
-    status: collab.status,
-    capabilities: normalizeCapabilities(collab.capabilities),
-    invitedBy: collab.invited_by,
-    invitedAt: collab.invited_at,
-    acceptedAt: collab.accepted_at,
-    createdAt: collab.created_at,
-    updatedAt: collab.updated_at,
-    user: collab.user ? {
-      id: collab.user.id,
-      email: collab.user.email,
-      name: collab.user.name,
-      avatarUrl: collab.user.avatar_url,
-    } : undefined,
-  }));
+  return (data || []).map((collab: any) =>
+    mapCollaboratorRecord({
+      collaborator_id: collab.id,
+      note_id: collab.note_id,
+      user_id: collab.user_id,
+      role: collab.role,
+      status: collab.status,
+      capabilities: collab.capabilities,
+      invited_by: collab.invited_by,
+      invited_at: collab.invited_at,
+      accepted_at: collab.accepted_at,
+      created_at: collab.created_at,
+      updated_at: collab.updated_at,
+      email: collab.user?.email,
+      name: collab.user?.name,
+      avatar_url: collab.user?.avatar_url,
+    }),
+  );
 }
 
 /**
@@ -372,12 +583,14 @@ export async function inviteCollaborator(
         return inviteCollaboratorLegacy(noteId, email, role);
       }
 
-      return { success: false, error: error.message };
+      const mapped = mapInviteError(error);
+      return { success: false, error: mapped.message, errorCode: mapped.code };
     }
 
     return mapInviteResult(data);
   } catch (error: any) {
-    return { success: false, error: error?.message || 'Failed to send invite' };
+    const mapped = mapInviteError(error);
+    return { success: false, error: mapped.message, errorCode: mapped.code };
   }
 }
 
@@ -394,6 +607,7 @@ export async function removeCollaborator(
   });
 
   if (!error && data === true) {
+    await revokePublicSharingAfterRemoval(noteId);
     return { success: true };
   }
 
@@ -412,6 +626,7 @@ export async function removeCollaborator(
       .eq('user_id', userId);
 
     if (!fallbackError) {
+      await revokePublicSharingAfterRemoval(noteId);
       return { success: true };
     }
 
@@ -539,6 +754,44 @@ export async function getDocumentInvites(
 }
 
 /**
+ * Get pending invites addressed to the current authenticated user's email.
+ */
+export async function getMyPendingInvites(): Promise<DocumentInvite[]> {
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  const email = authData?.user?.email?.trim().toLowerCase();
+
+  if (authError || !email) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from('document_invites')
+    .select('*')
+    .eq('status', 'pending')
+    .eq('email', email)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching current user invites:', error);
+    return [];
+  }
+
+  return (data || []).map((invite: any) => ({
+    id: invite.id,
+    noteId: invite.note_id,
+    email: invite.email,
+    role: invite.role,
+    token: invite.token,
+    invitedBy: invite.invited_by,
+    status: invite.status,
+    expiresAt: invite.expires_at,
+    createdAt: invite.created_at,
+    updatedAt: invite.updated_at,
+    acceptedAt: invite.accepted_at,
+  }));
+}
+
+/**
  * Accept a document invite and return note id
  */
 export async function acceptInvite(token: string): Promise<string | null> {
@@ -551,6 +804,33 @@ export async function acceptInvite(token: string): Promise<string | null> {
       return acceptInviteLegacy(token);
     }
 
+    if (isDocumentCollaboratorUserForeignKeyError(error) || isProfileSyncError(error)) {
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData?.user?.id;
+
+      if (userId) {
+        try {
+          await supabase.rpc('ensure_public_user_linked', { p_auth_user_id: userId });
+
+          const retry = await supabase.rpc('accept_document_invite', {
+            invite_token: token,
+          });
+
+          if (!retry.error) {
+            if (typeof retry.data === 'string' && retry.data.length > 0) {
+              return retry.data;
+            }
+
+            if (retry.data === true) {
+              return getInviteNoteIdByToken(token);
+            }
+          }
+        } catch {
+          // Fall through to generic error handling below.
+        }
+      }
+    }
+
     console.error('Error accepting invite:', error);
     return null;
   }
@@ -560,13 +840,7 @@ export async function acceptInvite(token: string): Promise<string | null> {
   }
 
   if (data === true) {
-    const { data: inviteRow } = await supabase
-      .from('document_invites')
-      .select('note_id')
-      .eq('token', token)
-      .maybeSingle();
-
-    return typeof inviteRow?.note_id === 'string' ? inviteRow.note_id : null;
+    return getInviteNoteIdByToken(token);
   }
 
   return null;

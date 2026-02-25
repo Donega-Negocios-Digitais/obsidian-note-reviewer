@@ -67,6 +67,10 @@ export function LoginForm() {
           </svg>
           Entrar com GitHub
         </button>
+
+        <p className="text-xs text-muted-foreground">
+          Use sempre o mesmo método de login para evitar contas duplicadas.
+        </p>
       </div>
 
       <div className="relative">

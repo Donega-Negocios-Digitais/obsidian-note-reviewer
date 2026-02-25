@@ -19,7 +19,14 @@ import { KeyboardShortcutsModal } from '@obsidian-note-reviewer/ui/components/Ke
 import { HowItWorksModal } from '@obsidian-note-reviewer/ui/components/HowItWorksModal';
 import { BaseModal } from '@obsidian-note-reviewer/ui/components/BaseModal';
 import { useSharing } from '@obsidian-note-reviewer/ui/hooks/useSharing';
-import { acceptInvite, getCurrentUserRole, useDocumentPresence } from '@obsidian-note-reviewer/collaboration';
+import {
+  acceptInvite,
+  declineInvite,
+  getCurrentUserRole,
+  getMyPendingInvites,
+  useDocumentPresence,
+  type DocumentInvite,
+} from '@obsidian-note-reviewer/collaboration';
 import {
   storage,
   getVaultPath,
@@ -55,6 +62,7 @@ import {
   type TrashDocumentRecord,
 } from './documentService';
 import { RaycastDocumentsModal } from './components/RaycastDocumentsModal';
+import { ReceivedInvitesModal } from './components/ReceivedInvitesModal';
 import { TrashDocumentsModal } from './components/TrashDocumentsModal';
 
 const PLAN_CONTENT = `---
@@ -664,9 +672,10 @@ const App: React.FC<EditorAppProps> = ({
   const [isSavingFullEdit, setIsSavingFullEdit] = useState(false);
   const [fullEditContent, setFullEditContent] = useState('');
   const [currentAuthorName, setCurrentAuthorName] = useState<string>('');
+  const [currentAuthorEmail, setCurrentAuthorEmail] = useState<string>('');
   const [currentAuthorAvatar, setCurrentAuthorAvatar] = useState<string | null>(null);
   const [cloudClient, setCloudClient] = useState<any | null>(null);
-  const [cloudProfile, setCloudProfile] = useState<{ id: string; name: string } | null>(null);
+  const [cloudProfile, setCloudProfile] = useState<{ id: string; name: string; email?: string | null; avatarUrl?: string | null } | null>(null);
   const [cloudNoteId, setCloudNoteId] = useState<string | null>(null);
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
   const [activeDocumentId, setActiveDocumentId] = useState<string | null>(() => {
@@ -675,8 +684,14 @@ const App: React.FC<EditorAppProps> = ({
     return new URLSearchParams(window.location.search).get('document');
   });
   const [activeDocumentRole, setActiveDocumentRole] = useState<'owner' | 'editor' | 'viewer' | 'none'>('none');
+  const [isInlineRenamingHeader, setIsInlineRenamingHeader] = useState(false);
+  const [inlineHeaderTitle, setInlineHeaderTitle] = useState('');
   const [isDocumentsModalOpen, setIsDocumentsModalOpen] = useState(false);
+  const [isInvitesModalOpen, setIsInvitesModalOpen] = useState(false);
   const [isTrashModalOpen, setIsTrashModalOpen] = useState(false);
+  const [pendingInvites, setPendingInvites] = useState<DocumentInvite[]>([]);
+  const [pendingInvitesLoading, setPendingInvitesLoading] = useState(false);
+  const [pendingInviteAction, setPendingInviteAction] = useState<{ inviteId: string; action: 'accept' | 'decline' } | null>(null);
   const [trashDocuments, setTrashDocuments] = useState<TrashDocumentRecord[]>([]);
   const [trashLoading, setTrashLoading] = useState(false);
   const [documentsLoading, setDocumentsLoading] = useState(false);
@@ -684,6 +699,7 @@ const App: React.FC<EditorAppProps> = ({
   const [activePresenceCount, setActivePresenceCount] = useState(0);
   const viewerRef = useRef<ViewerHandle>(null);
   const headerRef = useRef<HTMLElement>(null);
+  const headerRenameInputRef = useRef<HTMLInputElement>(null);
   const documentAreaRef = useRef<HTMLElement>(null);
   const fullEditTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [annotationsLoadedFromCloud, setAnnotationsLoadedFromCloud] = useState(false);
@@ -702,6 +718,11 @@ const App: React.FC<EditorAppProps> = ({
     () => normalizeNoteSourcePath(savePath || getNotePath() || 'nota.md'),
     [savePath]
   );
+  const activeDocument = useMemo(
+    () => documents.find((doc) => doc.id === activeDocumentId) || null,
+    [documents, activeDocumentId],
+  );
+  const activeDocumentTitle = activeDocument?.title || 'Documento';
   const canEditActiveDocument = activeDocumentRole === 'owner' || activeDocumentRole === 'editor' || !cloudWorkspaceEnabled;
   const activeDocumentRoleLabel = useMemo(() => {
     switch (activeDocumentRole) {
@@ -715,6 +736,15 @@ const App: React.FC<EditorAppProps> = ({
         return '';
     }
   }, [activeDocumentRole, t]);
+  const pendingInvitesCount = pendingInvites.length;
+  const pendingInvitesBadgeLabel = pendingInvitesCount > 10 ? '10+' : String(pendingInvitesCount);
+  const invitesByDocumentId = useMemo(() => {
+    const byId = new Map<string, string>();
+    for (const doc of documents) {
+      byId.set(doc.id, doc.title);
+    }
+    return byId;
+  }, [documents]);
   const resolvePublicShareUrl = useCallback(async (): Promise<string | null> => {
     if (!cloudWorkspaceEnabled || !cloudClient || !activeDocumentId) {
       return null;
@@ -734,6 +764,20 @@ const App: React.FC<EditorAppProps> = ({
       setEditorMode('selection');
     }
   }, [canEditActiveDocument, editorMode]);
+
+  useEffect(() => {
+    if (isInlineRenamingHeader) return;
+    setInlineHeaderTitle(activeDocument?.title || '');
+  }, [isInlineRenamingHeader, activeDocument?.id, activeDocument?.title]);
+
+  useEffect(() => {
+    if (!isInlineRenamingHeader) return;
+    const timer = setTimeout(() => {
+      headerRenameInputRef.current?.focus();
+      headerRenameInputRef.current?.select();
+    }, 30);
+    return () => clearTimeout(timer);
+  }, [isInlineRenamingHeader]);
 
   // URL-based sharing
   const {
@@ -988,14 +1032,24 @@ const App: React.FC<EditorAppProps> = ({
             authUser.user_metadata?.name ||
             authUser.email ||
             'Usuário';
+          const resolvedEmail =
+            resolvedProfile?.email ||
+            authUser.email ||
+            '';
           const resolvedAvatar =
             resolvedProfile?.avatarUrl ||
             (authUser.user_metadata?.avatar_url as string | null) ||
             null;
 
           if (!cancelled) {
-            setCloudProfile({ id: authUser.id, name: resolvedName });
+            setCloudProfile({
+              id: authUser.id,
+              name: resolvedName,
+              email: resolvedEmail || null,
+              avatarUrl: resolvedAvatar,
+            });
             setCurrentAuthorName(resolvedName);
+            setCurrentAuthorEmail(resolvedEmail || '');
             setCurrentAuthorAvatar(resolvedAvatar);
             updateDisplayName(resolvedName);
           }
@@ -1171,6 +1225,7 @@ const App: React.FC<EditorAppProps> = ({
       if (cloudState.profile) {
         setCloudProfile(cloudState.profile as any);
         setCurrentAuthorName(cloudState.profile.name);
+        setCurrentAuthorEmail(cloudState.profile.email || '');
         setCurrentAuthorAvatar(cloudState.profile.avatarUrl);
         updateDisplayName(cloudState.profile.name);
       }
@@ -1521,9 +1576,14 @@ const App: React.FC<EditorAppProps> = ({
   };
 
   const handleAddAnnotation = (ann: Annotation) => {
+    const cloudAuthorName = cloudProfile?.name || currentAuthorName || 'Usuário';
+    const cloudAuthorEmail = cloudProfile?.email || currentAuthorEmail || undefined;
+    const localAuthorName = ann.author || currentAuthorName || ann.author;
+
     const nextAnnotation: Annotation = {
       ...ann,
-      author: ann.author || currentAuthorName || ann.author,
+      author: cloudWorkspaceEnabled ? cloudAuthorName : localAuthorName,
+      authorEmail: cloudWorkspaceEnabled ? cloudAuthorEmail : (ann.authorEmail || currentAuthorEmail || undefined),
     };
 
     if (!canEditActiveDocument) {
@@ -1598,7 +1658,12 @@ const App: React.FC<EditorAppProps> = ({
   };
 
   const handleAddGlobalComment = (comment: string, author: string) => {
-    const effectiveAuthor = author?.trim() || currentAuthorName || author;
+    const effectiveAuthor = cloudWorkspaceEnabled
+      ? (cloudProfile?.name || currentAuthorName || author?.trim() || 'Usuário')
+      : (author?.trim() || currentAuthorName || author);
+    const effectiveAuthorEmail = cloudWorkspaceEnabled
+      ? (cloudProfile?.email || currentAuthorEmail || undefined)
+      : (currentAuthorEmail || undefined);
     const newAnnotation: Annotation = {
       id: `global-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       blockId: '', // Not tied to a specific block
@@ -1609,6 +1674,7 @@ const App: React.FC<EditorAppProps> = ({
       originalText: '', // No selected text
       createdA: Date.now(),
       author: effectiveAuthor,
+      authorEmail: effectiveAuthorEmail,
       isGlobal: true,
     };
 
@@ -1679,6 +1745,74 @@ const App: React.FC<EditorAppProps> = ({
     setShowStickyBar(false);
   };
 
+  const loadPendingInvites = useCallback(async () => {
+    if (!isPortalRuntime || !cloudWorkspaceEnabled) {
+      setPendingInvites([]);
+      return;
+    }
+
+    setPendingInvitesLoading(true);
+    try {
+      const invites = await getMyPendingInvites();
+      setPendingInvites(invites);
+    } catch {
+      // Keep UI resilient; the editor remains usable even if invite listing fails.
+      setPendingInvites([]);
+    } finally {
+      setPendingInvitesLoading(false);
+    }
+  }, [isPortalRuntime, cloudWorkspaceEnabled]);
+
+  const handleOpenReceivedInvites = async () => {
+    setIsInvitesModalOpen(true);
+    await loadPendingInvites();
+  };
+
+  const handleAcceptPendingInvite = async (invite: DocumentInvite) => {
+    setPendingInviteAction({ inviteId: invite.id, action: 'accept' });
+
+    try {
+      const acceptedNoteId = await acceptInvite(invite.token);
+      if (!acceptedNoteId) {
+        setDocumentsError('Não foi possível aceitar este convite.');
+        return;
+      }
+
+      setPendingInvites((current) => current.filter((item) => item.id !== invite.id));
+    } catch (error: any) {
+      setDocumentsError(error?.message || 'Falha ao aceitar convite.');
+    } finally {
+      setPendingInviteAction(null);
+    }
+  };
+
+  const handleDeclinePendingInvite = async (invite: DocumentInvite) => {
+    setPendingInviteAction({ inviteId: invite.id, action: 'decline' });
+
+    try {
+      const declined = await declineInvite(invite.token);
+      if (!declined) {
+        setDocumentsError('Não foi possível recusar este convite.');
+        return;
+      }
+
+      setPendingInvites((current) => current.filter((item) => item.id !== invite.id));
+    } catch (error: any) {
+      setDocumentsError(error?.message || 'Falha ao recusar convite.');
+    } finally {
+      setPendingInviteAction(null);
+    }
+  };
+
+  useEffect(() => {
+    if (!isPortalRuntime || !cloudWorkspaceEnabled || !cloudProfile?.id) {
+      setPendingInvites([]);
+      return;
+    }
+
+    void loadPendingInvites();
+  }, [isPortalRuntime, cloudWorkspaceEnabled, cloudProfile?.id, loadPendingInvites]);
+
   const normalizeDocumentPermissionError = (
     error: unknown,
     fallback: string,
@@ -1736,7 +1870,6 @@ const App: React.FC<EditorAppProps> = ({
         }
       }
 
-      setIsDocumentsModalOpen(false);
       void (async () => {
         try {
           const trashDocs = await listTrashDocuments(cloudClient);
@@ -1776,6 +1909,33 @@ const App: React.FC<EditorAppProps> = ({
         ),
       );
     }
+  };
+
+  const startHeaderInlineRename = () => {
+    if (!canEditActiveDocument || !activeDocumentId) return;
+    setInlineHeaderTitle(activeDocument?.title || '');
+    setIsInlineRenamingHeader(true);
+  };
+
+  const cancelHeaderInlineRename = () => {
+    setInlineHeaderTitle(activeDocument?.title || '');
+    setIsInlineRenamingHeader(false);
+  };
+
+  const commitHeaderInlineRename = async () => {
+    if (!isInlineRenamingHeader) return;
+
+    const documentId = activeDocumentId;
+    const nextTitle = inlineHeaderTitle.trim();
+    const currentTitle = (activeDocument?.title || '').trim();
+
+    if (!documentId || !nextTitle || nextTitle === currentTitle) {
+      cancelHeaderInlineRename();
+      return;
+    }
+
+    await handleRenameDocument(documentId, nextTitle);
+    setIsInlineRenamingHeader(false);
   };
 
   const handleOpenTrash = async () => {
@@ -2135,9 +2295,39 @@ const App: React.FC<EditorAppProps> = ({
             />
             {cloudWorkspaceEnabled && (
               <div className="hidden md:flex items-center gap-2">
-                <span className="max-w-[220px] truncate text-xs font-medium text-muted-foreground">
-                  {documents.find((doc) => doc.id === activeDocumentId)?.title || 'Documento'}
-                </span>
+                {isInlineRenamingHeader ? (
+                  <input
+                    ref={headerRenameInputRef}
+                    value={inlineHeaderTitle}
+                    onChange={(event) => setInlineHeaderTitle(event.target.value)}
+                    onBlur={() => {
+                      void commitHeaderInlineRename();
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
+                        void commitHeaderInlineRename();
+                        return;
+                      }
+
+                      if (event.key === 'Escape') {
+                        event.preventDefault();
+                        cancelHeaderInlineRename();
+                      }
+                    }}
+                    className="w-[220px] rounded-md border border-border/70 bg-background px-2 py-1 text-xs font-medium text-foreground outline-none ring-0 focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
+                  />
+                ) : (
+                  <span
+                    className={`max-w-[220px] truncate text-xs font-medium ${
+                      canEditActiveDocument ? 'cursor-text text-foreground hover:text-foreground' : 'text-muted-foreground'
+                    }`}
+                    onDoubleClick={startHeaderInlineRename}
+                    title={canEditActiveDocument ? 'Duplo clique para renomear' : undefined}
+                  >
+                    {activeDocumentTitle}
+                  </span>
+                )}
                 {activeDocumentRole !== 'none' && (
                   <span className="rounded-md border border-border/60 bg-muted px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
                     {activeDocumentRoleLabel}
@@ -2235,13 +2425,31 @@ const App: React.FC<EditorAppProps> = ({
             {cloudWorkspaceEnabled && activeDocumentId && (
               <button
                 onClick={handleOpenCollaborate}
-                className="p-1.5 rounded-md text-xs font-medium text-primary hover:text-primary hover:bg-primary/10 transition-all"
+                className="p-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
                 title={t('app.collaborate')}
                 aria-label={t('app.collaborate')}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a4 4 0 00-5-3.87M17 20H7m10 0v-2c0-.653-.126-1.277-.355-1.848M7 20H2v-2a4 4 0 015-3.87M7 20v-2c0-.653.126-1.277.355-1.848m0 0a5 5 0 019.29 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
+              </button>
+            )}
+
+            {isPortalRuntime && cloudWorkspaceEnabled && (
+              <button
+                onClick={handleOpenReceivedInvites}
+                className="relative p-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+                title="Convites recebidos"
+                aria-label="Convites recebidos"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l9 6 9-6M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                {pendingInvitesCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] leading-4 font-semibold text-center">
+                    {pendingInvitesBadgeLabel}
+                  </span>
+                )}
               </button>
             )}
 
@@ -2420,13 +2628,31 @@ const App: React.FC<EditorAppProps> = ({
                 {cloudWorkspaceEnabled && activeDocumentId && (
                   <button
                     onClick={handleOpenCollaborate}
-                    className="p-1.5 rounded-md text-xs font-medium text-primary hover:text-primary hover:bg-primary/10 transition-all"
+                    className="p-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
                     title={t('app.collaborate')}
                     aria-label={t('app.collaborate')}
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a4 4 0 00-5-3.87M17 20H7m10 0v-2c0-.653-.126-1.277-.355-1.848M7 20H2v-2a4 4 0 015-3.87M7 20v-2c0-.653.126-1.277.355-1.848m0 0a5 5 0 019.29 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
+                  </button>
+                )}
+
+                {isPortalRuntime && cloudWorkspaceEnabled && (
+                  <button
+                    onClick={handleOpenReceivedInvites}
+                    className="relative p-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+                    title="Convites recebidos"
+                    aria-label="Convites recebidos"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l9 6 9-6M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    {pendingInvitesCount > 0 && (
+                      <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] leading-4 font-semibold text-center">
+                        {pendingInvitesBadgeLabel}
+                      </span>
+                    )}
                   </button>
                 )}
 
@@ -2512,6 +2738,7 @@ const App: React.FC<EditorAppProps> = ({
                   mode={showExport ? 'selection' : editorMode}
                   onBlockChange={setBlocks}
                   currentAuthor={currentAuthorName}
+                  currentAuthorEmail={currentAuthorEmail}
                 />
               )}
             </div>
@@ -2568,6 +2795,19 @@ const App: React.FC<EditorAppProps> = ({
             />
           </>
         )}
+
+        <ReceivedInvitesModal
+          isOpen={isInvitesModalOpen}
+          loading={pendingInvitesLoading}
+          invites={pendingInvites.map((invite) => ({
+            ...invite,
+            documentTitle: invitesByDocumentId.get(invite.noteId) || `Documento ${invite.noteId.slice(0, 8)}`,
+          }))}
+          actionState={pendingInviteAction}
+          onClose={() => setIsInvitesModalOpen(false)}
+          onAccept={handleAcceptPendingInvite}
+          onDecline={handleDeclinePendingInvite}
+        />
 
         {/* Export Modal */}
         <ExportModal

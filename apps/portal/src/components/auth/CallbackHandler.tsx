@@ -16,11 +16,70 @@ export function CallbackHandler() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [error, setError] = useState<string | null>(null)
-  const [processing, setProcessing] = useState(true)
 
   // Get redirect target from URL params (for flexibility)
   const next = searchParams.get('next') ?? null
   const redirectTo = searchParams.get('redirectTo') ?? next
+
+  const providerLabel = (provider: string): string => {
+    const normalized = provider.trim().toLowerCase()
+    if (normalized === 'google') return 'Google'
+    if (normalized === 'github') return 'GitHub'
+    return 'E-mail e senha'
+  }
+
+  const formatProviderList = (providers: string[]): string => {
+    const labels = providers.map(providerLabel).filter(Boolean)
+    if (labels.length === 0) return 'E-mail e senha'
+    if (labels.length === 1) return labels[0]
+    if (labels.length === 2) return `${labels[0]} ou ${labels[1]}`
+    return `${labels.slice(0, -1).join(', ')} ou ${labels[labels.length - 1]}`
+  }
+
+  const isMissingProviderPolicyRpc = (error: unknown): boolean => {
+    const code = String((error as any)?.code || '').toUpperCase()
+    const message = String((error as any)?.message || '').toLowerCase()
+    const details = String((error as any)?.details || '').toLowerCase()
+
+    if (code === 'PGRST202') return true
+    if (code === '42883') {
+      return message.includes('enforce_auth_provider_policy') || details.includes('enforce_auth_provider_policy')
+    }
+
+    return (
+      (message.includes('could not find the function') || details.includes('could not find the function'))
+      && (message.includes('enforce_auth_provider_policy') || details.includes('enforce_auth_provider_policy'))
+    )
+  }
+
+  const enforceProviderPolicy = async (): Promise<string | null> => {
+    const { data, error } = await supabase.rpc('enforce_auth_provider_policy')
+
+    if (error) {
+      if (isMissingProviderPolicyRpc(error)) {
+        return null
+      }
+      console.error('❌ [Callback] Falha ao validar política de provedor:', error)
+      return null
+    }
+
+    const row = Array.isArray(data) ? data[0] : data
+    if (!row || row.is_allowed !== false) {
+      return null
+    }
+
+    const allowedProviders = Array.isArray(row.allowed_providers)
+      ? row.allowed_providers.filter((provider: unknown): provider is string => typeof provider === 'string' && provider.length > 0)
+      : ['email']
+
+    const allowedLabel = formatProviderList(allowedProviders)
+    const preferredLabel = allowedProviders.length === 1
+      ? providerLabel(allowedProviders[0])
+      : `um destes métodos: ${allowedLabel}`
+
+    await supabase.auth.signOut({ scope: 'local' })
+    return `Este e-mail está vinculado ao método ${allowedLabel}. Entre usando ${preferredLabel}.`
+  }
 
   useEffect(() => {
     let mounted = true
@@ -67,6 +126,15 @@ export function CallbackHandler() {
           }
 
           if (sessionData?.session?.user) {
+            const providerPolicyError = await enforceProviderPolicy()
+            if (providerPolicyError) {
+              setError(providerPolicyError)
+              setTimeout(() => {
+                if (mounted) navigate('/auth/login', { replace: true })
+              }, 3500)
+              return
+            }
+
             console.log('✅ [Callback] Sessão configurada! Usuário:', sessionData.session.user.email)
             const targetPath = redirectTo || '/editor'
             console.log('✅ [Callback] Redirecionando automaticamente para:', targetPath, '(caminho: setSession)')
@@ -89,6 +157,15 @@ export function CallbackHandler() {
         }
 
         if (session?.user) {
+          const providerPolicyError = await enforceProviderPolicy()
+          if (providerPolicyError) {
+            setError(providerPolicyError)
+            setTimeout(() => {
+              if (mounted) navigate('/auth/login', { replace: true })
+            }, 3500)
+            return
+          }
+
           console.log('✅ [Callback] Sessão encontrada! Usuário:', session.user.email)
           const targetPath = redirectTo || '/editor'
           console.log('✅ [Callback] Redirecionando automaticamente para:', targetPath, '(caminho: getSession)')
@@ -96,7 +173,6 @@ export function CallbackHandler() {
         } else {
           console.error('❌ [Callback] Nenhuma sessão encontrada após 10 tentativas')
           console.log('🔍 [Callback] LocalStorage keys:', Object.keys(localStorage).filter(k => k.startsWith('sb-')))
-          setProcessing(false)
 
           // Show error message and redirect
           setError('Não foi possível completar a autenticação. Tente novamente.')

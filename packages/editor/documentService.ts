@@ -407,6 +407,7 @@ function mapAnnotation(
     originalText: row.original_text || '',
     createdA: toEpoch(row.created_at) || Date.now(),
     author: linkedComment?.author_name || (typeof metadata.author === 'string' ? metadata.author : undefined),
+    authorEmail: typeof metadata.author_email === 'string' ? metadata.author_email : undefined,
     isGlobal: metadata.is_global === true,
     threadId: typeof metadata.thread_id === 'string' ? metadata.thread_id : linkedComment?.thread_id,
     commentId: typeof metadata.comment_id === 'string' ? metadata.comment_id : linkedComment?.id,

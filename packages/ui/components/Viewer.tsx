@@ -23,6 +23,7 @@ interface ImageAnnotationContextValue {
   onUpdateAnnotation?: (id: string, updates: Partial<Annotation>) => void;
   isDrawingEnabled: boolean;
   currentAuthor?: string;
+  currentAuthorEmail?: string;
 }
 
 const ImageAnnotationContext = React.createContext<ImageAnnotationContextValue>({
@@ -30,6 +31,7 @@ const ImageAnnotationContext = React.createContext<ImageAnnotationContextValue>(
   onAddAnnotation: () => {},
   isDrawingEnabled: false,
   currentAuthor: undefined,
+  currentAuthorEmail: undefined,
 });
 
 function buildAnnotationId(): string {
@@ -51,6 +53,7 @@ interface ViewerProps {
   mode: EditorMode;
   onBlockChange?: (blocks: Block[]) => void;
   currentAuthor?: string;
+  currentAuthorEmail?: string;
 }
 
 export interface ViewerHandle {
@@ -69,7 +72,8 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(({
   selectedAnnotationId,
   mode,
   onBlockChange,
-  currentAuthor
+  currentAuthor,
+  currentAuthorEmail,
 }, ref) => {
   const { t } = useTranslation();
 
@@ -81,6 +85,9 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(({
     buttonClass: noteButtonClass,
     iconClass: noteIconClass,
   } = useCopyFeedback();
+
+  const resolvedAuthorName = currentAuthor?.trim() || getIdentity();
+  const resolvedAuthorEmail = currentAuthorEmail?.trim() || undefined;
 
   const containerRef = useRef<HTMLDivElement>(null);
   const highlighterRef = useRef<Highlighter | null>(null);
@@ -207,7 +214,8 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(({
       text,
       originalText: source.text,
       createdA: Date.now(),
-      author: currentAuthor || getIdentity(),
+      author: resolvedAuthorName,
+      authorEmail: resolvedAuthorEmail,
       startMeta: source.startMeta,
       endMeta: source.endMeta,
     };
@@ -580,7 +588,8 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(({
       text,
       originalText: codeText,
       createdA: Date.now(),
-      author: currentAuthor || getIdentity(),
+      author: resolvedAuthorName,
+      authorEmail: resolvedAuthorEmail,
     };
 
     onAddAnnotationRef.current(newAnnotation);
@@ -602,6 +611,7 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(({
         onUpdateAnnotation,
         isDrawingEnabled: mode === 'edit',
         currentAuthor,
+        currentAuthorEmail,
       }}
     >
     <div className="relative z-50 w-full max-w-3xl">
@@ -807,7 +817,7 @@ const AnnotatedImage: React.FC<{
   alt: string;
   imageId: string;
 }> = ({ src, alt, imageId }) => {
-  const { annotations, onAddAnnotation, onUpdateAnnotation, isDrawingEnabled, currentAuthor } = React.useContext(ImageAnnotationContext);
+  const { annotations, onAddAnnotation, onUpdateAnnotation, isDrawingEnabled, currentAuthor, currentAuthorEmail } = React.useContext(ImageAnnotationContext);
   const annotationIdRef = useRef<string | null>(null);
 
   const handleAnnotationsChange = useCallback((strokes: Stroke[]) => {
@@ -825,6 +835,7 @@ const AnnotatedImage: React.FC<{
         type: AnnotationType.IMAGE_COMMENT,
         originalText: alt || src,
         author: currentAuthor || getIdentity(),
+        authorEmail: currentAuthorEmail,
         imageId,
         imageStrokes: strokes,
         createdA: Date.now(),

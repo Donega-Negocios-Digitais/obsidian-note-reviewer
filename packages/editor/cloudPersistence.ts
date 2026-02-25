@@ -13,6 +13,7 @@ interface CloudProfile {
   id: string;
   orgId: string | null;
   name: string;
+  email: string | null;
   avatarUrl: string | null;
 }
 
@@ -110,6 +111,7 @@ function metadataFromAnnotation(annotation: Annotation): Record<string, unknown>
   return {
     client_id: annotation.id,
     author: annotation.author ?? null,
+    author_email: annotation.authorEmail ?? null,
     is_global: annotation.isGlobal ?? annotation.type === AnnotationType.GLOBAL_COMMENT,
     image_id: annotation.imageId ?? null,
     image_strokes: annotation.imageStrokes ?? null,
@@ -164,7 +166,7 @@ async function resolveCloudProfile(client: SupabaseClientLike): Promise<CloudPro
     if (!tableProfile) {
       const { data, error } = await client
         .from('users')
-        .select('id, org_id, name, avatar_url')
+        .select('id, org_id, name, email, avatar_url')
         .eq('id', user.id)
         .maybeSingle();
 
@@ -193,11 +195,19 @@ async function resolveCloudProfile(client: SupabaseClientLike): Promise<CloudPro
     getDisplayName() ||
     user.email?.split('@')[0] ||
     'Anônimo';
+  const fallbackEmail =
+    typeof user.email === 'string' && user.email.trim().length > 0
+      ? user.email.trim().toLowerCase()
+      : null;
+  const profileEmail = typeof tableProfile?.email === 'string' && tableProfile.email.trim().length > 0
+    ? tableProfile.email.trim().toLowerCase()
+    : fallbackEmail;
 
   return {
     id: user.id,
     orgId: (tableProfile?.org_id as string | undefined) ?? null,
     name: (tableProfile?.name as string | undefined) || fallbackName,
+    email: profileEmail,
     avatarUrl: (tableProfile?.avatar_url as string | undefined) || (user.user_metadata?.avatar_url as string | undefined) || null,
   };
 }
@@ -311,6 +321,7 @@ function mapRowToAnnotation(row: Record<string, unknown>, threadComment?: Commen
     originalText: String(row.original_text ?? ''),
     createdA: safeDateToEpoch(row.created_at) ?? Date.now(),
     author: threadComment?.authorName || (typeof metadata.author === 'string' ? metadata.author : undefined),
+    authorEmail: typeof metadata.author_email === 'string' ? metadata.author_email : undefined,
     isGlobal: isGlobalMeta || type === AnnotationType.GLOBAL_COMMENT,
     imageId: typeof metadata.image_id === 'string' ? metadata.image_id : undefined,
     imageStrokes: Array.isArray(metadata.image_strokes)
@@ -629,6 +640,7 @@ export async function syncCloudAnnotations(
     ...annotation,
     persistedId: annotation.persistedId || crypto.randomUUID(),
     author: annotation.author || (!annotation.persistedId ? profile.name : annotation.author),
+    authorEmail: annotation.authorEmail || (!annotation.persistedId ? profile.email || undefined : annotation.authorEmail),
   }));
 
   const writableAnnotations = hydrated.filter((annotation) =>

@@ -30,6 +30,7 @@ export interface Annotation {
   originalText: string; // The text that was selected
   createdA: number;
   author?: string; // Tater identity for collaborative sharing
+  authorEmail?: string;
   isGlobal?: boolean; // true for global comments (not tied to specific text)
   // Status tracking
   status?: AnnotationStatus; // Current status of the annotation

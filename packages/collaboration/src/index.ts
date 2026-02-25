@@ -143,6 +143,7 @@ export {
   updateCollaboratorRole,
   updateCollaboratorCapability,
   getDocumentInvites,
+  getMyPendingInvites,
   acceptInvite,
   declineInvite,
   cancelInvite,
@@ -160,6 +161,7 @@ export type {
   CollaboratorStatus,
   DocumentInvite,
   InviteStatus,
+  InviteErrorCode,
   InviteResult,
   RemoveCollaboratorResult,
 } from './collaborators';

@@ -70,6 +70,17 @@ function getAuthProviders(user: { app_metadata?: Record<string, unknown>; identi
     resolved.add(appProvider)
   }
 
+  const appProviders = Array.isArray(user?.app_metadata?.providers)
+    ? (user?.app_metadata?.providers as unknown[])
+    : []
+
+  for (const rawProvider of appProviders) {
+    const provider = String(rawProvider || '').trim().toLowerCase()
+    if (provider) {
+      resolved.add(provider)
+    }
+  }
+
   if (resolved.size === 0) {
     resolved.add('email')
   }

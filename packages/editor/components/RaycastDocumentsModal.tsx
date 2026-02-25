@@ -278,7 +278,19 @@ export function RaycastDocumentsModal({
                           spellCheck={false}
                         />
                       ) : (
-                        <span className="rc-item-title">{doc.title || 'Sem título'}</span>
+                        <span
+                          className="rc-item-title"
+                          onClick={(event: React.MouseEvent) => event.stopPropagation()}
+                          onDoubleClick={(event: React.MouseEvent) => {
+                            event.stopPropagation();
+                            if (isConfirmingDelete) return;
+                            setRenamingId(doc.id);
+                            setRenameValue(doc.title);
+                          }}
+                          title="Duplo clique para renomear"
+                        >
+                          {doc.title || 'Sem título'}
+                        </span>
                       )}
                     </div>
 

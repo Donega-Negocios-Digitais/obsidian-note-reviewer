@@ -26,6 +26,98 @@ import type {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
+type ProviderPolicyRow = {
+  email?: string | null
+  allowed_providers?: string[] | null
+  current_provider?: string | null
+  is_allowed?: boolean | null
+}
+
+class AuthProviderPolicyError extends Error {
+  code = 'AUTH_PROVIDER_NOT_ALLOWED'
+  allowedProviders: string[]
+  currentProvider: string
+
+  constructor(currentProvider: string, allowedProviders: string[]) {
+    const allowedLabel = formatProviderListPtBr(allowedProviders)
+    const useLabel = allowedProviders.length === 1
+      ? providerLabelPtBr(allowedProviders[0])
+      : `um destes métodos: ${allowedLabel}`
+
+    super(`Este e-mail está vinculado ao método ${allowedLabel}. Entre usando ${useLabel}.`)
+    this.name = 'AuthProviderPolicyError'
+    this.allowedProviders = allowedProviders
+    this.currentProvider = currentProvider
+  }
+}
+
+function providerLabelPtBr(provider: string): string {
+  const normalized = (provider || '').trim().toLowerCase()
+  if (normalized === 'google') return 'Google'
+  if (normalized === 'github') return 'GitHub'
+  return 'E-mail e senha'
+}
+
+function formatProviderListPtBr(providers: string[]): string {
+  const labels = providers.map(providerLabelPtBr).filter(Boolean)
+  if (labels.length === 0) return 'E-mail e senha'
+  if (labels.length === 1) return labels[0]
+  if (labels.length === 2) return `${labels[0]} ou ${labels[1]}`
+  return `${labels.slice(0, -1).join(', ')} ou ${labels[labels.length - 1]}`
+}
+
+function isMissingProviderPolicyRpc(error: unknown): boolean {
+  const code = String((error as any)?.code || '').toUpperCase()
+  const message = String((error as any)?.message || '').toLowerCase()
+  const details = String((error as any)?.details || '').toLowerCase()
+
+  if (code === 'PGRST202') return true
+
+  if (code === '42883') {
+    return message.includes('enforce_auth_provider_policy') || details.includes('enforce_auth_provider_policy')
+  }
+
+  return (
+    (message.includes('could not find the function') || details.includes('could not find the function'))
+    && (message.includes('enforce_auth_provider_policy') || details.includes('enforce_auth_provider_policy'))
+  )
+}
+
+function parseProviderPolicyRow(data: unknown): ProviderPolicyRow | null {
+  if (!data) return null
+  const row = Array.isArray(data) ? data[0] : data
+  if (!row || typeof row !== 'object') return null
+  return row as ProviderPolicyRow
+}
+
+function isProviderPolicyViolation(error: unknown): error is AuthProviderPolicyError {
+  return error instanceof AuthProviderPolicyError
+}
+
+async function enforceAuthProviderPolicyForCurrentSession(): Promise<void> {
+  const { data, error } = await supabase.rpc('enforce_auth_provider_policy')
+
+  if (error) {
+    if (isMissingProviderPolicyRpc(error)) {
+      // Keep backward compatibility while migration is rolling out.
+      return
+    }
+    throw error
+  }
+
+  const row = parseProviderPolicyRow(data)
+  if (!row || row.is_allowed !== false) {
+    return
+  }
+
+  const currentProvider = String(row.current_provider || 'email').toLowerCase()
+  const allowedProviders = Array.isArray(row.allowed_providers)
+    ? row.allowed_providers.filter((provider): provider is string => typeof provider === 'string' && provider.length > 0)
+    : ['email']
+
+  throw new AuthProviderPolicyError(currentProvider, allowedProviders)
+}
+
 /**
  * Auth Provider Props
  */
@@ -73,6 +165,30 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
 
         console.log('🔐 [Auth] Sessão inicial:', !!session, 'Usuário:', session?.user?.email || 'nenhum', 'Erro:', error)
 
+        if (session?.user) {
+          try {
+            await enforceAuthProviderPolicyForCurrentSession()
+          } catch (providerError) {
+            if (isProviderPolicyViolation(providerError)) {
+              console.warn('⚠️ [Auth] Política de provedor bloqueou sessão inicial:', providerError)
+              await supabase.auth.signOut({ scope: 'local' })
+              if (mounted) {
+                setState((prev) => ({
+                  ...prev,
+                  user: null,
+                  session: null,
+                  loading: false,
+                  error: providerError as AuthError,
+                }))
+              }
+              return
+            }
+
+            // Fail-open for transient migration/schema/runtime errors.
+            console.warn('⚠️ [Auth] Falha técnica ao validar política de provedor (ignorado):', providerError)
+          }
+        }
+
         if (mounted) {
           setState((prev) => ({
             ...prev,
@@ -103,18 +219,47 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
     // Subscribe to auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('🔄 [Auth] Estado mudou:', event, 'Usuário:', session?.user?.email || 'nenhum')
-      if (mounted) {
-        setState((prev) => ({
-          ...prev,
-          user: session?.user ?? null,
-          session,
-          loading: false,
-        }))
+
+      const applyAuthState = async () => {
+        if (session?.user && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
+          try {
+            await enforceAuthProviderPolicyForCurrentSession()
+          } catch (providerError) {
+            if (isProviderPolicyViolation(providerError)) {
+              console.warn('⚠️ [Auth] Sessão bloqueada por política de provedor:', providerError)
+              await supabase.auth.signOut({ scope: 'local' })
+              if (mounted) {
+                setState((prev) => ({
+                  ...prev,
+                  user: null,
+                  session: null,
+                  loading: false,
+                  error: providerError as AuthError,
+                }))
+              }
+              return
+            }
+
+            // Fail-open for transient migration/schema/runtime errors.
+            console.warn('⚠️ [Auth] Falha técnica ao validar política de provedor (ignorado):', providerError)
+          }
+        }
+
+        if (mounted) {
+          setState((prev) => ({
+            ...prev,
+            user: session?.user ?? null,
+            session,
+            loading: false,
+          }))
+        }
+
+        if (session?.user && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
+          void ensureWorkspaceProfile()
+        }
       }
 
-      if (session?.user && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
-        void ensureWorkspaceProfile()
-      }
+      void applyAuthState()
     })
 
     return () => {
@@ -149,6 +294,18 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
       })
 
       if (error) throw error
+
+      try {
+        await enforceAuthProviderPolicyForCurrentSession()
+      } catch (providerError) {
+        if (isProviderPolicyViolation(providerError)) {
+          await supabase.auth.signOut({ scope: 'local' })
+          throw providerError
+        }
+
+        // Fail-open for transient migration/schema/runtime errors.
+        console.warn('⚠️ [Auth] Falha técnica ao validar política de provedor no login por e-mail (ignorado):', providerError)
+      }
 
       setState((prev) => ({
         ...prev,
