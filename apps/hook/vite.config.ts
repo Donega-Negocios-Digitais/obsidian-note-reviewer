@@ -3,7 +3,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { viteSingleFile } from 'vite-plugin-singlefile';
 import tailwindcss from '@tailwindcss/vite';
-import { viteCSPHook } from '@obsidian-note-reviewer/security/vite-plugin-csp';
+import { viteCSPHook } from '../../packages/security/vite-plugin-csp.ts';
 import pkg from '../../package.json';
 
 export default defineConfig({
@@ -25,7 +25,6 @@ export default defineConfig({
       '@obsidian-note-reviewer/security/supabase/storage': path.resolve(__dirname, '../../packages/security/src/supabase/storage.ts'),
       '@obsidian-note-reviewer/security/supabase/client': path.resolve(__dirname, '../../packages/security/src/supabase/client.ts'),
       '@obsidian-note-reviewer/collaboration': path.resolve(__dirname, '../../packages/collaboration/src'),
-      '@obsidian-note-reviewer/security/vite-plugin-csp': path.resolve(__dirname, '../../packages/security/vite-plugin-csp.ts'),
       '@obsidian-note-reviewer/security/csp': path.resolve(__dirname, '../../packages/security/csp.ts'),
       'react': path.resolve(__dirname, 'node_modules/react'),
       'react-dom': path.resolve(__dirname, 'node_modules/react-dom'),

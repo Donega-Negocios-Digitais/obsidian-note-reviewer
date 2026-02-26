@@ -2,7 +2,7 @@ import path from 'path';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
-import { viteCSPMarketing } from '@obsidian-note-reviewer/security/vite-plugin-csp';
+import { viteCSPMarketing } from '../../packages/security/vite-plugin-csp.ts';
 
 export default defineConfig({
   server: {
