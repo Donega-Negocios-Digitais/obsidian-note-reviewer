@@ -23,7 +23,8 @@ jobs:
         run: bun install
 
       - name: Build UI
-        run: bun run --cwd apps/hook build
+        working-directory: apps/hook
+        run: bun run build
 
       - name: Compile binaries (cross-compile all targets)
         run: |
