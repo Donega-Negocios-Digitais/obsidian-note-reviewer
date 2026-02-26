@@ -3482,32 +3482,21 @@ const App: React.FC<EditorAppProps> = ({
           </>
 
         {isSettingsPanelOpen && (
-          <div className="fixed inset-0 z-[140]">
-            <button
-              type="button"
-              aria-label="Fechar configurações"
-              className="absolute inset-0 bg-background/55 backdrop-blur-[1px]"
-              onClick={() => {
+          <div className="fixed inset-0 z-[60] bg-background">
+            <SettingsPanel
+              isOpen={isSettingsPanelOpen}
+              onClose={() => {
                 setIsSettingsPanelOpen(false);
                 setShowStickyBar(false);
               }}
+              onIdentityChange={handleIdentityChange}
+              onNoteTypeChange={handleNoteTypeChange}
+              onNotePathChange={handleNotePathChange}
+              onNoteNameChange={handleNoteNameChange}
+              activeDocumentId={activeDocumentId || undefined}
+              initialTab={settingsInitialTab}
+              onTabChange={setSettingsInitialTab}
             />
-            <aside className="absolute inset-y-0 right-0 w-full max-w-5xl border-l border-border/70 bg-background shadow-2xl">
-              <SettingsPanel
-                isOpen={isSettingsPanelOpen}
-                onClose={() => {
-                  setIsSettingsPanelOpen(false);
-                  setShowStickyBar(false);
-                }}
-                onIdentityChange={handleIdentityChange}
-                onNoteTypeChange={handleNoteTypeChange}
-                onNotePathChange={handleNotePathChange}
-                onNoteNameChange={handleNoteNameChange}
-                activeDocumentId={activeDocumentId || undefined}
-                initialTab={settingsInitialTab}
-                onTabChange={setSettingsInitialTab}
-              />
-            </aside>
           </div>
         )}
 
