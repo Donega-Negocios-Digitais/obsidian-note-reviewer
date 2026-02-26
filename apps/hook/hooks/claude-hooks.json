@@ -6,7 +6,54 @@
         "hooks": [
           {
             "type": "command",
-            "command": "obsreview-plan",
+            "command": "obsreview plan",
+            "timeout": 1800
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "obsreview plan-live",
+            "timeout": 1800
+          },
+          {
+            "type": "command",
+            "command": "obsreview obsidian",
+            "timeout": 1800
+          }
+        ]
+      },
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "obsreview plan-live",
+            "timeout": 1800
+          },
+          {
+            "type": "command",
+            "command": "obsreview obsidian",
+            "timeout": 1800
+          }
+        ]
+      },
+      {
+        "matcher": "MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "obsreview plan-live",
+            "timeout": 1800
+          },
+          {
+            "type": "command",
+            "command": "obsreview obsidian",
             "timeout": 1800
           }
         ]

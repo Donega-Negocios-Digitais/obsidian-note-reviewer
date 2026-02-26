@@ -1,0 +1,13 @@
+{
+  "name": "obsidian-note-reviewer",
+  "owner": {
+    "name": "Donega-Negocios-Digitais"
+  },
+  "plugins": [
+    {
+      "name": "obsreview",
+      "source": "./apps/hook",
+      "description": "Interactive review UI for Claude Code hooks (plan mode + Obsidian write flow + markdown annotations)."
+    }
+  ]
+}

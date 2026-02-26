@@ -7,14 +7,17 @@
  * If no plan file: exits silently (pass-through).
  *
  * API Endpoints:
- * - GET  /api/content - Returns note content and file path
+ * - GET  /api/plan    - Returns note content and file path (primary)
+ * - GET  /api/content - Legacy alias for compatibility
  * - POST /api/approve - User approved (no changes)
  * - POST /api/deny - User requested changes (with feedback)
  */
 
 import { $ } from "bun";
+import { spawn } from "node:child_process";
 import { getHookCSP } from "@obsidian-note-reviewer/security/csp";
-import { validatePath, validatePathWithAllowedDirs } from "./pathValidation";
+import { validatePath } from "./pathValidation";
+import { handleSaveEndpoint } from "./saveEndpoint";
 
 // Embed the built HTML at compile time
 import indexHtml from "../dist/index.html" with { type: "text" };
@@ -53,6 +56,12 @@ function getSecurityHeaders(): Record<string, string> {
  */
 function isPlanDirectory(filePath: string): boolean {
   const normalizedPath = filePath.replace(/\\/g, "/").toLowerCase();
+
+  // Ignore Claude Code internal plan files (used by /plan mode),
+  // otherwise this PostToolUse hook conflicts with PermissionRequest flow.
+  if (normalizedPath.includes("/.claude/plans/")) {
+    return false;
+  }
 
   for (const planDir of PLAN_DIRS) {
     const normalizedPlanDir = planDir.replace(/\\/g, "/").toLowerCase();
@@ -173,7 +182,8 @@ const server = Bun.serve({
   async fetch(req) {
     const url = new URL(req.url);
 
-    console.log(`[ObsidianHook] ${req.method} ${url.pathname}`);
+    // Keep stdout reserved for final hookSpecificOutput JSON only.
+    console.error(`[ObsidianHook] ${req.method} ${url.pathname}`);
 
     // Reset activity timer on any API request (except keepalive which handles its own reset)
     if (url.pathname.startsWith("/api/") && url.pathname !== "/api/keepalive") {
@@ -181,11 +191,21 @@ const server = Bun.serve({
     }
 
     // API: Get note content
-    if (url.pathname === "/api/content") {
+    if (url.pathname === "/api/plan" || url.pathname === "/api/content") {
       return Response.json(
-        { content: noteContent, filePath: safePath },
+        {
+          plan: noteContent,
+          content: noteContent,
+          filePath: safePath,
+          mode: "plan-review",
+          origin: "claude-code",
+        },
         { headers: getSecurityHeaders() }
       );
+    }
+
+    if (url.pathname === "/api/save" && req.method === "POST") {
+      return handleSaveEndpoint(req, getSecurityHeaders());
     }
 
     // API: Keepalive - resets the inactivity timer
@@ -222,6 +242,9 @@ const server = Bun.serve({
     return new Response(indexHtml, {
       headers: {
         "Content-Type": "text/html",
+        "Cache-Control": "no-store, no-cache, must-revalidate",
+        Pragma: "no-cache",
+        Expires: "0",
         ...getSecurityHeaders(),
       }
     });
@@ -235,7 +258,12 @@ console.error(`[ObsidianHook] Reviewer running on ${url}`);
 try {
   const platform = process.platform;
   if (platform === "win32") {
-    await $`cmd /c start ${url}`.quiet();
+    const child = spawn("cmd", ["/c", "start", "", url], {
+      detached: true,
+      stdio: "ignore",
+      windowsHide: true,
+    });
+    child.unref();
   } else if (platform === "darwin") {
     await $`open ${url}`.quiet();
   } else {
@@ -268,17 +296,25 @@ if (result.approved) {
   console.log(JSON.stringify({
     hookSpecificOutput: {
       hookEventName: "PostToolUse",
+      additionalContext: `Obsidian review approved for file: ${safePath}.`,
       result: "OBSIDIAN_PLAN_APPROVED",
-      filePath: safePath
+      filePath: safePath,
     }
   }));
 } else {
+  const feedbackText = result.feedback || "Changes requested";
   console.log(JSON.stringify({
+    decision: "block",
+    reason: `Obsidian review requested changes for ${safePath}.`,
     hookSpecificOutput: {
       hookEventName: "PostToolUse",
+      additionalContext:
+        `User requested changes in Obsidian review for file: ${safePath}\n\n` +
+        `Feedback:\n${feedbackText}\n\n` +
+        `Apply the requested changes to this file.`,
       result: "OBSIDIAN_PLAN_CHANGES_REQUESTED",
       filePath: safePath,
-      feedback: result.feedback
+      feedback: feedbackText,
     }
   }));
 }

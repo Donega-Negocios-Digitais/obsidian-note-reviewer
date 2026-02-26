@@ -90,12 +90,19 @@ export const parseMarkdownToBlocks = (markdown: string): Block[] => {
     }
 
     // List Items
-    if (trimmed.match(/^(\*|-|\d+\.)\s/)) {
+    const listMatch = line.match(/^(\s*)([*+-]|\d+[.)])\s+(.*)$/);
+    if (listMatch) {
+      const [, indent, marker, itemContent] = listMatch;
       flush();
+      const normalizedIndent = indent.replace(/\t/g, '    ').length;
+      const listKind: Block['listKind'] = /^\d+[.)]$/.test(marker) ? 'ordered' : 'unordered';
       blocks.push({
         id: `block-${currentId++}`,
         type: 'list-item',
-        content: trimmed.replace(/^(\*|-|\d+\.)\s/, ''),
+        content: itemContent,
+        listKind,
+        listMarker: marker,
+        listIndent: normalizedIndent,
         order: currentId,
         startLine: currentLineNum
       });
@@ -218,6 +225,94 @@ export const parseMarkdownToBlocks = (markdown: string): Block[] => {
   return blocks;
 };
 
+function serializeBlock(block: Block): string {
+  switch (block.type) {
+    case 'frontmatter': {
+      return `---\n${block.content}\n---`;
+    }
+    case 'heading': {
+      const level = Math.min(6, Math.max(1, block.level || 1));
+      return `${'#'.repeat(level)} ${block.content}`.trimEnd();
+    }
+    case 'blockquote': {
+      const lines = block.content.split('\n');
+      return lines.map((line) => `> ${line}`.trimEnd()).join('\n');
+    }
+    case 'list-item': {
+      const kind = block.listKind || 'unordered';
+      const marker = (block.listMarker || '').trim();
+      const fallbackMarker = kind === 'ordered' ? '1.' : '-';
+      const safeMarker =
+        kind === 'ordered'
+          ? (/^\d+[.)]$/.test(marker) ? marker : fallbackMarker)
+          : (/^[*+-]$/.test(marker) ? marker : fallbackMarker);
+      const indent = ' '.repeat(Math.max(0, block.listIndent || 0));
+      return `${indent}${safeMarker} ${block.content}`.trimEnd();
+    }
+    case 'code': {
+      const language = block.language ? block.language.trim() : '';
+      const opening = language ? `\`\`\`${language}` : '```';
+      return `${opening}\n${block.content}\n\`\`\``;
+    }
+    case 'hr': {
+      return '---';
+    }
+    case 'table': {
+      return block.content;
+    }
+    case 'callout': {
+      const calloutType = (block.calloutType || 'note').toUpperCase();
+      const collapseIndicator = block.isCollapsible
+        ? (block.defaultCollapsed ? '-' : '+')
+        : '';
+      const title = block.calloutTitle ? ` ${block.calloutTitle}` : '';
+      const header = `> [!${calloutType}]${collapseIndicator}${title}`;
+      const body = block.content
+        ? `\n${block.content
+          .split('\n')
+          .map((line) => `> ${line}`.trimEnd())
+          .join('\n')}`
+        : '';
+      return `${header}${body}`;
+    }
+    default: {
+      return block.content;
+    }
+  }
+}
+
+function shouldCompactJoin(previous: Block, next: Block): boolean {
+  if (
+    previous.type === 'list-item' &&
+    next.type === 'list-item' &&
+    (previous.listKind || 'unordered') === (next.listKind || 'unordered') &&
+    (previous.listIndent || 0) === (next.listIndent || 0)
+  ) {
+    return true;
+  }
+  if (previous.type === 'blockquote' && next.type === 'blockquote') return true;
+  return false;
+}
+
+export const serializeBlocksToMarkdown = (blocks: Block[]): string => {
+  if (blocks.length === 0) return '';
+
+  let output = '';
+  for (let index = 0; index < blocks.length; index++) {
+    const block = blocks[index];
+    const serialized = serializeBlock(block);
+
+    if (index > 0) {
+      const previous = blocks[index - 1];
+      output += shouldCompactJoin(previous, block) ? '\n' : '\n\n';
+    }
+
+    output += serialized;
+  }
+
+  return output;
+};
+
 export const exportDiff = (blocks: Block[], annotations: any[]): string => {
   if (annotations.length === 0) {
     return 'Nota aprovada sem alterações';
@@ -236,6 +331,12 @@ export const exportDiff = (blocks: Block[], annotations: any[]): string => {
   });
 
   let output = `SOLICITAÇÃO DE ALTERAÇÕES:\n\n`;
+  output += `REGRAS DE APLICAÇÃO (OBRIGATÓRIO):\n`;
+  output += `1. Reescreva o mesmo arquivo com o conteúdo final limpo.\n`;
+  output += `2. Ao alterar um trecho, substitua no local e remova o texto antigo.\n`;
+  output += `3. Não mantenha texto antigo e novo lado a lado.\n`;
+  output += `4. Não use marcação de diff no resultado final (~~, +/-, <<<<<<, >>>>>>).\n\n`;
+  output += `5. Em COMENTÁRIO/Sugestão, reescreva o trecho comentado no lugar (não anexar ao lado).\n\n`;
 
   // Global Comments Section
   if (globalComments.length > 0) {

@@ -3,6 +3,28 @@
 ## Pré-requisitos
 - Claude Code instalado
 - Vault Obsidian existente
+- Comando `obsreview` instalado
+- Para uso via portal web: login é obrigatório no app
+
+## Comandos de Hooks (Obsreview)
+
+Use estes comandos na configuração de hooks do Claude Code:
+
+- `obsreview plan-live` para `PostToolUse` + `Write` em `/.claude/plans/` (fluxo principal)
+- `obsreview obsidian` para `PostToolUse` + `Write` em planos do vault (`Plans/`, `.obsidian/plans/`, `plan/`)
+- `obsreview plan` para `PermissionRequest` + `ExitPlanMode` (fallback)
+- `obsreview nota <arquivo.md>` (ou `obsreview annotate <arquivo.md>`) para anotar markdown manualmente
+
+### Configuração moderna (matcher/hooks)
+
+Use o padrão moderno do Claude Code (`hooks.matcher/hooks`) em vez de `when/then`.
+
+### Legado (when/then)
+
+Se você ainda encontrar exemplos antigos:
+- `when: ExitPlanMode` mapeia para `PermissionRequest.matcher: "ExitPlanMode"`
+- `when: Write` mapeia para `PostToolUse.matcher: "Write"`
+- `then.command` mapeia para `hooks[].hooks[].command`
 
 ## Configuração
 
@@ -99,7 +121,19 @@ POST /api/save
 
 - **Criação automática de diretórios**: O endpoint cria diretórios recursivamente se não existirem
 - **Encoding UTF-8**: Preserva corretamente acentos e caracteres especiais do português
-- **Validação de caminho**: Verifica se o caminho é válido antes de salvar
+- **Validação de caminho**: Bloqueia path traversal (CWE-22)
+- **Restrição opcional por vault**: `ALLOWED_SAVE_PATHS` limita onde escrita em disco é permitida
+
+### Validação de persistência real (vault)
+
+Fluxo recomendado para confirmar salvamento no Obsidian:
+
+1. No app, configurar `Caminho do Vault` e `Caminho da Nota`.
+2. Clicar em **Salvar no Obsidian**.
+3. Verificar em disco que o arquivo foi criado/atualizado.
+4. Abrir a nota no Obsidian e confirmar o conteúdo.
+
+Se qualquer etapa falhar, o erro deve ser exibido na UI sem bloquear outros destinos de salvamento (app/Claude).
 
 ## Modelo Context Protocol (MCP)
 

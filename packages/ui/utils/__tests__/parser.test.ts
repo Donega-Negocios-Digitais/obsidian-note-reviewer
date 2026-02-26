@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'bun:test';
-import { parseMarkdownToBlocks } from '../parser';
+import { parseMarkdownToBlocks, serializeBlocksToMarkdown } from '../parser';
 
 describe('parseMarkdownToBlocks', () => {
   test('detecta frontmatter YAML válido', () => {
@@ -58,5 +58,51 @@ Paragraph
     expect(blocks[1].type).toBe('heading');
     expect(blocks[2].type).toBe('paragraph');
     expect(blocks[3].type).toBe('heading');
+  });
+});
+
+describe('serializeBlocksToMarkdown', () => {
+  test('preserva heading ao reconstruir markdown', () => {
+    const markdown = `# Titulo principal
+
+Texto de apoio.`;
+
+    const blocks = parseMarkdownToBlocks(markdown);
+    const serialized = serializeBlocksToMarkdown(blocks);
+
+    expect(serialized).toContain('# Titulo principal');
+    expect(serialized).toContain('Texto de apoio.');
+  });
+
+  test('mantem frontmatter e bloco de codigo', () => {
+    const markdown = `---
+title: Teste
+---
+
+\`\`\`ts
+console.log('ok');
+\`\`\``;
+
+    const blocks = parseMarkdownToBlocks(markdown);
+    const serialized = serializeBlocksToMarkdown(blocks);
+
+    expect(serialized).toContain('---\ntitle: Teste\n---');
+    expect(serialized).toContain('```ts');
+    expect(serialized).toContain("console.log('ok');");
+    expect(serialized).toContain('```');
+  });
+
+  test('preserva lista ordenada ao serializar', () => {
+    const markdown = `# Passos
+
+1. Primeiro item
+2. Segundo item`;
+
+    const blocks = parseMarkdownToBlocks(markdown);
+    const serialized = serializeBlocksToMarkdown(blocks);
+
+    expect(serialized).toContain('1. Primeiro item');
+    expect(serialized).toContain('2. Segundo item');
+    expect(serialized).not.toContain('- Primeiro item');
   });
 });

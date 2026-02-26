@@ -10,15 +10,26 @@
  * 5. Outputs structured JSON to stdout for Claude Code context
  *
  * API Endpoints:
- * - GET  /api/content - Returns plan content and context
+ * - GET  /api/plan    - Returns plan content and context (primary)
+ * - GET  /api/content - Legacy alias for compatibility
  * - POST /api/approve - User approved the plan
  * - POST /api/deny - User requested changes with feedback
  * - POST /api/send-annotations - Send annotations to Claude Code (CLAU-06)
  */
 
 import { $ } from "bun";
+import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { appendFile, mkdir } from "node:fs/promises";
 import { getHookCSP } from "@obsidian-note-reviewer/security/csp";
+import {
+  ensurePlanLiveSessionServer,
+  logPlanLiveHookEvent,
+  publishPlanLiveRevision,
+  waitForPlanLiveDecision,
+} from "./planLiveHook";
 import { validatePath } from "./pathValidation";
+import { handleSaveEndpoint } from "./saveEndpoint";
 
 // Embed the built HTML at compile time
 import indexHtml from "../dist/index.html" with { type: "text" };
@@ -39,6 +50,10 @@ function getSecurityHeaders(): Record<string, string> {
 const INACTIVITY_TIMEOUT_MS = 25 * 60 * 1000; // 25 minutes
 const WARNING_TIMEOUT_MS = 20 * 60 * 1000; // 20 minutes (warning before timeout)
 
+const planReviewMode = (
+  process.env.OBSREVIEW_PLAN_REVIEW_MODE || "live"
+).toLowerCase();
+
 /**
  * Check if the PostToolUse Write hook (obsidianHook) is already active.
  *
@@ -51,6 +66,11 @@ const WARNING_TIMEOUT_MS = 20 * 60 * 1000; // 20 minutes (warning before timeout
  * @returns true if Write hook is detected as active, false otherwise
  */
 export async function checkWriteHookStatus(): Promise<boolean> {
+  if (process.platform === "win32") {
+    // `ps` isn't reliably available on Windows shells; skip this best-effort heuristic.
+    return false;
+  }
+
   try {
     // Check for running Bun serve processes from our hook
     // This is a simple heuristic - we look for bun processes with our server patterns
@@ -144,9 +164,19 @@ export function handleInactivityTimeout(
 interface PlanModeEvent {
   tool_input?: {
     file_path?: string;
+    filePath?: string;
     content?: string;
+    plan?: string;
+    text?: string;
     plan_name?: string;
+    planName?: string;
   };
+  file_path?: string;
+  filePath?: string;
+  content?: string;
+  plan?: string;
+  plan_name?: string;
+  planName?: string;
   [key: string]: unknown;
 }
 
@@ -154,6 +184,257 @@ interface PlanContent {
   content: string;
   filePath?: string;
   planName?: string;
+}
+
+function buildPlaceholderPlanContent(rawEventJson?: string): string {
+  const lines = [
+    "# Plano (fallback automático)",
+    "",
+    "Não consegui extrair o plano completo do payload do hook `ExitPlanMode`.",
+    "A revisão foi aberta para não quebrar o fluxo.",
+    "",
+    "## Próximo passo recomendado",
+    "1. Solicitar ao agente que persista o plano em `/.claude/plans/<nome>.md` usando `Write`.",
+    "2. Reabrir a revisão e validar a versão final.",
+  ];
+
+  if (rawEventJson && rawEventJson.trim()) {
+    const compact = rawEventJson.trim().slice(0, 1200);
+    lines.push("", "## Payload bruto (recorte)", "```json", compact, "```");
+  }
+
+  return lines.join("\n");
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function pickFirstString(...values: unknown[]): string {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) {
+      return value;
+    }
+  }
+  return "";
+}
+
+function collectDeepStrings(
+  value: unknown,
+  keyHints: string[],
+  acc: string[],
+  depth = 0
+): void {
+  if (depth > 6 || value == null) return;
+
+  if (typeof value === "string") {
+    acc.push(value);
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectDeepStrings(item, keyHints, acc, depth + 1);
+    }
+    return;
+  }
+
+  if (!isRecord(value)) return;
+  for (const [key, nested] of Object.entries(value)) {
+    if (typeof nested === "string" && keyHints.includes(key.toLowerCase())) {
+      acc.push(nested);
+    } else {
+      collectDeepStrings(nested, keyHints, acc, depth + 1);
+    }
+  }
+}
+
+function extractPlanLikeText(event: unknown): string {
+  const candidates: string[] = [];
+  collectDeepStrings(
+    event,
+    [
+      "plan",
+      "content",
+      "text",
+      "output",
+      "message",
+      "response",
+      "assistant",
+      "markdown",
+    ],
+    candidates
+  );
+
+  for (const text of candidates) {
+    const trimmed = text.trim();
+    if (!trimmed) continue;
+    if (trimmed.includes("\n") || trimmed.includes("##") || trimmed.includes("1.")) {
+      return trimmed;
+    }
+  }
+
+  return "";
+}
+
+async function logPlanModeDebugEvent(eventJson: string, reason: string): Promise<void> {
+  try {
+    const logPath = resolve(process.cwd(), ".logs", "plan-hook-debug.log");
+    await mkdir(dirname(logPath), { recursive: true });
+    const line = JSON.stringify({
+      ts: new Date().toISOString(),
+      reason,
+      event: eventJson,
+    });
+    await appendFile(logPath, `${line}\n`, "utf-8");
+  } catch {
+    // ignore debug logging errors
+  }
+}
+
+function buildFallbackPlanPath(planName?: string, existingFilePath?: string): string {
+  if (existingFilePath && existingFilePath.trim()) {
+    return existingFilePath.trim();
+  }
+
+  const safeBaseName =
+    (planName || "exitplan")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9._-]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "exitplan";
+
+  return `.claude/plans/${safeBaseName}.md`;
+}
+
+async function runLiveExitPlanReview(plan: PlanContent): Promise<void> {
+  const rawPath = buildFallbackPlanPath(plan.planName, plan.filePath);
+  const pathValidation = validatePath(rawPath);
+  const safePath = pathValidation.valid ? pathValidation.normalizedPath || rawPath : rawPath;
+  const revisionId = randomUUID();
+
+  await logPlanLiveHookEvent("exitplan_fallback_detected", {
+    filePath: safePath,
+    sessionId: null,
+    revisionId,
+    decision: null,
+    latency_ms: 0,
+    timeout: false,
+  });
+
+  let metadata: Awaited<ReturnType<typeof ensurePlanLiveSessionServer>>;
+  try {
+    metadata = await ensurePlanLiveSessionServer();
+  } catch (error) {
+    console.error(
+      `[PlanModeHook] Failed to initialize plan-live session: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
+    process.exit(0);
+    return;
+  }
+
+  let publishResponse: Response;
+  try {
+    publishResponse = await publishPlanLiveRevision(metadata, {
+      revisionId,
+      content: plan.content,
+      filePath: safePath,
+    });
+  } catch (error) {
+    console.error(
+      `[PlanModeHook] Failed to publish fallback revision: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
+    process.exit(0);
+    return;
+  }
+
+  if (!publishResponse.ok) {
+    console.error(
+      `[PlanModeHook] Failed to publish fallback revision: status=${publishResponse.status}`
+    );
+    process.exit(0);
+    return;
+  }
+
+  const waitStart = Date.now();
+  let decisionResult: Awaited<ReturnType<typeof waitForPlanLiveDecision>>;
+  try {
+    decisionResult = await waitForPlanLiveDecision(metadata, revisionId);
+  } catch (error) {
+    const fallbackFeedback =
+      "Plan review UI connection failed while waiting for decision. Please retry.";
+    await logPlanLiveHookEvent("exitplan_fallback_wait_error", {
+      filePath: safePath,
+      sessionId: metadata.sessionId,
+      revisionId,
+      decision: "request_changes",
+      latency_ms: Date.now() - waitStart,
+      timeout: false,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    console.log(
+      JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: "PermissionRequest",
+          result: "PLAN_REVIEW_CHANGES_REQUESTED",
+          feedback: fallbackFeedback,
+        },
+      })
+    );
+    process.exit(0);
+    return;
+  }
+
+  if (decisionResult.ok && decisionResult.decision === "approve") {
+    await logPlanLiveHookEvent("exitplan_fallback_approved", {
+      filePath: safePath,
+      sessionId: metadata.sessionId,
+      revisionId,
+      decision: "approve",
+      latency_ms: Date.now() - waitStart,
+      timeout: false,
+    });
+    console.log(
+      JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: "PermissionRequest",
+          result: "PLAN_REVIEW_APPROVED",
+        },
+      })
+    );
+    process.exit(0);
+    return;
+  }
+
+  const feedback =
+    typeof decisionResult.feedback === "string" && decisionResult.feedback.trim()
+      ? decisionResult.feedback.trim()
+      : decisionResult.timeout
+      ? "Plan review session timed out without approval."
+      : "Changes requested in plan review.";
+
+  await logPlanLiveHookEvent("exitplan_fallback_blocked", {
+    filePath: safePath,
+    sessionId: metadata.sessionId,
+    revisionId,
+    decision: decisionResult.timeout ? "timeout" : "request_changes",
+    latency_ms: Date.now() - waitStart,
+    timeout: Boolean(decisionResult.timeout),
+  });
+  console.log(
+    JSON.stringify({
+      hookSpecificOutput: {
+        hookEventName: "PermissionRequest",
+        result: "PLAN_REVIEW_CHANGES_REQUESTED",
+        feedback,
+      },
+    })
+  );
+  process.exit(0);
 }
 
 // Read PermissionRequest ExitPlanMode hook event from stdin
@@ -167,10 +448,32 @@ let planContent: PlanContent = {
 
 try {
   const event = JSON.parse(eventJson) as PlanModeEvent;
-  // PermissionRequest ExitPlanMode may send plan content in various formats
-  planContent.content = event.tool_input?.content || "";
-  planContent.filePath = event.tool_input?.file_path || "";
-  planContent.planName = event.tool_input?.plan_name || "";
+  const toolInput = event.tool_input ?? {};
+
+  // PermissionRequest ExitPlanMode payload varies by CLI/version.
+  planContent.content = pickFirstString(
+    toolInput.content,
+    toolInput.plan,
+    toolInput.text,
+    event.content,
+    event.plan
+  );
+  planContent.filePath = pickFirstString(
+    toolInput.file_path,
+    toolInput.filePath,
+    event.file_path,
+    event.filePath
+  );
+  planContent.planName = pickFirstString(
+    toolInput.plan_name,
+    toolInput.planName,
+    event.plan_name,
+    event.planName
+  );
+
+  if (!planContent.content) {
+    planContent.content = extractPlanLikeText(event);
+  }
 
   // If no content in event, try reading from file path
   if (!planContent.content && planContent.filePath) {
@@ -187,14 +490,23 @@ try {
   }
 } catch (error) {
   console.error(`[PlanModeHook] Failed to parse event JSON: ${error}`);
+  await logPlanModeDebugEvent(eventJson, "parse_error");
   // Exit silently if invalid JSON
   process.exit(0);
 }
 
-// If no plan content at all, exit silently
+// Never exit silently on ExitPlanMode.
+// If content is missing, use a placeholder so the review UI still opens.
 if (!planContent.content && !planContent.filePath) {
-  console.error("[PlanModeHook] No plan content or file path found, exiting");
-  process.exit(0);
+  console.error("[PlanModeHook] Missing plan content/filePath, using fallback placeholder");
+  await logPlanModeDebugEvent(eventJson, "missing_content_and_file_fallback_used");
+  planContent.content = buildPlaceholderPlanContent(eventJson);
+  planContent.filePath = ".claude/plans/exitplan-fallback.md";
+  planContent.planName = "exitplan-fallback";
+}
+
+if (planReviewMode !== "exitplan") {
+  await runLiveExitPlanReview(planContent);
 }
 
 // PRIORITY CHECK: If Write hook is already active, skip this hook
@@ -232,19 +544,26 @@ const server = Bun.serve({
     // Reset activity on any request
     resetActivity();
 
-    console.log(`[PlanModeHook] ${req.method} ${url.pathname}`);
+    // Keep stdout reserved for final hookSpecificOutput JSON only.
+    console.error(`[PlanModeHook] ${req.method} ${url.pathname}`);
 
     // API: Get plan content
-    if (url.pathname === "/api/content") {
+    if (url.pathname === "/api/plan" || url.pathname === "/api/content") {
       return Response.json(
         {
+          plan: planContent.content,
           content: planContent.content,
           filePath: planContent.filePath,
           planName: planContent.planName,
-          mode: "plan-review"
+          mode: "plan-review",
+          origin: "claude-code"
         },
         { headers: getSecurityHeaders() }
       );
+    }
+
+    if (url.pathname === "/api/save" && req.method === "POST") {
+      return handleSaveEndpoint(req, getSecurityHeaders());
     }
 
     // API: Approve plan
@@ -339,6 +658,9 @@ const server = Bun.serve({
     return new Response(indexHtml, {
       headers: {
         "Content-Type": "text/html",
+        "Cache-Control": "no-store, no-cache, must-revalidate",
+        Pragma: "no-cache",
+        Expires: "0",
         ...getSecurityHeaders(),
       }
     });
@@ -352,7 +674,12 @@ console.error(`[PlanModeHook] Plan reviewer running on ${url}`);
 try {
   const platform = process.platform;
   if (platform === "win32") {
-    await $`cmd /c start ${url}`.quiet();
+    const child = spawn("cmd", ["/c", "start", "", url], {
+      detached: true,
+      stdio: "ignore",
+      windowsHide: true,
+    });
+    child.unref();
   } else if (platform === "darwin") {
     await $`open ${url}`.quiet();
   } else {

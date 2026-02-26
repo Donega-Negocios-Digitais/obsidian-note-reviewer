@@ -67,6 +67,9 @@ export interface Block {
   content: string; // Plain text content
   level?: number; // For headings (1-6)
   language?: string; // For code blocks (e.g., 'rust', 'typescript')
+  listKind?: 'ordered' | 'unordered'; // For list-item blocks
+  listMarker?: string; // Original list marker (e.g. "-", "*", "1.")
+  listIndent?: number; // Leading spaces before the list marker
   order: number; // Sorting order
   startLine: number; // 1-based line number in source
   // Callout-specific fields

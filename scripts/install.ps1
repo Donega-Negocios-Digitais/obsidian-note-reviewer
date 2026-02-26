@@ -7,7 +7,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $ProgressPreference = 'SilentlyContinue'
 
-$REPO = "backnotprop/obsreview"
+$REPO = if ($env:OBSREVIEW_RELEASE_REPO) { $env:OBSREVIEW_RELEASE_REPO } else { "Donega-Negocios-Digitais/obsidian-note-reviewer" }
 $INSTALL_DIR = "$env:USERPROFILE\.local\bin"
 
 # Check for 32-bit Windows
@@ -105,6 +105,6 @@ Write-Output "Test the install:"
 Write-Output '  echo ''{"tool_input":{"plan":"# Test Plan\\n\\nHello world"}}'' | obsreview'
 Write-Output ""
 Write-Output "Then install the Claude Code plugin:"
-Write-Output "  /plugin marketplace add backnotprop/obsreview"
-Write-Output "  /plugin install obsreview@obsreview"
+Write-Output "  /plugin marketplace add Donega-Negocios-Digitais/obsidian-note-reviewer"
+Write-Output "  /plugin install obsreview@obsidian-note-reviewer"
 Write-Output ""

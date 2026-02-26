@@ -7,7 +7,8 @@ REM Parse command line argument
 set "VERSION=%~1"
 if "!VERSION!"=="" set "VERSION=latest"
 
-set "REPO=backnotprop/obsreview"
+set "REPO=%OBSREVIEW_RELEASE_REPO%"
+if "!REPO!"=="" set "REPO=Donega-Negocios-Digitais/obsidian-note-reviewer"
 set "INSTALL_DIR=%USERPROFILE%\.local\bin"
 set "PLATFORM=win32-x64"
 
@@ -132,7 +133,7 @@ echo Test the install:
 echo   echo {"tool_input":{"plan":"# Test Plan\\n\\nHello world"}} ^| obsreview
 echo.
 echo Then install the Claude Code plugin:
-echo   /plugin marketplace add backnotprop/obsreview
-echo   /plugin install obsreview@obsreview
+echo   /plugin marketplace add Donega-Negocios-Digitais/obsidian-note-reviewer
+echo   /plugin install obsreview@obsidian-note-reviewer
 echo.
 exit /b 0

@@ -1,8 +1,8 @@
 ﻿/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any, security/detect-object-injection, no-alert */
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FolderOpen, User, Keyboard, Globe, Download, Upload, RotateCcw, Lightbulb, UserCircle, Users, Edit, Trash2, Plug, Power, FileText, Zap, Terminal, Check, X, Info, ToggleRight, LogOut } from 'lucide-react';
-import { useAuth } from '@obsidian-note-reviewer/security/auth';
+import { useOptionalAuth } from '@obsidian-note-reviewer/security/auth';
 import { supabase } from '@obsidian-note-reviewer/security/supabase/client';
 import { ProfileSettings } from './ProfileSettings';
 import { CollaborationSettings } from './CollaborationSettings';
@@ -235,7 +235,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   onTabChange,
 }) => {
   const { t, i18n } = useTranslation();
-  const { user, signOut } = useAuth();
+  const auth = useOptionalAuth();
+  const user = auth?.user || null;
+  const signOut = auth?.signOut || (async () => {});
+  const hasAuthContext = Boolean(auth);
   const [identity, setIdentity] = useState('');
   const [displayName, setDisplayNameState] = useState('');
   const [anonymousIdentity, setAnonymousIdentity] = useState('');
@@ -1481,14 +1484,22 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     }));
 
   const tabs: Array<{ id: CategoryTab; Icon: React.ComponentType<{ className?: string }>; label: string }> = [
-    { id: 'perfil', Icon: UserCircle, label: t('settings.tabs.perfil') },
+    ...(hasAuthContext ? [{ id: 'perfil' as const, Icon: UserCircle, label: t('settings.tabs.perfil') }] : []),
     { id: 'idioma', Icon: Globe, label: t('settings.tabs.idioma') },
     { id: 'caminhos', Icon: FolderOpen, label: t('settings.tabs.caminhos') },
     { id: 'atalhos', Icon: Keyboard, label: t('settings.tabs.atalhos') },
     { id: 'hooks', Icon: Terminal, label: t('settings.tabs.hooks') },
-    { id: 'colaboracao', Icon: Users, label: t('settings.tabs.colaboracao') },
+    ...(hasAuthContext ? [{ id: 'colaboracao' as const, Icon: Users, label: t('settings.tabs.colaboracao') }] : []),
     { id: 'integracoes', Icon: Plug, label: t('settings.integrations.title') },
   ];
+
+  const availableTabIds = useMemo(() => tabs.map((tab) => tab.id), [tabs]);
+
+  useEffect(() => {
+    if (!availableTabIds.includes(activeTab)) {
+      setActiveTab('caminhos');
+    }
+  }, [activeTab, availableTabIds]);
 
   const CategoryContent = ({ category }: { category: CategoryTab }) => {
     const items = noteTypes[category];
@@ -2053,28 +2064,32 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         >
           <div className="flex flex-col gap-0.5 flex-1">
             {/* Group: Conta */}
-            <p className="hidden lg:block px-2 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">Conta</p>
-            {tabs.filter(({ id }) => ['perfil'].includes(id)).map(({ id, Icon, label }) => (
-              <button
-                key={id}
-                id={`settings-panel-tab-${id}`}
-                role="tab"
-                aria-selected={activeTab === id}
-                aria-controls={`settings-panel-content-${id}`}
-                onClick={() => setActiveTab(id)}
-                title={label}
-                className={`
-                  flex items-center gap-2 px-2 py-2 text-xs font-medium transition-all relative whitespace-nowrap rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none w-full
-                  ${activeTab === id
-                    ? 'text-primary bg-primary/10 border-l-2 border-primary pl-[6px]'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
-                  }
-                `}
-              >
-                <Icon className="w-4 h-4 flex-shrink-0" />
-                <span className="hidden lg:inline">{label}</span>
-              </button>
-            ))}
+            {hasAuthContext && (
+              <>
+                <p className="hidden lg:block px-2 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">Conta</p>
+                {tabs.filter(({ id }) => ['perfil'].includes(id)).map(({ id, Icon, label }) => (
+                  <button
+                    key={id}
+                    id={`settings-panel-tab-${id}`}
+                    role="tab"
+                    aria-selected={activeTab === id}
+                    aria-controls={`settings-panel-content-${id}`}
+                    onClick={() => setActiveTab(id)}
+                    title={label}
+                    className={`
+                      flex items-center gap-2 px-2 py-2 text-xs font-medium transition-all relative whitespace-nowrap rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none w-full
+                      ${activeTab === id
+                        ? 'text-primary bg-primary/10 border-l-2 border-primary pl-[6px]'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
+                      }
+                    `}
+                  >
+                    <Icon className="w-4 h-4 flex-shrink-0" />
+                    <span className="hidden lg:inline">{label}</span>
+                  </button>
+                ))}
+              </>
+            )}
 
             {/* Group: Preferências */}
             <p className="hidden lg:block px-2 pt-3 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">{t('settings.groups.preferences')}</p>
@@ -2125,19 +2140,21 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             ))}
           </div>
           {/* Logout button at the very bottom */}
-          <div className="pt-2 mt-2 border-t border-border/50">
-            <button
-              onClick={() => setSidebarLogoutConfirm(true)}
-              disabled={sidebarLoggingOut}
-              title={t('settings.session.logoutAccount')}
-              className="flex items-center gap-2 px-2 py-2 text-xs font-medium transition-all whitespace-nowrap rounded-md w-full text-destructive hover:bg-destructive/10 disabled:opacity-50"
-            >
-              <LogOut className="w-4 h-4 flex-shrink-0" />
-              <span className="hidden lg:inline">
-                {sidebarLoggingOut ? t('settings.session.loggingOut') : t('settings.session.logoutAccount')}
-              </span>
-            </button>
-          </div>
+          {hasAuthContext && (
+            <div className="pt-2 mt-2 border-t border-border/50">
+              <button
+                onClick={() => setSidebarLogoutConfirm(true)}
+                disabled={sidebarLoggingOut}
+                title={t('settings.session.logoutAccount')}
+                className="flex items-center gap-2 px-2 py-2 text-xs font-medium transition-all whitespace-nowrap rounded-md w-full text-destructive hover:bg-destructive/10 disabled:opacity-50"
+              >
+                <LogOut className="w-4 h-4 flex-shrink-0" />
+                <span className="hidden lg:inline">
+                  {sidebarLoggingOut ? t('settings.session.loggingOut') : t('settings.session.logoutAccount')}
+                </span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Tab Content */}
@@ -2579,22 +2596,28 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               <h4 className="text-base font-semibold text-foreground">{t('settings.profile.title')}</h4>
               <p className="text-sm text-muted-foreground/90">{t('settings.profile.subtitle')}</p>
             </div>
-            <ProfileSettings
-              onSave={(payload) => {
-                const nextName = payload?.newDisplayName?.trim();
-                const previousName = payload?.oldDisplayName?.trim();
+            {hasAuthContext ? (
+              <ProfileSettings
+                onSave={(payload) => {
+                  const nextName = payload?.newDisplayName?.trim();
+                  const previousName = payload?.oldDisplayName?.trim();
 
-                if (!nextName) return;
+                  if (!nextName) return;
 
-                setDisplayNameState(nextName);
-                setIdentity(nextName || anonymousIdentity);
+                  setDisplayNameState(nextName);
+                  setIdentity(nextName || anonymousIdentity);
 
-                const oldIdentity = previousName || identity;
-                if (oldIdentity && oldIdentity !== nextName) {
-                  onIdentityChange?.(oldIdentity, nextName);
-                }
-              }}
-            />
+                  const oldIdentity = previousName || identity;
+                  if (oldIdentity && oldIdentity !== nextName) {
+                    onIdentityChange?.(oldIdentity, nextName);
+                  }
+                }}
+              />
+            ) : (
+              <div className="rounded-lg border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+                Perfil indisponível nesta sessão local. Abra o Portal Web e faça login para gerenciar conta e colaboração.
+              </div>
+            )}
           </div>
         ) : activeTab === 'colaboracao' ? (
           <div className="p-5 overflow-y-auto">
@@ -2841,7 +2864,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       />
 
       {/* Sidebar Logout Confirmation Modal */}
-      {sidebarLogoutConfirm && (
+      {hasAuthContext && sidebarLogoutConfirm && (
         <BaseModal
           isOpen={sidebarLogoutConfirm}
           onRequestClose={() => setSidebarLogoutConfirm(false)}

@@ -491,6 +491,14 @@ export function useAuth(): AuthContextValue {
 }
 
 /**
+ * Hook to access auth context when available.
+ * Returns null instead of throwing when used outside AuthProvider.
+ */
+export function useOptionalAuth(): AuthContextValue | null {
+  return useContext(AuthContext) ?? null
+}
+
+/**
  * Hook to get current user (shorthand)
  *
  * @example

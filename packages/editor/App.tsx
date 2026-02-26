@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import '@obsidian-note-reviewer/ui/i18n/config'; // Initialize i18n
 import obsreviewLogo from '@obsidian-note-reviewer/ui/obsreview.webp';
-import { parseMarkdownToBlocks, exportDiff } from '@obsidian-note-reviewer/ui/utils/parser';
+import { parseMarkdownToBlocks, exportDiff, serializeBlocksToMarkdown } from '@obsidian-note-reviewer/ui/utils/parser';
 import { Viewer, ViewerHandle } from '@obsidian-note-reviewer/ui/components/Viewer';
 import { ViewerSkeleton } from '@obsidian-note-reviewer/ui/components/ViewerSkeleton';
 import { AnnotationPanel } from '@obsidian-note-reviewer/ui/components/AnnotationPanel';
@@ -38,9 +38,15 @@ import {
   loadAnnotations,
   clearAnnotations
 } from '@obsidian-note-reviewer/ui/utils/storage';
+import {
+  clearReviewDraft,
+  saveReviewDraft,
+} from '@obsidian-note-reviewer/ui/utils/reviewDraft';
 import { updateDisplayName } from '@obsidian-note-reviewer/ui/utils/identity';
 import { isInputFocused, formatTooltipWithShortcut } from '@obsidian-note-reviewer/ui/utils/shortcuts';
 import { type TipoNota } from '@obsidian-note-reviewer/ui/utils/notePaths';
+import { useOptionalAuth } from '@obsidian-note-reviewer/security/auth';
+import { isSupabaseConfigured } from '@obsidian-note-reviewer/security/supabase/client';
 import {
   normalizeNoteSourcePath,
   tryLoadCloudState,
@@ -64,6 +70,7 @@ import {
 import { RaycastDocumentsModal } from './components/RaycastDocumentsModal';
 import { ReceivedInvitesModal } from './components/ReceivedInvitesModal';
 import { TrashDocumentsModal } from './components/TrashDocumentsModal';
+import { HookAuthGate } from './components/HookAuthGate';
 
 const PLAN_CONTENT = `---
 title: Nota de Exemplo - Teste Completo
@@ -612,13 +619,47 @@ export interface EditorAppProps {
   initialDocumentId?: string;
 }
 
+type HookReviewMode = 'plan-review' | 'plan-live-review' | 'annotate';
+type PlanLiveSendState =
+  | 'idle'
+  | 'sending_decision'
+  | 'waiting_revision'
+  | 'applied'
+  | 'timeout'
+  | 'connection_lost';
+
+interface ApiPlanPayload {
+  plan?: string;
+  content?: string;
+  mode?: string;
+  revisionId?: string;
+  filePath?: string;
+}
+
+interface ResolvedApiPlan {
+  content: string;
+  mode: HookReviewMode;
+  revisionId: string | null;
+  filePath: string;
+}
+
+interface WaitForPlanRevisionResult {
+  status: 'updated' | 'timeout' | 'connection_lost';
+  revision?: ResolvedApiPlan;
+}
+
 const App: React.FC<EditorAppProps> = ({
   runtime = 'hook',
   initialDocumentId,
 }) => {
   const { t } = useTranslation();
+  const auth = useOptionalAuth();
+  const isHookRuntime = runtime === 'hook';
+  const hookAuthRequired = runtime === 'hook' && import.meta.env.VITE_HOOK_REQUIRE_AUTH !== 'false';
   const isPortalRuntime = runtime === 'portal';
-  const cloudWorkspaceEnabled = isPortalRuntime && import.meta.env.VITE_FEATURE_CLOUD_WORKSPACE !== 'false';
+  const cloudWorkspaceBaseEnabled = import.meta.env.VITE_FEATURE_CLOUD_WORKSPACE !== 'false';
+  const hookCloudWorkspaceEnabled = isHookRuntime && hookAuthRequired && Boolean(auth?.user);
+  const cloudWorkspaceEnabled = cloudWorkspaceBaseEnabled && (isPortalRuntime || hookCloudWorkspaceEnabled);
   const raycastDocumentsEnabled = cloudWorkspaceEnabled && import.meta.env.VITE_FEATURE_RAYCAST_DOCUMENTS !== 'false';
   const livePresenceEnabled = cloudWorkspaceEnabled && import.meta.env.VITE_FEATURE_LIVE_PRESENCE !== 'false';
   const legacyShareReadOnlyEnabled = import.meta.env.VITE_FEATURE_LEGACY_SHARE_READONLY !== 'false';
@@ -663,10 +704,15 @@ const App: React.FC<EditorAppProps> = ({
   const [editorMode, setEditorMode] = useState<EditorMode>('selection');
 
   const [isApiMode, setIsApiMode] = useState(false);
+  const [hookMode, setHookMode] = useState<HookReviewMode>('plan-review');
+  const [planRevisionId, setPlanRevisionId] = useState<string | null>(null);
+  const [activeReviewFilePath, setActiveReviewFilePath] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [isParsing, setIsParsing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState<'approved' | 'denied' | null>(null);
+  const [submitted, setSubmitted] = useState<'approved' | 'denied' | 'annotated' | null>(null);
+  const [planLiveNotice, setPlanLiveNotice] = useState<string | null>(null);
+  const [planLiveSendState, setPlanLiveSendState] = useState<PlanLiveSendState>('idle');
   const [showStickyBar, setShowStickyBar] = useState(false);
   const [isFullEditMode, setIsFullEditMode] = useState(false);
   const [isSavingFullEdit, setIsSavingFullEdit] = useState(false);
@@ -702,6 +748,9 @@ const App: React.FC<EditorAppProps> = ({
   const headerRenameInputRef = useRef<HTMLInputElement>(null);
   const documentAreaRef = useRef<HTMLElement>(null);
   const fullEditTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const planRevisionRef = useRef<string | null>(null);
+  const planFilePathRef = useRef<string>('');
+  const waitForRevisionRequestRef = useRef(0);
   const [annotationsLoadedFromCloud, setAnnotationsLoadedFromCloud] = useState(false);
   const [hasInitializedLocalAnnotations, setHasInitializedLocalAnnotations] = useState(() => isPortalRuntime);
   const cloudLoadedPathRef = useRef<string | null>(null);
@@ -718,12 +767,36 @@ const App: React.FC<EditorAppProps> = ({
     () => normalizeNoteSourcePath(savePath || getNotePath() || 'nota.md'),
     [savePath]
   );
+  const currentContent = useMemo(
+    () => serializeBlocksToMarkdown(blocks),
+    [blocks]
+  );
   const activeDocument = useMemo(
     () => documents.find((doc) => doc.id === activeDocumentId) || null,
     [documents, activeDocumentId],
   );
+  const isAnnotateMode = isApiMode && hookMode === 'annotate';
+  const isPlanLiveMode = isApiMode && hookMode === 'plan-live-review';
+  const isPlanLiveBusy =
+    isPlanLiveMode &&
+    (planLiveSendState === 'sending_decision' || planLiveSendState === 'waiting_revision');
+  const planLiveSendLabel = isPlanLiveBusy
+    ? (planLiveSendState === 'waiting_revision' ? 'Aguardando revisão...' : t('app.sending'))
+    : 'Enviar alterações';
+  const viewerRenderKey = useMemo(
+    () => (
+      isApiMode
+        ? `${hookMode}:${planRevisionId || 'no-revision'}:${activeReviewFilePath || 'no-file'}`
+        : 'local-editor'
+    ),
+    [isApiMode, hookMode, planRevisionId, activeReviewFilePath]
+  );
   const activeDocumentTitle = activeDocument?.title || 'Documento';
-  const canEditActiveDocument = activeDocumentRole === 'owner' || activeDocumentRole === 'editor' || !cloudWorkspaceEnabled;
+  const canEditActiveDocument =
+    isApiMode ||
+    activeDocumentRole === 'owner' ||
+    activeDocumentRole === 'editor' ||
+    !cloudWorkspaceEnabled;
   const activeDocumentRoleLabel = useMemo(() => {
     switch (activeDocumentRole) {
       case 'owner':
@@ -752,6 +825,124 @@ const App: React.FC<EditorAppProps> = ({
 
     return ensurePublicShareLink(cloudClient, activeDocumentId);
   }, [cloudWorkspaceEnabled, cloudClient, activeDocumentId]);
+
+  const resolveApiPlanPayload = useCallback((payload: ApiPlanPayload): ResolvedApiPlan | null => {
+    const content = typeof payload.plan === 'string' ? payload.plan : payload.content;
+    if (typeof content !== 'string' || !content.trim()) {
+      return null;
+    }
+
+    let mode: HookReviewMode = 'plan-review';
+    if (payload.mode === 'annotate') {
+      mode = 'annotate';
+    } else if (payload.mode === 'plan-live-review') {
+      mode = 'plan-live-review';
+    }
+
+    return {
+      content,
+      mode,
+      revisionId: typeof payload.revisionId === 'string' ? payload.revisionId : null,
+      filePath: typeof payload.filePath === 'string' ? payload.filePath : '',
+    };
+  }, []);
+
+  const applyServerRevision = useCallback((revision: ResolvedApiPlan): void => {
+    viewerRef.current?.clearAllHighlights();
+    setAnnotations([]);
+    setAnnotationHistory([]);
+    setSelectedAnnotationId(null);
+    setEditorMode('selection');
+    setIsFullEditMode(false);
+    setFullEditContent('');
+    setSubmitted(null);
+    setShowFeedbackPrompt(false);
+    setIsSubmitting(false);
+    setSaveError(null);
+    setMarkdown(revision.content);
+    setBlocks(parseMarkdownToBlocks(revision.content));
+    setHookMode(revision.mode);
+    setPlanRevisionId(revision.revisionId);
+    setActiveReviewFilePath(revision.filePath);
+  }, []);
+
+  const logPlanLiveClientEvent = useCallback(
+    (event: string, details: Record<string, unknown> = {}) => {
+      if (typeof window === 'undefined') return;
+      try {
+        console.info('[PlanLiveUI]', {
+          ts: new Date().toISOString(),
+          event,
+          revisionId: planRevisionRef.current,
+          ...details,
+        });
+      } catch {
+        // no-op
+      }
+    },
+    []
+  );
+
+  const waitForUpdatedPlanRevision = useCallback(
+    async (
+      sinceRevision: string | null,
+      timeoutMs = 180000,
+      pollMs = 1000
+    ): Promise<WaitForPlanRevisionResult> => {
+      const REQUEST_TIMEOUT_MS = 8000;
+      const MAX_CONSECUTIVE_TRANSPORT_ERRORS = 6;
+      const startedAt = Date.now();
+      let consecutiveTransportErrors = 0;
+
+      while (Date.now() - startedAt < timeoutMs) {
+        const query = sinceRevision
+          ? `?sinceRevision=${encodeURIComponent(sinceRevision)}`
+          : '';
+
+        try {
+          const response = await fetch(`/api/plan${query}`, {
+            cache: 'no-store',
+            signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+          });
+          if (response.status === 204) {
+            consecutiveTransportErrors = 0;
+            await new Promise((resolve) => setTimeout(resolve, pollMs));
+            continue;
+          }
+          if (!response.ok) {
+            consecutiveTransportErrors = 0;
+            await new Promise((resolve) => setTimeout(resolve, pollMs));
+            continue;
+          }
+
+          const data = await response.json() as ApiPlanPayload;
+          const resolved = resolveApiPlanPayload(data);
+          if (!resolved) {
+            consecutiveTransportErrors = 0;
+            await new Promise((resolve) => setTimeout(resolve, pollMs));
+            continue;
+          }
+
+          if (sinceRevision && resolved.revisionId === sinceRevision) {
+            consecutiveTransportErrors = 0;
+            await new Promise((resolve) => setTimeout(resolve, pollMs));
+            continue;
+          }
+
+          return { status: 'updated', revision: resolved };
+        } catch {
+          consecutiveTransportErrors += 1;
+          if (consecutiveTransportErrors >= MAX_CONSECUTIVE_TRANSPORT_ERRORS) {
+            return { status: 'connection_lost' };
+          }
+          await new Promise((resolve) => setTimeout(resolve, pollMs));
+        }
+      }
+
+      return { status: 'timeout' };
+    },
+    [resolveApiPlanPayload]
+  );
 
   useEffect(() => {
     if (!livePresenceEnabled || !activeDocumentId) {
@@ -821,6 +1012,10 @@ const App: React.FC<EditorAppProps> = ({
   // Load annotations from localStorage when markdown is ready (and not from share)
   useEffect(() => {
     if (isPortalRuntime) return;
+    if (isPlanLiveMode) {
+      setHasInitializedLocalAnnotations(true);
+      return;
+    }
     if (isLoading || isLoadingShared || isSharedSession) return;
 
     const storedResult = loadAnnotations(markdown);
@@ -838,11 +1033,12 @@ const App: React.FC<EditorAppProps> = ({
       }, 200);
       return () => clearTimeout(timer);
     }
-  }, [markdown, isLoading, isLoadingShared, isSharedSession, isPortalRuntime]);
+  }, [markdown, isLoading, isLoadingShared, isSharedSession, isPortalRuntime, isPlanLiveMode]);
 
   // Save annotations to localStorage when they change
   useEffect(() => {
     if (isPortalRuntime) return;
+    if (isPlanLiveMode) return;
     // Don't save if we just loaded from storage (prevents unnecessary writes)
     if (annotationsLoadedFromStorage || annotationsLoadedFromCloud) {
       setAnnotationsLoadedFromStorage(false);
@@ -855,7 +1051,7 @@ const App: React.FC<EditorAppProps> = ({
 
     // Save annotations (including soft-deleted items for restore)
     saveAnnotations(markdown, annotations);
-  }, [annotations, markdown, isLoading, isLoadingShared, annotationsLoadedFromStorage, annotationsLoadedFromCloud, isPortalRuntime]);
+  }, [annotations, markdown, isLoading, isLoadingShared, annotationsLoadedFromStorage, annotationsLoadedFromCloud, isPortalRuntime, isPlanLiveMode]);
 
   // Intersection Observer for sticky bar - shows when header is out of viewport
   useEffect(() => {
@@ -1074,6 +1270,11 @@ const App: React.FC<EditorAppProps> = ({
 
         if (cancelled) return;
 
+        if (!isPortalRuntime) {
+          // In hook runtime we list cloud docs/profile, but keep server revision as source of truth.
+          return;
+        }
+
         if (!nextDocumentId) {
           const created = await createDocument(cloudClient);
           if (cancelled) return;
@@ -1100,7 +1301,7 @@ const App: React.FC<EditorAppProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [cloudClient, cloudWorkspaceEnabled, initialDocumentId, isSharedSession, isLoadingShared, legacyShareReadOnlyEnabled]);
+  }, [cloudClient, cloudWorkspaceEnabled, initialDocumentId, isSharedSession, isLoadingShared, legacyShareReadOnlyEnabled, isPortalRuntime]);
 
   useEffect(() => {
     if (!cloudWorkspaceEnabled || !cloudClient || !activeDocumentId) return;
@@ -1209,6 +1410,7 @@ const App: React.FC<EditorAppProps> = ({
   useEffect(() => {
     if (isPortalRuntime) return;
     if (!cloudClient || isLoading || isLoadingShared || isSharedSession) return;
+    if (hookAuthRequired && !auth?.user) return;
     if (!hasInitializedLocalAnnotations) return;
     if (!noteSourcePath) return;
     if (cloudLoadedPathRef.current === noteSourcePath) return;
@@ -1219,15 +1421,24 @@ const App: React.FC<EditorAppProps> = ({
     tryLoadCloudState(cloudClient, noteSourcePath, markdown, annotations).then((cloudState) => {
       if (cancelled || !cloudState) return;
 
-      cloudLoadedPathRef.current = noteSourcePath;
-      setCloudNoteId(cloudState.note?.id ?? null);
-
       if (cloudState.profile) {
         setCloudProfile(cloudState.profile as any);
         setCurrentAuthorName(cloudState.profile.name);
         setCurrentAuthorEmail(cloudState.profile.email || '');
         setCurrentAuthorAvatar(cloudState.profile.avatarUrl);
         updateDisplayName(cloudState.profile.name);
+      } else {
+        setCloudProfile(null);
+      }
+
+      setCloudNoteId(cloudState.note?.id ?? null);
+
+      // Only lock the source path after the note is resolved in cloud.
+      // This prevents a pre-login local run from blocking retries after login.
+      if (cloudState.note?.id) {
+        cloudLoadedPathRef.current = noteSourcePath;
+      } else {
+        cloudLoadedPathRef.current = null;
       }
 
       setAnnotations(cloudState.annotations);
@@ -1243,7 +1454,14 @@ const App: React.FC<EditorAppProps> = ({
       cancelled = true;
       if (highlightTimer) clearTimeout(highlightTimer);
     };
-  }, [cloudClient, noteSourcePath, markdown, isLoading, isLoadingShared, isSharedSession, hasInitializedLocalAnnotations, isPortalRuntime]);
+  }, [cloudClient, noteSourcePath, markdown, annotations, isLoading, isLoadingShared, isSharedSession, hasInitializedLocalAnnotations, isPortalRuntime, hookAuthRequired, auth?.user]);
+
+  useEffect(() => {
+    if (isPortalRuntime || !hookAuthRequired) return;
+    cloudLoadedPathRef.current = null;
+    setCloudNoteId(null);
+    setCloudProfile(null);
+  }, [isPortalRuntime, hookAuthRequired, auth?.user?.id]);
 
   useEffect(() => {
     if (!cloudClient || !cloudNoteId || !cloudProfile) return;
@@ -1306,8 +1524,8 @@ const App: React.FC<EditorAppProps> = ({
       cloudClient
         .from('notes')
         .update({
-          markdown,
-          content: markdown,
+          markdown: currentContent,
+          content: currentContent,
           updated_by: cloudProfile.id,
           updated_at: new Date().toISOString(),
         })
@@ -1316,20 +1534,20 @@ const App: React.FC<EditorAppProps> = ({
       if (cloudWorkspaceEnabled) {
         setDocuments((prev) => prev.map((doc) => (
           doc.id === cloudNoteId
-            ? { ...doc, markdown, content: markdown, updatedAt: new Date().toISOString() }
+            ? { ...doc, markdown: currentContent, content: currentContent, updatedAt: new Date().toISOString() }
             : doc
         )));
       }
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [cloudClient, cloudNoteId, cloudProfile, markdown, isLoading, isLoadingShared, isSharedSession, cloudWorkspaceEnabled, canEditActiveDocument]);
+  }, [cloudClient, cloudNoteId, cloudProfile, currentContent, isLoading, isLoadingShared, isSharedSession, cloudWorkspaceEnabled, canEditActiveDocument]);
 
 
   // Check if we're in API mode (served from Bun hook server)
   // Skip if we loaded from a shared URL
   useEffect(() => {
-    if (cloudWorkspaceEnabled) {
+    if (isPortalRuntime && cloudWorkspaceEnabled) {
       setIsApiMode(false);
       return;
     }
@@ -1337,21 +1555,155 @@ const App: React.FC<EditorAppProps> = ({
     if (isLoadingShared) return; // Wait for share check to complete
     if (isSharedSession) return; // Already loaded from share
 
-    fetch('/api/plan')
+    fetch('/api/plan', { cache: 'no-store' })
       .then(res => {
         if (!res.ok) throw new Error('Not in API mode');
         return res.json();
       })
-      .then((data: { plan: string }) => {
-        setMarkdown(data.plan);
+      .then((data: ApiPlanPayload) => {
+        const resolved = resolveApiPlanPayload(data);
+        if (!resolved) throw new Error('Missing plan content');
+        applyServerRevision(resolved);
         setIsApiMode(true);
       })
       .catch(() => {
         // Not in API mode - use default content
         setIsApiMode(false);
+        setHookMode('plan-review');
+        setPlanRevisionId(null);
+        setActiveReviewFilePath('');
       })
       .finally(() => setIsLoading(false));
-  }, [isLoadingShared, isSharedSession, cloudWorkspaceEnabled]);
+  }, [isLoadingShared, isSharedSession, cloudWorkspaceEnabled, isPortalRuntime, resolveApiPlanPayload, applyServerRevision]);
+
+  useEffect(() => {
+    planRevisionRef.current = planRevisionId;
+  }, [planRevisionId]);
+
+  useEffect(() => {
+    planFilePathRef.current = activeReviewFilePath;
+  }, [activeReviewFilePath]);
+
+  useEffect(() => {
+    if (!planLiveNotice) return;
+    if (planLiveSendState === 'waiting_revision') return;
+    const timeoutId = window.setTimeout(() => setPlanLiveNotice(null), 2600);
+    return () => window.clearTimeout(timeoutId);
+  }, [planLiveNotice, planLiveSendState]);
+
+  useEffect(() => {
+    if (isPlanLiveMode) return;
+    setPlanLiveSendState('idle');
+  }, [isPlanLiveMode]);
+
+  useEffect(() => {
+    if (!isPlanLiveMode) return;
+
+    let cancelled = false;
+    let consecutivePollErrors = 0;
+
+    const pollPlanRevision = async () => {
+      try {
+        const currentRevision = planRevisionRef.current;
+        const query = currentRevision
+          ? `?sinceRevision=${encodeURIComponent(currentRevision)}`
+          : '';
+
+        const response = await fetch(`/api/plan${query}`, { cache: 'no-store' });
+        if (cancelled || response.status === 204) {
+          consecutivePollErrors = 0;
+          return;
+        }
+        if (!response.ok) {
+          consecutivePollErrors += 1;
+          return;
+        }
+        consecutivePollErrors = 0;
+
+        const data = await response.json() as ApiPlanPayload;
+        const resolved = resolveApiPlanPayload(data);
+        if (!resolved) return;
+
+        const incomingRevision = resolved.revisionId;
+        const incomingFilePath = resolved.filePath || planFilePathRef.current;
+        if (incomingRevision && incomingRevision === planRevisionRef.current) {
+          return;
+        }
+
+        if (
+          incomingRevision &&
+          planRevisionRef.current &&
+          incomingRevision !== planRevisionRef.current
+        ) {
+          clearReviewDraft({
+            revisionId: planRevisionRef.current,
+            filePath: planFilePathRef.current,
+          });
+        }
+
+        applyServerRevision({
+          ...resolved,
+          filePath: incomingFilePath,
+        });
+        if (planLiveSendState === 'waiting_revision') {
+          setPlanLiveSendState('applied');
+          setPlanLiveNotice('Revisão atualizada com as alterações.');
+          logPlanLiveClientEvent('ui_revision_applied_poll', {
+            incomingRevision,
+            previousRevision: currentRevision,
+          });
+          setTimeout(() => setPlanLiveSendState('idle'), 1200);
+        }
+      } catch {
+        consecutivePollErrors += 1;
+        if (planLiveSendState === 'waiting_revision' && consecutivePollErrors >= 6) {
+          setPlanLiveSendState('connection_lost');
+          setSaveError('Conexão com a sessão de revisão foi perdida. Tente reenviar em alguns segundos.');
+          logPlanLiveClientEvent('ui_connection_lost_poll', {
+            consecutivePollErrors,
+            revisionId: planRevisionRef.current,
+          });
+        }
+      }
+    };
+
+    void pollPlanRevision();
+    const intervalId = window.setInterval(() => {
+      void pollPlanRevision();
+    }, 1000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [isPlanLiveMode, resolveApiPlanPayload, applyServerRevision, planLiveSendState, logPlanLiveClientEvent]);
+
+  useEffect(() => {
+    if (!isApiMode || isPortalRuntime) return;
+    if (!planRevisionId) return;
+    if (isLoading || isLoadingShared || isSharedSession) return;
+    if (!canEditActiveDocument) return;
+
+    const timer = window.setTimeout(() => {
+      saveReviewDraft({
+        revisionId: planRevisionId,
+        filePath: activeReviewFilePath,
+        content: currentContent,
+      });
+    }, 400);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    isApiMode,
+    isPortalRuntime,
+    planRevisionId,
+    activeReviewFilePath,
+    currentContent,
+    isLoading,
+    isLoadingShared,
+    isSharedSession,
+    canEditActiveDocument,
+  ]);
 
   // Parse markdown with optional skeleton display for large content
   // Uses a threshold to avoid skeleton flash for fast parsing
@@ -1409,6 +1761,7 @@ const App: React.FC<EditorAppProps> = ({
 
   // Load file from URL parameter
   useEffect(() => {
+    if (isApiMode) return;
     const params = new URLSearchParams(window.location.search);
     const filePath = params.get('file');
 
@@ -1417,6 +1770,7 @@ const App: React.FC<EditorAppProps> = ({
         .then(res => res.json())
         .then(data => {
           if (data.ok && data.content) {
+            setMarkdown(data.content);
             const newBlocks = parseMarkdownToBlocks(data.content);
             setBlocks(newBlocks);
             console.log('✅ Nota carregada:', filePath);
@@ -1428,7 +1782,7 @@ const App: React.FC<EditorAppProps> = ({
           console.error('❌ Erro ao carregar nota:', err);
         });
     }
-  }, []);
+  }, [isApiMode]);
 
   // Ctrl+Z to undo last annotation
   useEffect(() => {
@@ -1494,7 +1848,13 @@ const App: React.FC<EditorAppProps> = ({
       // Ctrl+S to save
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 's') {
         e.preventDefault();
-        if (savePath) handleSaveToVault();
+        if (isPortalRuntime) {
+          handleSaveToApp();
+        } else if (isApiMode) {
+          handleSendToClaude();
+        } else if (savePath) {
+          handleSaveToObsidian();
+        }
       }
 
       // Ctrl+L to share (copy link)
@@ -1527,7 +1887,7 @@ const App: React.FC<EditorAppProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [savePath, editorMode, shareUrl, cloudWorkspaceEnabled, raycastDocumentsEnabled, canEditActiveDocument]);
+  }, [savePath, isAnnotateMode, isPlanLiveMode, isApiMode, isPortalRuntime, editorMode, shareUrl, cloudWorkspaceEnabled, raycastDocumentsEnabled, canEditActiveDocument]);
 
   // Full edit mode keyboard shortcuts
   useEffect(() => {
@@ -1550,29 +1910,49 @@ const App: React.FC<EditorAppProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isFullEditMode, fullEditContent, isSavingFullEdit]);
 
+  const sendPlanLiveDecision = useCallback(
+    async (decision: 'approve' | 'request_changes', feedback?: string) => {
+      const response = await fetch('/api/session/decision', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          revisionId: planRevisionRef.current,
+          decision,
+          feedback: feedback || '',
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Falha ao enviar decisão da revisão (${response.status})`);
+      }
+    },
+    []
+  );
+
   // API mode handlers
   const handleApprove = async () => {
     setIsSubmitting(true);
     try {
-      await fetch('/api/approve', { method: 'POST' });
-      setSubmitted('approved');
+      if (isPlanLiveMode) {
+        await sendPlanLiveDecision('approve');
+        clearReviewDraft({
+          revisionId: planRevisionRef.current,
+          filePath: planFilePathRef.current,
+        });
+        setPlanLiveNotice('Aprovação enviada para o Claude.');
+      } else {
+        await fetch('/api/approve', { method: 'POST' });
+        clearReviewDraft({
+          revisionId: planRevisionRef.current,
+          filePath: planFilePathRef.current,
+        });
+        setSubmitted('approved');
+      }
     } catch {
       setIsSubmitting(false);
+      return;
     }
-  };
-
-  const handleDeny = async () => {
-    setIsSubmitting(true);
-    try {
-      await fetch('/api/deny', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ feedback: diffOutput })
-      });
-      setSubmitted('denied');
-    } catch {
-      setIsSubmitting(false);
-    }
+    setIsSubmitting(false);
   };
 
   const handleAddAnnotation = (ann: Annotation) => {
@@ -1992,20 +2372,11 @@ const App: React.FC<EditorAppProps> = ({
     }
   };
 
-  const reconstructMarkdownFromBlocks = (blocks: Block[]): string => {
-    return blocks.map(block => {
-      if (block.type === 'frontmatter') {
-        return `---\n${block.content}\n---`;
-      }
-      return block.content;
-    }).join('\n\n');
-  };
-
   // Full edit mode handlers
   const handleEnterFullEditMode = () => {
     if (!canEditActiveDocument) return;
     // Reconstruct markdown from blocks
-    const currentMarkdown = reconstructMarkdownFromBlocks(blocks);
+    const currentMarkdown = serializeBlocksToMarkdown(blocks);
     setFullEditContent(currentMarkdown);
     setIsFullEditMode(true);
     // Focus textarea after render
@@ -2050,33 +2421,153 @@ const App: React.FC<EditorAppProps> = ({
   // State for showing copy feedback toast
   const [showCopyToast, setShowCopyToast] = useState(false);
 
-  const handleSaveToVault = async () => {
-    if (cloudWorkspaceEnabled) {
-      if (!canEditActiveDocument) {
-        setSaveError('Você possui acesso somente leitura neste documento.');
-        return;
-      }
-      setIsSaving(true);
-      setSaveError(null);
-      try {
-        if (cloudClient && cloudNoteId && cloudProfile) {
-          localMarkdownWriteAtRef.current = Date.now();
-          await cloudClient
-            .from('notes')
-            .update({
-              markdown,
-              content: markdown,
-              updated_by: cloudProfile.id,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', cloudNoteId);
-        }
-      } finally {
-        setTimeout(() => setIsSaving(false), 250);
-      }
+  const handleSaveToApp = async () => {
+    if (!isPortalRuntime) return;
+
+    if (!canEditActiveDocument) {
+      setSaveError('Você possui acesso somente leitura neste documento.');
       return;
     }
 
+    if (!cloudWorkspaceEnabled || !cloudClient || !cloudNoteId || !cloudProfile) {
+      setSaveError('Salvar no app está indisponível nesta sessão.');
+      return;
+    }
+
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      localMarkdownWriteAtRef.current = Date.now();
+      await cloudClient
+        .from('notes')
+        .update({
+          markdown: currentContent,
+          content: currentContent,
+          updated_by: cloudProfile.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', cloudNoteId);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : t('common.unknownError'));
+    } finally {
+      setTimeout(() => setIsSaving(false), 250);
+    }
+  };
+
+  const handleSendToClaude = async () => {
+    if (isPlanLiveBusy) {
+      return;
+    }
+
+    if (!canEditActiveDocument) {
+      setSaveError('Você possui acesso somente leitura neste documento.');
+      return;
+    }
+
+    if (activeAnnotations.length === 0) {
+      setShowFeedbackPrompt(true);
+      return;
+    }
+
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      if (isPlanLiveMode) {
+        const previousRevision = planRevisionRef.current;
+        const requestId = Date.now();
+        waitForRevisionRequestRef.current = requestId;
+        setPlanLiveSendState('sending_decision');
+        logPlanLiveClientEvent('ui_send_clicked', {
+          filePath: planFilePathRef.current,
+          previousRevision,
+          annotationCount: activeAnnotations.length,
+        });
+        await sendPlanLiveDecision('request_changes', diffOutput);
+        clearReviewDraft({
+          revisionId: previousRevision,
+          filePath: planFilePathRef.current,
+        });
+        setPlanLiveSendState('waiting_revision');
+        setPlanLiveNotice('Feedback enviado para o Claude. Aguardando nova revisão...');
+        logPlanLiveClientEvent('ui_waiting_revision_started', {
+          previousRevision,
+        });
+
+        const result = await waitForUpdatedPlanRevision(previousRevision);
+        if (waitForRevisionRequestRef.current !== requestId) {
+          return;
+        }
+
+        if (result.status === 'updated' && result.revision) {
+          const incomingRevisionId = result.revision.revisionId || null;
+          if (!incomingRevisionId || incomingRevisionId !== planRevisionRef.current) {
+            applyServerRevision(result.revision);
+          }
+          setPlanLiveSendState('applied');
+          setPlanLiveNotice('Revisão atualizada com as alterações.');
+          logPlanLiveClientEvent('ui_revision_applied', {
+            previousRevision,
+            incomingRevisionId,
+          });
+          setTimeout(() => setPlanLiveSendState('idle'), 1200);
+        } else if (result.status === 'connection_lost') {
+          setPlanLiveSendState('connection_lost');
+          setSaveError('Conexão com a sessão de revisão foi perdida. Tente reenviar em alguns segundos.');
+          logPlanLiveClientEvent('ui_connection_lost', {
+            previousRevision,
+          });
+        } else {
+          setPlanLiveSendState('timeout');
+          setSaveError('Feedback enviado, mas a nova versão ainda não chegou. Tente novamente em alguns segundos.');
+          logPlanLiveClientEvent('ui_wait_timeout', {
+            previousRevision,
+          });
+        }
+
+        return;
+      }
+
+      if (isAnnotateMode) {
+        await fetch('/api/feedback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            feedback: diffOutput,
+            annotations: activeAnnotations,
+          }),
+        });
+        setSubmitted('annotated');
+        return;
+      }
+
+      if (isApiMode) {
+        await fetch('/api/deny', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ feedback: diffOutput }),
+        });
+        clearReviewDraft({
+          revisionId: planRevisionRef.current,
+          filePath: planFilePathRef.current,
+        });
+        setSubmitted('denied');
+        return;
+      }
+
+      await navigator.clipboard.writeText(diffOutput);
+      setShowCopyToast(true);
+      setTimeout(() => setShowCopyToast(false), 3000);
+    } catch (error) {
+      if (isPlanLiveMode) {
+        setPlanLiveSendState('connection_lost');
+      }
+      setSaveError(error instanceof Error ? error.message : t('common.unknownError'));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveToObsidian = async () => {
     if (!savePath.trim()) {
       setSaveError(t('app.configurePath'));
       return;
@@ -2084,68 +2575,19 @@ const App: React.FC<EditorAppProps> = ({
 
     setIsSaving(true);
     setSaveError(null);
-
     try {
-      // CASO 1: TEM ANOTAÇÕES → Fazer Alterações (deny com feedback)
-      if (activeAnnotations.length > 0) {
-        console.log('🟠 Solicitando alterações com', activeAnnotations.length, 'anotações');
-
-        if (isApiMode) {
-          // Envia feedback para Claude Code
-          await fetch('/api/deny', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ feedback: diffOutput })
-          });
-          setSubmitted('denied');
-          console.log('✅ Alterações solicitadas ao Claude Code!');
-        } else {
-          // FALLBACK: Não está em API mode - copiar diff para clipboard
-          try {
-            await navigator.clipboard.writeText(diffOutput);
-            setShowCopyToast(true);
-            setTimeout(() => setShowCopyToast(false), 3000);
-            console.log('📋 Diff copiado para clipboard!');
-          } catch (clipboardError) {
-            console.error('❌ Erro ao copiar para clipboard:', clipboardError);
-            setSaveError(t('app.copyChangesError'));
-          }
-        }
-        return;
-      }
-
-      // CASO 2: SEM ANOTAÇÕES → Salvar no Obsidian e Aprovar
-      console.log('🟣 Salvando nota no Obsidian...');
-
-      const content = reconstructMarkdownFromBlocks(blocks);
       const response = await fetch('/api/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          content,
-          path: savePath
-        })
+          content: currentContent,
+          path: savePath,
+        }),
       });
 
       const result = await response.json();
-
       if (!result.ok) {
         throw new Error(result.error || t('app.saveUnknownError'));
-      }
-
-      console.log('✅ Nota salva com sucesso:', savePath);
-
-      // Se estiver em API mode, também aprovar automaticamente
-      if (isApiMode) {
-        console.log('🎯 Aprovando automaticamente...');
-        try {
-          await fetch('/api/approve', { method: 'POST' });
-          setSubmitted('approved');
-          console.log('✅ Aprovado com sucesso!');
-        } catch (approveError) {
-          console.error('⚠️ Erro ao aprovar:', approveError);
-          // Não falha se aprovação der erro - nota já foi salva
-        }
       }
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : t('common.unknownError'));
@@ -2263,28 +2705,29 @@ const App: React.FC<EditorAppProps> = ({
       )
       : null;
 
+  if (runtime === 'hook' && hookAuthRequired) {
+    if (!isSupabaseConfigured) {
+      return (
+        <ThemeProvider defaultTheme="light">
+          <HookAuthGate missingSupabaseConfig />
+        </ThemeProvider>
+      );
+    }
+
+    if (!auth || auth.loading || !auth.user) {
+      return (
+        <ThemeProvider defaultTheme="light">
+          <HookAuthGate />
+        </ThemeProvider>
+      );
+    }
+  }
+
   return (
     <ThemeProvider defaultTheme="light">
       <ThemeShortcut />
       <div className="h-screen flex flex-col bg-background overflow-hidden">
-        {/* Show ONLY Settings when open */}
-        {isSettingsPanelOpen ? (
-          <SettingsPanel
-            isOpen={isSettingsPanelOpen}
-            onClose={() => {
-              setIsSettingsPanelOpen(false);
-              setShowStickyBar(false);
-            }}
-            onIdentityChange={handleIdentityChange}
-            onNoteTypeChange={handleNoteTypeChange}
-            onNotePathChange={handleNotePathChange}
-            onNoteNameChange={handleNoteNameChange}
-            activeDocumentId={activeDocumentId || undefined}
-            initialTab={settingsInitialTab}
-            onTabChange={setSettingsInitialTab}
-          />
-        ) : (
-          <>
+        <>
         {/* Minimal Header */}
         <header ref={headerRef} className="h-12 flex items-center justify-between px-2 md:px-4 border-b border-border/50 bg-card/50 backdrop-blur-xl z-50">
           <div className="flex items-center gap-2 md:gap-3">
@@ -2344,44 +2787,95 @@ const App: React.FC<EditorAppProps> = ({
 
           <div className="flex items-center gap-1 md:gap-2">
             {/* Salvar/Alterações - PRIMEIRO da esquerda */}
-            <button
-              onClick={handleSaveToVault}
-              disabled={isSaving || !savePath || !canEditActiveDocument}
-              className={`
-                flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-all
-                ${isSaving || !savePath
-                  ? 'opacity-50 cursor-not-allowed bg-muted text-muted-foreground'
-                  : activeAnnotations.length > 0
-                    ? 'bg-orange-500/20 text-orange-600 hover:bg-orange-500/30 border border-orange-500/40'
-                    : 'bg-primary/20 text-primary hover:bg-primary/30 border border-primary/40'
+            {(!isApiMode || isAnnotateMode) && (
+              <button
+                onClick={
+                  isPortalRuntime
+                    ? handleSaveToApp
+                    : isApiMode
+                      ? handleSendToClaude
+                      : handleSaveToObsidian
                 }
-              `}
-              title={
-                !canEditActiveDocument
-                  ? 'Apenas leitura para este documento'
-                  : !savePath
-                  ? t('app.configurePath')
-                  : activeAnnotations.length > 0
-                    ? t('app.makeChangesInClaude')
-                    : t('app.saveNoteToObsidian')
-              }
-            >
-              {activeAnnotations.length > 0 ? (
-                <>
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                  <span className="hidden md:inline">{isSaving ? t('app.processing') : t('app.makeChanges')}</span>
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                  </svg>
-                  <span className="hidden md:inline">{isSaving ? t('app.saving') : t('app.saveToObsidian')}</span>
-                </>
-              )}
-            </button>
+                disabled={
+                  isSaving ||
+                  !canEditActiveDocument ||
+                  (isPortalRuntime
+                    ? !cloudWorkspaceEnabled || !cloudClient || !cloudNoteId || !cloudProfile
+                    : !isApiMode && !savePath)
+                }
+                className={`
+                  flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-all
+                  ${isSaving ||
+                  !canEditActiveDocument ||
+                  (isPortalRuntime
+                    ? !cloudWorkspaceEnabled || !cloudClient || !cloudNoteId || !cloudProfile
+                    : !isApiMode && !savePath)
+                    ? 'opacity-50 cursor-not-allowed bg-muted text-muted-foreground'
+                    : isPortalRuntime
+                      ? 'bg-primary/20 text-primary hover:bg-primary/30 border border-primary/40'
+                      : isApiMode
+                        ? 'bg-muted text-muted-foreground hover:bg-muted/80 border border-border/60'
+                        : 'bg-primary/20 text-primary hover:bg-primary/30 border border-primary/40'
+                  }
+                `}
+                title={
+                  !canEditActiveDocument
+                    ? 'Apenas leitura para este documento'
+                    : isPortalRuntime
+                      ? 'Salvar nota no app (Meus Documentos)'
+                      : isApiMode
+                        ? (activeAnnotations.length > 0
+                          ? 'Enviar alterações para o agente'
+                          : 'Adicione anotações antes de enviar')
+                        : !savePath
+                          ? t('app.configurePath')
+                          : 'Salvar nota no Obsidian'
+                }
+              >
+                {isPortalRuntime ? (
+                  <>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="hidden md:inline">{isSaving ? t('app.saving') : 'Salvar no app'}</span>
+                  </>
+                ) : isApiMode ? (
+                  <>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                    <span className="hidden md:inline">{isSaving ? t('app.sending') : 'Enviar alterações'}</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                    </svg>
+                    <span className="hidden md:inline">{isSaving ? t('app.saving') : t('app.saveToObsidian')}</span>
+                  </>
+                )}
+              </button>
+            )}
+
+            {isApiMode && (
+              <button
+                onClick={handleSaveToObsidian}
+                disabled={isSaving || !savePath || !canEditActiveDocument}
+                className={`
+                  flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-all
+                  ${isSaving || !savePath || !canEditActiveDocument
+                    ? 'opacity-50 cursor-not-allowed bg-muted text-muted-foreground'
+                    : 'bg-primary/20 text-primary hover:bg-primary/30 border border-primary/40'
+                  }
+                `}
+                title={!savePath ? t('app.configurePath') : 'Salvar nota no Obsidian'}
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                </svg>
+                <span className="hidden md:inline">{isSaving ? t('app.saving') : t('app.saveToObsidian')}</span>
+              </button>
+            )}
 
             {/* ModeToggle - Segundo da esquerda */}
             <ModeToggle />
@@ -2501,37 +2995,29 @@ const App: React.FC<EditorAppProps> = ({
               </svg>
             </button>
 
-            {isApiMode && (
+            {isApiMode && !isAnnotateMode && (
               <>
                 <div className="w-px h-5 bg-border/50 mx-1 hidden md:block" />
 
                 <button
-                  onClick={() => {
-                    if (activeAnnotations.length === 0) {
-                      setShowFeedbackPrompt(true);
-                    } else {
-                      handleDeny();
-                    }
-                  }}
-                  disabled={isSubmitting}
-                  className={`p-1.5 md:px-2.5 md:py-1 rounded-md text-xs font-medium transition-all ${
-                    isSubmitting
+                  onClick={handleSendToClaude}
+                  disabled={isSaving || isSubmitting || isPlanLiveBusy}
+                  className={`px-2 py-1 md:px-2.5 rounded-md text-xs font-medium transition-all ${
+                    isSaving || isSubmitting || isPlanLiveBusy
                       ? 'opacity-50 cursor-not-allowed bg-muted text-muted-foreground'
-                      : 'bg-accent/15 text-accent hover:bg-accent/25 border border-accent/30'
+                      : 'bg-muted text-muted-foreground hover:bg-muted/80 border border-border/60'
                   }`}
-                  title={t('app.requestChanges')}
+                  title={activeAnnotations.length > 0 ? 'Enviar alterações para o agente' : 'Adicione anotações antes de enviar'}
                 >
-                  <svg className="w-4 h-4 md:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                  </svg>
-                  <span className="hidden md:inline">{isSubmitting ? t('app.sending') : t('app.requestChanges')}</span>
+                  <span className="md:hidden">{isSaving || isPlanLiveBusy ? '...' : 'Alterações'}</span>
+                  <span className="hidden md:inline">{isSaving ? t('app.sending') : planLiveSendLabel}</span>
                 </button>
 
                 <button
                   onClick={handleApprove}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isSaving}
                   className={`px-2 py-1 md:px-2.5 rounded-md text-xs font-medium transition-all ${
-                    isSubmitting
+                    isSubmitting || isSaving
                       ? 'opacity-50 cursor-not-allowed bg-muted text-muted-foreground'
                       : 'bg-green-600 text-white hover:bg-green-500'
                   }`}
@@ -2555,36 +3041,111 @@ const App: React.FC<EditorAppProps> = ({
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                {/* Botão principal - Fazer Alterações ou Salvar */}
-                <button
-                  onClick={handleSaveToVault}
-                  disabled={isSaving || !savePath || !canEditActiveDocument}
-                  className={`
-                    flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-all
-                    ${isSaving || !savePath
-                      ? 'opacity-50 cursor-not-allowed bg-muted text-muted-foreground'
-                      : activeAnnotations.length > 0
-                        ? 'bg-orange-500/20 text-orange-600 hover:bg-orange-500/30 border border-orange-500/40'
-                        : 'bg-primary/20 text-primary hover:bg-primary/30 border border-primary/40'
-                    }
-                  `}
-                >
-                  {activeAnnotations.length > 0 ? (
-                    <>
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                      {isSaving ? t('app.processing') : t('app.makeChanges')}
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                      </svg>
-                      {isSaving ? t('app.saving') : t('app.save')}
-                    </>
-                  )}
-                </button>
+                {isApiMode && !isAnnotateMode ? (
+                  <>
+                    <button
+                      onClick={handleSendToClaude}
+                      disabled={isSaving || isSubmitting || isPlanLiveBusy}
+                      className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                        isSaving || isSubmitting || isPlanLiveBusy
+                          ? 'opacity-50 cursor-not-allowed bg-muted text-muted-foreground'
+                          : 'bg-muted text-muted-foreground hover:bg-muted/80 border border-border/60'
+                      }`}
+                      title={activeAnnotations.length > 0 ? 'Enviar alterações para o agente' : 'Adicione anotações antes de enviar'}
+                    >
+                      {isSaving ? t('app.sending') : planLiveSendLabel}
+                    </button>
+                    <button
+                      onClick={handleApprove}
+                      disabled={isSubmitting || isSaving}
+                      className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                        isSubmitting || isSaving
+                          ? 'opacity-50 cursor-not-allowed bg-muted text-muted-foreground'
+                          : 'bg-green-600 text-white hover:bg-green-500'
+                      }`}
+                      title={t('app.approveNote')}
+                    >
+                      {isSubmitting ? t('app.approving') : t('app.approveNote')}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={
+                        isPortalRuntime
+                          ? handleSaveToApp
+                          : isApiMode
+                            ? handleSendToClaude
+                            : handleSaveToObsidian
+                      }
+                      disabled={
+                        isSaving ||
+                        !canEditActiveDocument ||
+                        (isPortalRuntime
+                          ? !cloudWorkspaceEnabled || !cloudClient || !cloudNoteId || !cloudProfile
+                          : !isApiMode && !savePath)
+                      }
+                      className={`
+                        flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-all
+                        ${isSaving ||
+                        !canEditActiveDocument ||
+                        (isPortalRuntime
+                          ? !cloudWorkspaceEnabled || !cloudClient || !cloudNoteId || !cloudProfile
+                          : !isApiMode && !savePath)
+                          ? 'opacity-50 cursor-not-allowed bg-muted text-muted-foreground'
+                          : isPortalRuntime
+                            ? 'bg-primary/20 text-primary hover:bg-primary/30 border border-primary/40'
+                            : isApiMode
+                            ? 'bg-muted text-muted-foreground hover:bg-muted/80 border border-border/60'
+                            : 'bg-primary/20 text-primary hover:bg-primary/30 border border-primary/40'
+                        }
+                      `}
+                    >
+                      {isPortalRuntime ? (
+                        <>
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                          {isSaving ? t('app.saving') : 'Salvar no app'}
+                        </>
+                      ) : isApiMode ? (
+                        <>
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                          </svg>
+                          {isSaving ? t('app.sending') : planLiveSendLabel}
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                          </svg>
+                          {isSaving ? t('app.saving') : t('app.save')}
+                        </>
+                      )}
+                    </button>
+
+                    {isApiMode && (
+                      <button
+                        onClick={handleSaveToObsidian}
+                        disabled={isSaving || !savePath || !canEditActiveDocument}
+                        className={`
+                          flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-all
+                          ${isSaving || !savePath || !canEditActiveDocument
+                            ? 'opacity-50 cursor-not-allowed bg-muted text-muted-foreground'
+                            : 'bg-primary/20 text-primary hover:bg-primary/30 border border-primary/40'
+                          }
+                        `}
+                        title={!savePath ? t('app.configurePath') : 'Salvar nota no Obsidian'}
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                        </svg>
+                        {isSaving ? t('app.saving') : t('app.saveToObsidian')}
+                      </button>
+                    )}
+                  </>
+                )}
 
                 {/* ModeToggle */}
                 <ModeToggle />
@@ -2727,6 +3288,7 @@ const App: React.FC<EditorAppProps> = ({
                 <ViewerSkeleton />
               ) : (
                 <Viewer
+                  key={viewerRenderKey}
                   ref={viewerRef}
                   blocks={blocks}
                   markdown={markdown}
@@ -2867,17 +3429,23 @@ const App: React.FC<EditorAppProps> = ({
         )}
 
         {/* Completion overlay - shown after approve/deny */}
-        {submitted && (
+        {submitted && !isPlanLiveMode && (
           <div className="fixed inset-0 z-[100] bg-background flex items-center justify-center">
             <div className="text-center space-y-6 max-w-md px-8">
               <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center ${
                 submitted === 'approved'
                   ? 'bg-green-500/20 text-green-500'
+                  : submitted === 'annotated'
+                    ? 'bg-blue-500/20 text-blue-500'
                   : 'bg-accent/20 text-accent'
               }`}>
                 {submitted === 'approved' ? (
                   <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : submitted === 'annotated' ? (
+                  <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                   </svg>
                 ) : (
                   <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -2888,12 +3456,18 @@ const App: React.FC<EditorAppProps> = ({
 
               <div className="space-y-2">
                 <h2 className="text-xl font-semibold text-foreground">
-                  {submitted === 'approved' ? t('decisionBar.noteApproved') : t('decisionBar.changesRequested')}
+                  {submitted === 'approved'
+                    ? t('decisionBar.noteApproved')
+                    : submitted === 'annotated'
+                      ? 'Anotações enviadas'
+                      : t('decisionBar.changesRequested')}
                 </h2>
                 <p className="text-muted-foreground">
                   {submitted === 'approved'
                     ? t('decisionBar.willBeSaved')
-                    : t('decisionBar.willReview')}
+                    : submitted === 'annotated'
+                      ? 'O agente recebeu seu feedback para aplicar as alterações.'
+                      : t('decisionBar.willReview')}
                 </p>
               </div>
 
@@ -2906,6 +3480,35 @@ const App: React.FC<EditorAppProps> = ({
           </div>
         )}
           </>
+
+        {isSettingsPanelOpen && (
+          <div className="fixed inset-0 z-[140]">
+            <button
+              type="button"
+              aria-label="Fechar configurações"
+              className="absolute inset-0 bg-background/55 backdrop-blur-[1px]"
+              onClick={() => {
+                setIsSettingsPanelOpen(false);
+                setShowStickyBar(false);
+              }}
+            />
+            <aside className="absolute inset-y-0 right-0 w-full max-w-5xl border-l border-border/70 bg-background shadow-2xl">
+              <SettingsPanel
+                isOpen={isSettingsPanelOpen}
+                onClose={() => {
+                  setIsSettingsPanelOpen(false);
+                  setShowStickyBar(false);
+                }}
+                onIdentityChange={handleIdentityChange}
+                onNoteTypeChange={handleNoteTypeChange}
+                onNotePathChange={handleNotePathChange}
+                onNoteNameChange={handleNoteNameChange}
+                activeDocumentId={activeDocumentId || undefined}
+                initialTab={settingsInitialTab}
+                onTabChange={setSettingsInitialTab}
+              />
+            </aside>
+          </div>
         )}
 
         {/* Update notification */}
@@ -2925,6 +3528,14 @@ const App: React.FC<EditorAppProps> = ({
                 <p className="text-sm font-medium text-foreground">{t('app.changesCopied')}</p>
                 <p className="text-xs text-muted-foreground">{t('app.pasteInClaude')}</p>
               </div>
+            </div>
+          </div>
+        )}
+
+        {planLiveNotice && (
+          <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 z-[210] animate-in fade-in slide-in-from-bottom-2 duration-200">
+            <div className="bg-card border border-border rounded-lg shadow-xl px-4 py-2 text-sm text-foreground">
+              {planLiveNotice}
             </div>
           </div>
         )}

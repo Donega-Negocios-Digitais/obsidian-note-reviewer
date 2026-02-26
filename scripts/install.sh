@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-REPO="backnotprop/obsreview"
+REPO="${OBSREVIEW_RELEASE_REPO:-Donega-Negocios-Digitais/obsidian-note-reviewer}"
 INSTALL_DIR="$HOME/.local/bin"
 
 case "$(uname -s)" in
@@ -77,5 +77,5 @@ echo "Test the install:"
 echo '  echo '"'"'{"tool_input":{"plan":"# Test Plan\\\\n\\\\nHello world"}}'"'"' | obsreview'
 echo ""
 echo "Then install the Claude Code plugin:"
-echo "  /plugin marketplace add backnotprop/obsreview"
-echo "  /plugin install obsreview@obsreview"
+echo "  /plugin marketplace add Donega-Negocios-Digitais/obsidian-note-reviewer"
+echo "  /plugin install obsreview@obsidian-note-reviewer"

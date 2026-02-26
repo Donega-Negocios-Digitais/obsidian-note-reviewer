@@ -1140,10 +1140,10 @@ const BlockRenderer: React.FC<{
     case 'heading':
       const Tag = `h${block.level || 1}` as keyof JSX.IntrinsicElements;
       const styles = {
-        1: 'text-2xl font-bold mb-4 mt-6 first:mt-0 tracking-tight',
-        2: 'text-xl font-semibold mb-3 mt-8 text-foreground/90',
-        3: 'text-base font-semibold mb-2 mt-6 text-foreground/80',
-      }[block.level || 1] || 'text-base font-semibold mb-2 mt-4';
+        1: 'text-2xl font-bold mb-4 mt-6 first:mt-0 tracking-tight break-words whitespace-pre-wrap',
+        2: 'text-xl font-semibold mb-3 mt-8 text-foreground/90 break-words whitespace-pre-wrap',
+        3: 'text-base font-semibold mb-2 mt-6 text-foreground/80 break-words whitespace-pre-wrap',
+      }[block.level || 1] || 'text-base font-semibold mb-2 mt-4 break-words whitespace-pre-wrap';
 
       if (isEditing) {
         return (
@@ -1207,7 +1207,7 @@ const BlockRenderer: React.FC<{
     case 'blockquote':
       return (
         <blockquote
-          className="border-l-2 border-primary/50 pl-4 my-4 text-muted-foreground italic"
+          className="border-l-2 border-primary/50 pl-4 my-4 text-muted-foreground italic whitespace-pre-wrap break-words"
           data-block-id={block.id}
         >
           <InlineMarkdown text={block.content} />
@@ -1215,10 +1215,22 @@ const BlockRenderer: React.FC<{
       );
 
     case 'list-item':
+      const listMarker = (() => {
+        if (block.listKind === 'ordered') {
+          return /^\d+[.)]$/.test(block.listMarker || '') ? block.listMarker : '1.';
+        }
+        return /^[*+-]$/.test(block.listMarker || '') ? block.listMarker : '•';
+      })();
       return (
-        <div className="flex gap-3 my-1.5" data-block-id={block.id}>
-          <span className="text-primary/60 select-none">•</span>
-          <span className="text-foreground/90 text-sm leading-relaxed"><InlineMarkdown text={block.content} /></span>
+        <div
+          className="flex gap-3 my-1.5"
+          data-block-id={block.id}
+          style={{ marginLeft: `${Math.max(0, (block.listIndent || 0) * 4)}px` }}
+        >
+          <span className="text-primary/60 select-none min-w-[1.5rem]">{listMarker}</span>
+          <span className="text-foreground/90 text-sm leading-relaxed whitespace-pre-wrap break-words">
+            <InlineMarkdown text={block.content} />
+          </span>
         </div>
       );
 
@@ -1235,7 +1247,7 @@ const BlockRenderer: React.FC<{
                 {headers.map((header, i) => (
                   <th
                     key={i}
-                    className="px-3 py-2 text-left font-semibold text-foreground/90 bg-muted/30"
+                    className="px-3 py-2 text-left font-semibold text-foreground/90 bg-muted/30 break-words align-top"
                   >
                     <InlineMarkdown text={header} />
                   </th>
@@ -1246,7 +1258,7 @@ const BlockRenderer: React.FC<{
               {rows.map((row, rowIdx) => (
                 <tr key={rowIdx} className="border-b border-border/50 hover:bg-muted/20">
                   {row.map((cell, cellIdx) => (
-                    <td key={cellIdx} className="px-3 py-2 text-foreground/80">
+                    <td key={cellIdx} className="px-3 py-2 text-foreground/80 break-words align-top whitespace-pre-wrap">
                       <InlineMarkdown text={cell} />
                     </td>
                   ))}
@@ -1297,7 +1309,7 @@ const BlockRenderer: React.FC<{
 
       return (
         <div className="relative group mb-4" data-block-id={block.id}>
-          <p className="leading-relaxed text-foreground/90 text-[15px]">
+          <p className="leading-relaxed text-foreground/90 text-[15px] whitespace-pre-wrap break-words">
             <InlineMarkdown text={block.content} />
           </p>
           {isEditMode && (
