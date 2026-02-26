@@ -30,6 +30,7 @@ dist-ssr
 .auto-claude/
 .auto-claude-status
 .claude_settings.json
+.claude/plans/
 
 # Temporary files
 .temp/
