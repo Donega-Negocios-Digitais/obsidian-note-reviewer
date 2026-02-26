@@ -6,17 +6,17 @@ Este guia mostra como qualquer usuário instala e ativa o plugin no Claude Code.
 
 ### Windows (PowerShell)
 ```powershell
-irm https://obsreview.ai/install.ps1 | iex
+irm https://raw.githubusercontent.com/Donega-Negocios-Digitais/obsidian-note-reviewer/main/scripts/install.ps1 | iex
 ```
 
 ### Windows (CMD)
 ```cmd
-curl -fsSL https://obsreview.ai/install.cmd -o install.cmd && install.cmd && del install.cmd
+curl -fsSL https://raw.githubusercontent.com/Donega-Negocios-Digitais/obsidian-note-reviewer/main/scripts/install.cmd -o install.cmd && install.cmd && del install.cmd
 ```
 
 ### macOS / Linux / WSL
 ```bash
-curl -fsSL https://obsreview.ai/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Donega-Negocios-Digitais/obsidian-note-reviewer/main/scripts/install.sh | bash
 ```
 
 ## 2. Instalar o plugin no Claude Code

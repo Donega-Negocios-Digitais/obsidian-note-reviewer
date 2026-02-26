@@ -27,13 +27,13 @@ Interactive Plan Review for AI Coding Agents. Mark up and refine your plans usin
 **macOS / Linux / WSL:**
 
 ```bash
-curl -fsSL https://obsidian-note-reviewer.ai/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Donega-Negocios-Digitais/obsidian-note-reviewer/main/scripts/install.sh | bash
 ```
 
 **Windows PowerShell:**
 
 ```powershell
-irm https://obsidian-note-reviewer.ai/install.ps1 | iex
+irm https://raw.githubusercontent.com/Donega-Negocios-Digitais/obsidian-note-reviewer/main/scripts/install.ps1 | iex
 ```
 
 **Then in Claude Code:**
