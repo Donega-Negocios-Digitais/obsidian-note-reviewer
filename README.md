@@ -6,9 +6,23 @@
 
 Revisão interativa de planos e notas com UI visual, integrada ao Claude Code.
 
-## Instalação rápida (Claude Code)
+## Guia rápido (passo a passo)
 
-### 1) Instalar o binário `obsreview`
+Este guia é para quem vai testar no **Claude Code**.
+
+## Antes de começar (muito importante)
+
+Existem 3 lugares diferentes:
+
+1. `PowerShell/Terminal` (fora do Claude Code): instalar o binário.
+2. `Chat do Claude Code`: instalar plugin com `/plugin ...`.
+3. `Pasta de trabalho do projeto`: onde você pede o plano para abrir a UI.
+
+Se rodar no lugar errado (ex.: `C:\Windows\System32`), pode não funcionar.
+
+## Passo 1 - Instalar o binário `obsreview` (GLOBAL no sistema)
+
+Rode no **PowerShell**:
 
 **Windows (PowerShell):**
 
@@ -22,55 +36,98 @@ irm https://raw.githubusercontent.com/Donega-Negocios-Digitais/obsidian-note-rev
 curl -fsSL https://raw.githubusercontent.com/Donega-Negocios-Digitais/obsidian-note-reviewer/main/scripts/install.sh | bash
 ```
 
-### 2) Instalar o plugin no Claude Code
+## Passo 2 - Validar se o binário instalou
+
+No mesmo terminal:
+
+```powershell
+obsreview --version
+```
+
+Se aparecer versão, o binário está OK.
+
+## Passo 3 - Abrir Claude Code na pasta correta
+
+Não teste em `System32`.
+
+Use uma pasta de projeto, por exemplo:
+
+```powershell
+cd F:\obsidian-note-reviewer
+```
+
+Depois abra o Claude Code nessa pasta.
+
+## Passo 4 - Instalar plugin no Claude Code (um comando por vez)
+
+No **chat do Claude Code**, rode primeiro:
 
 ```text
 /plugin marketplace add Donega-Negocios-Digitais/obsidian-note-reviewer
+```
+
+Depois rode:
+
+```text
 /plugin install obsreview@obsidian-note-reviewer
 ```
 
-### 3) Reiniciar o Claude Code
+## Passo 5 - Reiniciar Claude Code
 
 Depois da instalação do plugin, reinicie o Claude Code para carregar hooks e comandos.
 
-## Teste rápido (1 minuto)
+## Passo 6 - Teste guiado (abre a UI)
 
 No Claude Code, envie:
 
 ```text
-Crie um plano de 3 passos para melhorar a interface, sem implementar.
+Crie/atualize o arquivo /.claude/plans/teste-chefe.md com um plano de 3 passos para melhorar a interface, sem implementar.
 ```
 
-Resultado esperado:
-- Claude grava um arquivo em `/.claude/plans/...`
-- a UI de revisão abre automaticamente
-- você pode usar `Enviar alterações` ou `Aprovar nota`
+## Passo 7 - Como saber se funcionou
+
+Tem que acontecer isso:
+
+1. Claude cria/atualiza `/.claude/plans/teste-chefe.md`.
+2. A UI web abre automaticamente.
+3. Você consegue clicar em `Enviar alterações` e `Aprovar nota`.
+4. O Claude recebe o retorno e continua o fluxo.
 
 ## Quando a UI abre (importante)
 
 A UI de revisão só abre quando o agente faz `Write`, `Edit` ou `MultiEdit` em arquivo alvo.
 Se o agente responder só no chat (sem escrever arquivo), a UI não abre.
 
-## Modos de uso
+## Global vs Local (explicação simples)
 
-| Modo | Precisa instalar plugin local | Precisa login | Uso principal |
-|---|---|---|---|
-| Portal Web (`apps/portal`) | Não | Sim (`/editor` protegido) | Salvar no app (`Meus Documentos`) |
-| Hook/CLI (`apps/hook`) | Sim (`obsreview` + hooks) | Não (fluxo local) | Revisar plano/nota e enviar feedback ao Claude |
+- `obsreview` (binário): **global** na máquina (fica no PATH do sistema).
+- Plugin `/plugin install`: fica instalado no **Claude Code do usuário naquela máquina**.
+- Teste do hook: depende da **pasta que você abriu** no Claude Code.
 
-## Salvamento de notas (3 destinos independentes)
+## Se não funcionar, envie este checklist
 
-1. `Salvar no app`
-   - salva no banco da aplicação
-   - aparece em `Meus Documentos`
+1. Saída do comando:
 
-2. `Salvar no Obsidian`
-   - usa `POST /api/save` no servidor local
-   - grava markdown no vault com validação de caminho
+```powershell
+obsreview --version
+```
 
-3. `Enviar para Claude`
-   - envia feedback no fluxo de revisão via hook
-   - não bloqueia os outros dois destinos
+2. Pasta atual no terminal:
+
+```powershell
+pwd
+```
+
+3. Últimas linhas dos logs (na raiz do projeto):
+
+```powershell
+Get-Content .\.logs\plan-live-hook.log -Tail 80
+Get-Content .\.logs\plan-live-session.log -Tail 80
+```
+
+4. Print da tela do Claude Code após o prompt de teste.
+
+Com isso, dá para diagnosticar rápido.
 
 ## Documentação útil
 
