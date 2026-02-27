@@ -6,29 +6,24 @@
 
 Revisao interativa de planos e notas com UI visual, integrada ao Claude Code.
 
-## Guia de instalacao e teste (passo a passo)
+## Guia super detalhado (passo a passo)
 
-Este guia mostra exatamente:
-- onde rodar cada comando;
-- o que e global e o que e local;
-- como validar que esta funcionando;
-- o que enviar de feedback se der erro.
+Este guia e para qualquer pessoa instalar e testar sem adivinhar nada.
 
-## Mapa rapido: onde executar cada coisa
+## Regra simples: cada comando no lugar certo
 
-| Acao | Onde executar |
-|---|---|
-| Instalar `obsreview` | PowerShell/Terminal (fora do Claude Code) |
-| Instalar plugin | Chat do Claude Code (`/plugin ...`) |
-| Testar abertura da UI | Claude Code aberto em uma pasta de trabalho (projeto) |
+1. `PowerShell/Terminal` (fora do Claude Code):
+   aqui voce instala o comando `obsreview`.
+2. `Chat do Claude Code`:
+   aqui voce roda comandos `/plugin ...`.
+3. `Pasta de trabalho` no Claude Code:
+   aqui voce pede o plano para abrir a tela de revisao.
 
-## Global vs local (explicacao simples)
+## Passo 0 - Fechar o Claude Code (se ja estiver aberto)
 
-- `obsreview` (binario CLI): instalacao **global** na maquina (fica no PATH).
-- plugin do Claude Code: instalacao **local do Claude Code daquele usuario/maquina**.
-- hooks funcionando: depende da **pasta de trabalho aberta** no Claude Code.
+Se o Claude Code estiver aberto, feche ele antes da instalacao.
 
-## Passo 1 - Instalar o binario `obsreview` (global)
+## Passo 1 - Instalar o comando `obsreview`
 
 ### Windows (PowerShell)
 
@@ -42,27 +37,26 @@ irm https://raw.githubusercontent.com/Donega-Negocios-Digitais/obsidian-note-rev
 curl -fsSL https://raw.githubusercontent.com/Donega-Negocios-Digitais/obsidian-note-reviewer/main/scripts/install.sh | bash
 ```
 
-### Validacao do passo 1
+## Passo 2 - Verificar se instalou
+
+No terminal, rode:
 
 ```powershell
 obsreview --version
 ```
 
-Saida esperada:
-- aparece uma versao (ex.: `0.x.x`).
-- se comando nao for encontrado, o binario nao entrou no PATH.
+Resultado esperado:
+- aparece um numero de versao (exemplo: `0.x.x`).
 
-## Passo 2 - Abrir Claude Code em uma pasta de trabalho
+Se nao aparecer versao, a instalacao do binario ainda nao terminou corretamente.
 
-Abra o Claude Code em uma pasta onde voce possa criar arquivos.
+## Passo 3 - Abrir o Claude Code e abrir uma pasta de trabalho
 
-Exemplo no Windows:
+Abra o Claude Code.
 
-```powershell
-cd F:\obsidian-note-reviewer
-```
+Depois abra uma pasta de projeto sua (qualquer pasta de trabalho normal, com permissoes de escrita).
 
-## Passo 3 - Instalar plugin no Claude Code (um por vez)
+## Passo 4 - Instalar plugin no Claude Code (um por vez)
 
 No chat do Claude Code, rode primeiro:
 
@@ -76,49 +70,45 @@ Depois rode:
 /plugin install obsreview@obsidian-note-reviewer
 ```
 
-Saida esperada:
-- mensagem de sucesso no add do marketplace;
-- mensagem de sucesso na instalacao do plugin.
+Importante:
+- rode um comando por vez;
+- espere terminar o primeiro para rodar o segundo.
 
-## Passo 4 - Reiniciar Claude Code
+## Passo 5 - Reiniciar o Claude Code
 
-Depois da instalacao do plugin, reinicie o Claude Code.
+Feche o Claude Code.
 
-Sem reiniciar, hooks e comandos podem nao carregar.
+Abra novamente.
 
-## Passo 5 - Teste funcional (abre a UI)
+Abra novamente sua pasta de trabalho.
 
-No chat do Claude Code, envie este prompt:
+## Passo 6 - Fazer o teste de verdade
+
+No chat do Claude Code, envie:
 
 ```text
-Crie/atualize o arquivo /.claude/plans/teste-chefe.md com um plano de 3 passos para melhorar a interface, sem implementar.
+Crie um plano de 3 passos para melhorar a interface, sem implementar.
 ```
 
-Saida esperada:
-1. o arquivo `/.claude/plans/teste-chefe.md` e criado/atualizado;
-2. a UI web abre automaticamente;
-3. voce consegue clicar em `Enviar alteracoes` e `Aprovar nota`;
-4. o Claude recebe a decisao e continua o fluxo.
+## Passo 7 - Como saber se deu certo
 
-## Quando a UI abre (regra importante)
+Tem que acontecer isto:
 
-A UI abre quando o agente faz `Write`, `Edit` ou `MultiEdit` em arquivo alvo.
+1. O Claude gera o plano.
+2. A tela web de revisao abre automaticamente.
+3. Voce consegue clicar em `Enviar alteracoes` e `Aprovar nota`.
+4. O Claude recebe sua acao e continua o fluxo.
 
-Se o agente responder so no chat (sem escrever/editar arquivo), a UI nao abre.
+## Quando aparece opcao "global" ou "local"
 
-## Checklist rapido de validacao (para qualquer usuario)
+Se aparecer essa duvida em algum instalador:
 
-- [ ] `obsreview --version` funciona no terminal
-- [ ] plugin instalado com sucesso no Claude Code
-- [ ] Claude Code reiniciado apos instalacao
-- [ ] teste criou arquivo em `/.claude/plans/`
-- [ ] UI abriu automaticamente
-- [ ] botao `Enviar alteracoes` funcionou
-- [ ] botao `Aprovar nota` funcionou
+- Para o comando `obsreview`, use **global** (vale para todo o sistema).
+- Para plugin, instale no **Claude Code** da maquina do usuario.
 
-## Se nao funcionar, enviar este pacote de diagnostico
+## Se nao funcionar, envie este pacote de diagnostico
 
-No terminal (na pasta do projeto), executar:
+No terminal, dentro da pasta de trabalho, rode:
 
 ```powershell
 obsreview --version
@@ -127,12 +117,20 @@ Get-Content .\.logs\plan-live-hook.log -Tail 80
 Get-Content .\.logs\plan-live-session.log -Tail 80
 ```
 
-Tambem enviar:
-- print da tela do Claude Code;
-- print da tela da UI de review (se abriu);
-- prompt usado no teste.
+E envie junto:
 
-Com isso, o diagnostico fica rapido e objetivo.
+1. print do chat do Claude Code;
+2. print da tela web (se abriu);
+3. o prompt exato usado no teste.
+
+## Checklist final rapido
+
+- [ ] `obsreview --version` funciona
+- [ ] plugin instalado no Claude Code
+- [ ] Claude Code foi reiniciado depois da instalacao
+- [ ] teste de plano abriu a UI
+- [ ] `Enviar alteracoes` funcionou
+- [ ] `Aprovar nota` funcionou
 
 ## Documentacao util
 
