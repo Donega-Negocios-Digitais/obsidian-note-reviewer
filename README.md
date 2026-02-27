@@ -4,63 +4,67 @@
 
 # obsidian-note-reviewer
 
-Revisão interativa de planos e notas com UI visual, integrada ao Claude Code.
+Revisao interativa de planos e notas com UI visual, integrada ao Claude Code.
 
-## Guia rápido (passo a passo)
+## Guia de instalacao e teste (passo a passo)
 
-Este guia é para quem vai testar no **Claude Code**.
+Este guia mostra exatamente:
+- onde rodar cada comando;
+- o que e global e o que e local;
+- como validar que esta funcionando;
+- o que enviar de feedback se der erro.
 
-## Antes de começar (muito importante)
+## Mapa rapido: onde executar cada coisa
 
-Existem 3 lugares diferentes:
+| Acao | Onde executar |
+|---|---|
+| Instalar `obsreview` | PowerShell/Terminal (fora do Claude Code) |
+| Instalar plugin | Chat do Claude Code (`/plugin ...`) |
+| Testar abertura da UI | Claude Code aberto em uma pasta de trabalho (projeto) |
 
-1. `PowerShell/Terminal` (fora do Claude Code): instalar o binário.
-2. `Chat do Claude Code`: instalar plugin com `/plugin ...`.
-3. `Pasta de trabalho do projeto`: onde você pede o plano para abrir a UI.
+## Global vs local (explicacao simples)
 
-Se rodar no lugar errado (ex.: `C:\Windows\System32`), pode não funcionar.
+- `obsreview` (binario CLI): instalacao **global** na maquina (fica no PATH).
+- plugin do Claude Code: instalacao **local do Claude Code daquele usuario/maquina**.
+- hooks funcionando: depende da **pasta de trabalho aberta** no Claude Code.
 
-## Passo 1 - Instalar o binário `obsreview` (GLOBAL no sistema)
+## Passo 1 - Instalar o binario `obsreview` (global)
 
-Rode no **PowerShell**:
-
-**Windows (PowerShell):**
+### Windows (PowerShell)
 
 ```powershell
 irm https://raw.githubusercontent.com/Donega-Negocios-Digitais/obsidian-note-reviewer/main/scripts/install.ps1 | iex
 ```
 
-**macOS / Linux / WSL:**
+### macOS / Linux / WSL
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Donega-Negocios-Digitais/obsidian-note-reviewer/main/scripts/install.sh | bash
 ```
 
-## Passo 2 - Validar se o binário instalou
-
-No mesmo terminal:
+### Validacao do passo 1
 
 ```powershell
 obsreview --version
 ```
 
-Se aparecer versão, o binário está OK.
+Saida esperada:
+- aparece uma versao (ex.: `0.x.x`).
+- se comando nao for encontrado, o binario nao entrou no PATH.
 
-## Passo 3 - Abrir Claude Code na pasta correta
+## Passo 2 - Abrir Claude Code em uma pasta de trabalho
 
-Não teste em `System32`.
+Abra o Claude Code em uma pasta onde voce possa criar arquivos.
 
-Use uma pasta de projeto, por exemplo:
+Exemplo no Windows:
 
 ```powershell
 cd F:\obsidian-note-reviewer
 ```
 
-Depois abra o Claude Code nessa pasta.
+## Passo 3 - Instalar plugin no Claude Code (um por vez)
 
-## Passo 4 - Instalar plugin no Claude Code (um comando por vez)
-
-No **chat do Claude Code**, rode primeiro:
+No chat do Claude Code, rode primeiro:
 
 ```text
 /plugin marketplace add Donega-Negocios-Digitais/obsidian-note-reviewer
@@ -72,70 +76,71 @@ Depois rode:
 /plugin install obsreview@obsidian-note-reviewer
 ```
 
-## Passo 5 - Reiniciar Claude Code
+Saida esperada:
+- mensagem de sucesso no add do marketplace;
+- mensagem de sucesso na instalacao do plugin.
 
-Depois da instalação do plugin, reinicie o Claude Code para carregar hooks e comandos.
+## Passo 4 - Reiniciar Claude Code
 
-## Passo 6 - Teste guiado (abre a UI)
+Depois da instalacao do plugin, reinicie o Claude Code.
 
-No Claude Code, envie:
+Sem reiniciar, hooks e comandos podem nao carregar.
+
+## Passo 5 - Teste funcional (abre a UI)
+
+No chat do Claude Code, envie este prompt:
 
 ```text
 Crie/atualize o arquivo /.claude/plans/teste-chefe.md com um plano de 3 passos para melhorar a interface, sem implementar.
 ```
 
-## Passo 7 - Como saber se funcionou
+Saida esperada:
+1. o arquivo `/.claude/plans/teste-chefe.md` e criado/atualizado;
+2. a UI web abre automaticamente;
+3. voce consegue clicar em `Enviar alteracoes` e `Aprovar nota`;
+4. o Claude recebe a decisao e continua o fluxo.
 
-Tem que acontecer isso:
+## Quando a UI abre (regra importante)
 
-1. Claude cria/atualiza `/.claude/plans/teste-chefe.md`.
-2. A UI web abre automaticamente.
-3. Você consegue clicar em `Enviar alterações` e `Aprovar nota`.
-4. O Claude recebe o retorno e continua o fluxo.
+A UI abre quando o agente faz `Write`, `Edit` ou `MultiEdit` em arquivo alvo.
 
-## Quando a UI abre (importante)
+Se o agente responder so no chat (sem escrever/editar arquivo), a UI nao abre.
 
-A UI de revisão só abre quando o agente faz `Write`, `Edit` ou `MultiEdit` em arquivo alvo.
-Se o agente responder só no chat (sem escrever arquivo), a UI não abre.
+## Checklist rapido de validacao (para qualquer usuario)
 
-## Global vs Local (explicação simples)
+- [ ] `obsreview --version` funciona no terminal
+- [ ] plugin instalado com sucesso no Claude Code
+- [ ] Claude Code reiniciado apos instalacao
+- [ ] teste criou arquivo em `/.claude/plans/`
+- [ ] UI abriu automaticamente
+- [ ] botao `Enviar alteracoes` funcionou
+- [ ] botao `Aprovar nota` funcionou
 
-- `obsreview` (binário): **global** na máquina (fica no PATH do sistema).
-- Plugin `/plugin install`: fica instalado no **Claude Code do usuário naquela máquina**.
-- Teste do hook: depende da **pasta que você abriu** no Claude Code.
+## Se nao funcionar, enviar este pacote de diagnostico
 
-## Se não funcionar, envie este checklist
-
-1. Saída do comando:
+No terminal (na pasta do projeto), executar:
 
 ```powershell
 obsreview --version
-```
-
-2. Pasta atual no terminal:
-
-```powershell
 pwd
-```
-
-3. Últimas linhas dos logs (na raiz do projeto):
-
-```powershell
 Get-Content .\.logs\plan-live-hook.log -Tail 80
 Get-Content .\.logs\plan-live-session.log -Tail 80
 ```
 
-4. Print da tela do Claude Code após o prompt de teste.
+Tambem enviar:
+- print da tela do Claude Code;
+- print da tela da UI de review (se abriu);
+- prompt usado no teste.
 
-Com isso, dá para diagnosticar rápido.
+Com isso, o diagnostico fica rapido e objetivo.
 
-## Documentação útil
+## Documentacao util
 
-- Guia detalhado de instalação: [INSTALACAO-PLUGIN.md](./INSTALACAO-PLUGIN.md)
-- Instalação manual de hooks e comandos: [apps/hook/README.md](apps/hook/README.md)
+- Guia detalhado de instalacao: [INSTALACAO-PLUGIN.md](./INSTALACAO-PLUGIN.md)
+- Instalacao manual de hooks/comandos: [apps/hook/README.md](apps/hook/README.md)
 - Regras dos agentes/CLIs: [AGENTS.md](AGENTS.md)
 
-## Licença
+## Licenca
 
 **Copyright (c) 2025 backnotprop.**
 
