@@ -87,7 +87,7 @@ Abra novamente sua pasta de trabalho.
 No chat do Claude Code, envie:
 
 ```text
-Crie um plano de 3 passos para melhorar a interface, sem implementar.
+Crie um plano de 1 passo para melhorar a interface, sem implementar.
 ```
 
 ## Passo 7 - Como saber se deu certo
