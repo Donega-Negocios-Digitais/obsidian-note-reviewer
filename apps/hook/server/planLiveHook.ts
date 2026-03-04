@@ -13,6 +13,7 @@ import { basename, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { $ } from "bun";
 import { validatePath } from "./pathValidation";
+import { isClaudeInternalPlanPath } from "./planPathMatchers";
 import {
   RemotePlanLiveError,
   resolveReviewTarget,
@@ -73,17 +74,8 @@ function pickFirstString(...values: unknown[]): string {
   return "";
 }
 
-function normalizePathForMatch(input: string): string {
-  return input.replace(/\\/g, "/").toLowerCase();
-}
-
 export function isClaudePlanPath(filePath: string): boolean {
-  const normalized = normalizePathForMatch(filePath);
-  return (
-    normalized.includes("/.claude/plans/") ||
-    normalized.startsWith(".claude/plans/") ||
-    normalized.startsWith("./.claude/plans/")
-  );
+  return isClaudeInternalPlanPath(filePath);
 }
 
 function extractPlanPathFromBashCommand(command: string): string {

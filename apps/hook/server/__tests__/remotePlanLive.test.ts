@@ -165,6 +165,20 @@ describe("remotePlanLive config", () => {
     expect(decision).toBe(false);
   });
 
+  test("keeps browser closed for same session even with stale lastOpenedAt", () => {
+    const stale = new Date(Date.now() - 60_000).toISOString();
+    const decision = shouldOpenReviewBrowser({
+      lastOpenedAt: stale,
+      lastOpenedRevisionId: "rev-1",
+      revisionId: "rev-2",
+      lastOpenedReviewUrl:
+        "https://example.com/hook-review?sessionId=a&reviewKey=k1&revisionId=rev-1&mode=plan-live-review",
+      reviewUrl:
+        "https://example.com/hook-review?sessionId=a&reviewKey=k1&revisionId=rev-2&mode=plan-live-review",
+    });
+    expect(decision).toBe(false);
+  });
+
   test("buildWindowsStartArgs keeps URL quoted to preserve query params", () => {
     const url =
       "https://obsidian-note-reviewer-hook.vercel.app/hook-review?sessionId=s1&reviewKey=k1&mode=plan-live-review";

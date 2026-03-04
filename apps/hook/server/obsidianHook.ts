@@ -17,6 +17,7 @@ import { $ } from "bun";
 import { spawn } from "node:child_process";
 import { getHookCSP } from "@obsidian-note-reviewer/security/csp";
 import { validatePath } from "./pathValidation";
+import { isClaudeInternalPlanPath, isObsidianPlanPath } from "./planPathMatchers";
 import { handleSaveEndpoint } from "./saveEndpoint";
 
 // Embed the built HTML at compile time
@@ -55,23 +56,7 @@ function getSecurityHeaders(): Record<string, string> {
  * Check if a file path is within a plan directory
  */
 function isPlanDirectory(filePath: string): boolean {
-  const normalizedPath = filePath.replace(/\\/g, "/").toLowerCase();
-
-  // Ignore Claude Code internal plan files (used by /plan mode),
-  // otherwise this PostToolUse hook conflicts with PermissionRequest flow.
-  if (normalizedPath.includes("/.claude/plans/")) {
-    return false;
-  }
-
-  for (const planDir of PLAN_DIRS) {
-    const normalizedPlanDir = planDir.replace(/\\/g, "/").toLowerCase();
-    // Check if path contains the plan directory
-    if (normalizedPath.includes(normalizedPlanDir)) {
-      return true;
-    }
-  }
-
-  return false;
+  return isObsidianPlanPath(filePath, PLAN_DIRS);
 }
 
 // Read PostToolUse hook event from stdin
@@ -91,7 +76,17 @@ try {
 }
 
 // Only activate reviewer for files in plan directories
-if (!filePath || !isPlanDirectory(filePath)) {
+if (!filePath) {
+  // Not a plan file - pass through silently
+  process.exit(0);
+}
+
+if (isClaudeInternalPlanPath(filePath)) {
+  console.error("[ObsidianHook] Skipping Claude internal plan path");
+  process.exit(0);
+}
+
+if (!isPlanDirectory(filePath)) {
   // Not a plan file - pass through silently
   process.exit(0);
 }

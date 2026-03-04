@@ -141,8 +141,6 @@ const DECISION_TIMEOUT_MS = 25 * 60 * 1000;
 const DECISION_POLL_INTERVAL_MS = 1_000;
 const DECISION_POLL_REQUEST_TIMEOUT_MS = 5_000;
 const DECISION_MAX_CONSECUTIVE_TRANSPORT_ERRORS = 6;
-const REMOTE_BROWSER_REOPEN_STALE_MS = 5_000;
-const REMOTE_BROWSER_NUDGE_DELAY_MS = 4_000;
 const REMOTE_HEALTH_TIMEOUT_DEFAULT_MS = 2_000;
 const REMOTE_HEALTH_TIMEOUT_MIN_MS = 300;
 const REMOTE_HEALTH_TIMEOUT_MAX_MS = 15_000;
@@ -395,19 +393,14 @@ export function shouldOpenReviewBrowser(args: ReviewBrowserOpenDecisionArgs): bo
     }
   };
 
-  if (
-    args.lastOpenedReviewUrl &&
-    normalizeSessionReviewUrl(args.lastOpenedReviewUrl) !==
-      normalizeSessionReviewUrl(args.reviewUrl)
-  ) {
+  if (!args.lastOpenedReviewUrl) {
     return true;
   }
 
-  const { lastOpenedAt } = args;
-  if (!lastOpenedAt) return true;
-  const parsed = Date.parse(lastOpenedAt);
-  if (!Number.isFinite(parsed)) return true;
-  return Date.now() - parsed > REMOTE_BROWSER_REOPEN_STALE_MS;
+  return (
+    normalizeSessionReviewUrl(args.lastOpenedReviewUrl) !==
+    normalizeSessionReviewUrl(args.reviewUrl)
+  );
 }
 
 async function markBrowserOpened(args: {
@@ -670,47 +663,10 @@ export async function runRemotePlanLiveReview(
       decision: null,
       latency_ms: 0,
       timeout: false,
-      reason: "recently_opened_same_revision_or_url",
+      reason: "same_session_already_opened",
       url: reviewUrl,
     });
   }
-
-  const nudgeTimer = shouldOpen
-    ? setTimeout(async () => {
-        try {
-          const nudgeResult = await openBrowser(reviewUrl);
-          if (log) {
-            await log("remote_browser_nudge", {
-              filePath: args.filePath,
-              sessionId: credentials.sessionId,
-              revisionId: args.revisionId,
-              decision: null,
-              latency_ms: 0,
-              timeout: false,
-              method: nudgeResult.method,
-              opened: nudgeResult.opened,
-              error: nudgeResult.error || null,
-              url: reviewUrl,
-            });
-          }
-        } catch (error) {
-          if (log) {
-            await log("remote_browser_nudge", {
-              filePath: args.filePath,
-              sessionId: credentials.sessionId,
-              revisionId: args.revisionId,
-              decision: null,
-              latency_ms: 0,
-              timeout: false,
-              method: "nudge_exception",
-              opened: false,
-              error: error instanceof Error ? error.message : String(error),
-              url: reviewUrl,
-            });
-          }
-        }
-      }, REMOTE_BROWSER_NUDGE_DELAY_MS)
-    : null;
 
   if (log) {
     await log("remote_revision_published", {
@@ -739,10 +695,6 @@ export async function runRemotePlanLiveReview(
       sessionId: credentials.sessionId,
       message: error instanceof Error ? error.message : String(error),
     });
-  } finally {
-    if (nudgeTimer) {
-      clearTimeout(nudgeTimer);
-    }
   }
 
   return {
