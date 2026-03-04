@@ -311,7 +311,9 @@ export function resolveBunExecutablePath(execPath: string = process.execPath): s
 async function openBrowser(url: string): Promise<void> {
   try {
     if (process.platform === "win32") {
-      const child = spawn("cmd", ["/c", "start", "", url], {
+      // Keep URL quoted so cmd.exe does not split query params on '&'.
+      const safeUrl = `"${url.replace(/"/g, "")}"`;
+      const child = spawn("cmd", ["/c", "start", "", safeUrl], {
         detached: true,
         stdio: "ignore",
         windowsHide: true,

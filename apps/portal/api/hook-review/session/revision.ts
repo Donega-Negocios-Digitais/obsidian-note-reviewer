@@ -55,6 +55,7 @@ export default async function handler(
     const reviewUrl = `${appBaseUrl}/hook-review?${new URLSearchParams({
       sessionId,
       reviewKey,
+      revisionId,
       mode: "plan-live-review",
     }).toString()}`;
 

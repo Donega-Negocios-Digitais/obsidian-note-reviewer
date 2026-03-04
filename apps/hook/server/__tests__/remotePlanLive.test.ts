@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
+  buildWindowsStartArgs,
   getPlanLiveReviewTarget,
   resolveReviewTarget,
   getReviewAppBaseUrl,
@@ -160,5 +161,17 @@ describe("remotePlanLive config", () => {
       reviewUrl: "https://example.com/hook-review?sessionId=a",
     });
     expect(decision).toBe(false);
+  });
+
+  test("buildWindowsStartArgs keeps URL quoted to preserve query params", () => {
+    const url =
+      "https://obsidian-note-reviewer-hook.vercel.app/hook-review?sessionId=s1&reviewKey=k1&mode=plan-live-review";
+    const args = buildWindowsStartArgs(url);
+    expect(args).toEqual([
+      "/c",
+      "start",
+      "",
+      `"${url}"`,
+    ]);
   });
 });

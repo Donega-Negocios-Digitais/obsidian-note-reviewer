@@ -52,6 +52,15 @@ interface RemoteSessionCredentials {
   lastOpenedReviewUrl?: string;
 }
 
+function quoteForWindowsStart(url: string): string {
+  // Prevent cmd.exe from splitting query params on '&' when invoking `start`.
+  return `"${url.replace(/"/g, "")}"`;
+}
+
+export function buildWindowsStartArgs(url: string): string[] {
+  return ["/c", "start", "", quoteForWindowsStart(url)];
+}
+
 interface RunRemotePlanLiveReviewArgs {
   revisionId: string;
   filePath: string;
@@ -348,7 +357,7 @@ async function markBrowserOpened(args: {
 async function openBrowser(url: string): Promise<void> {
   try {
     if (process.platform === "win32") {
-      const child = spawn("cmd", ["/c", "start", "", url], {
+      const child = spawn("cmd", buildWindowsStartArgs(url), {
         detached: true,
         stdio: "ignore",
         windowsHide: true,
@@ -499,6 +508,7 @@ export async function runRemotePlanLiveReview(
       : `${getReviewAppBaseUrl()}/hook-review?${new URLSearchParams({
           sessionId: credentials.sessionId,
           reviewKey: credentials.reviewKey,
+          revisionId: args.revisionId,
           mode: "plan-live-review",
         }).toString()}`;
 
