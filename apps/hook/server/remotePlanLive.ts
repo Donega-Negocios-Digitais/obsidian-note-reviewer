@@ -1,5 +1,6 @@
 import { $ } from "bun";
 import { spawn } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
@@ -66,6 +67,62 @@ function getConfiguredBrowserExecutable(): string | null {
   return configured ? configured : null;
 }
 
+function parseExecutableFromCommand(command: string): string | null {
+  const trimmed = command.trim();
+  if (!trimmed) return null;
+  const quoted = trimmed.match(/^"([^"]+?\.exe)"/i);
+  if (quoted?.[1]) {
+    return quoted[1];
+  }
+  const unquoted = trimmed.match(/^([^\s]+?\.exe)\b/i);
+  if (unquoted?.[1]) {
+    return unquoted[1];
+  }
+  return null;
+}
+
+function resolveWindowsDefaultBrowserExecutable(): string | null {
+  try {
+    const userChoice = spawnSync(
+      "reg",
+      [
+        "query",
+        "HKCU\\Software\\Microsoft\\Windows\\Shell\\Associations\\UrlAssociations\\https\\UserChoice",
+        "/v",
+        "ProgId",
+      ],
+      { encoding: "utf-8", windowsHide: true }
+    );
+    if (userChoice.status !== 0 || !userChoice.stdout) {
+      return null;
+    }
+
+    const progIdMatch = userChoice.stdout.match(/ProgId\s+REG_SZ\s+([^\r\n]+)/i);
+    const progId = progIdMatch?.[1]?.trim();
+    if (!progId) {
+      return null;
+    }
+
+    const openCommand = spawnSync(
+      "reg",
+      ["query", `HKCR\\${progId}\\shell\\open\\command`, "/ve"],
+      { encoding: "utf-8", windowsHide: true }
+    );
+    if (openCommand.status !== 0 || !openCommand.stdout) {
+      return null;
+    }
+
+    const commandMatch = openCommand.stdout.match(/REG_SZ\s+([^\r\n]+)/i);
+    const command = commandMatch?.[1];
+    if (!command) {
+      return null;
+    }
+    return parseExecutableFromCommand(command);
+  } catch {
+    return null;
+  }
+}
+
 interface RunRemotePlanLiveReviewArgs {
   revisionId: string;
   filePath: string;
@@ -85,6 +142,7 @@ const DECISION_POLL_INTERVAL_MS = 1_000;
 const DECISION_POLL_REQUEST_TIMEOUT_MS = 5_000;
 const DECISION_MAX_CONSECUTIVE_TRANSPORT_ERRORS = 6;
 const REMOTE_BROWSER_REOPEN_STALE_MS = 5_000;
+const REMOTE_BROWSER_NUDGE_DELAY_MS = 4_000;
 const REMOTE_HEALTH_TIMEOUT_DEFAULT_MS = 2_000;
 const REMOTE_HEALTH_TIMEOUT_MIN_MS = 300;
 const REMOTE_HEALTH_TIMEOUT_MAX_MS = 15_000;
@@ -359,7 +417,9 @@ async function markBrowserOpened(args: {
   await saveRemoteSessionState(sessionFile, existing);
 }
 
-async function openBrowser(url: string): Promise<void> {
+async function openBrowser(
+  url: string
+): Promise<{ opened: boolean; method: string; error?: string }> {
   try {
     const configuredBrowser = getConfiguredBrowserExecutable();
     if (configuredBrowser) {
@@ -369,26 +429,66 @@ async function openBrowser(url: string): Promise<void> {
         windowsHide: process.platform === "win32",
       });
       child.unref();
-      return;
+      return { opened: true, method: "configured_exe" };
     }
 
     if (process.platform === "win32") {
+      const defaultBrowserExe = resolveWindowsDefaultBrowserExecutable();
+      if (defaultBrowserExe) {
+        try {
+          const child = spawn(defaultBrowserExe, [url], {
+            detached: true,
+            stdio: "ignore",
+            windowsHide: true,
+          });
+          child.unref();
+          return { opened: true, method: "windows_default_browser_exe" };
+        } catch {
+          // keep fallback chain below
+        }
+      }
+
       const child = spawn("cmd", buildWindowsStartArgs(url), {
         detached: true,
         stdio: "ignore",
         windowsHide: true,
       });
       child.unref();
-      return;
+      return { opened: true, method: "windows_cmd_start" };
     }
     if (process.platform === "darwin") {
       await $`open ${url}`.quiet();
-      return;
+      return { opened: true, method: "mac_open" };
     }
     await $`xdg-open ${url}`.quiet();
+    return { opened: true, method: "linux_xdg_open" };
   } catch {
     // best effort only
   }
+
+  if (process.platform === "win32") {
+    try {
+      const child = spawn(
+        "powershell",
+        ["-NoProfile", "-Command", `Start-Process "${url.replace(/"/g, "")}"`],
+        {
+          detached: true,
+          stdio: "ignore",
+          windowsHide: true,
+        }
+      );
+      child.unref();
+      return { opened: true, method: "windows_powershell_start_process" };
+    } catch (error) {
+      return {
+        opened: false,
+        method: "windows_fallback_failed",
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  return { opened: false, method: "open_failed", error: "Unknown open failure" };
 }
 
 async function publishRemoteRevision(args: {
@@ -518,31 +618,92 @@ export async function runRemotePlanLiveReview(
     });
   }
 
-  const reviewUrl =
-    typeof publishPayload.reviewUrl === "string" && publishPayload.reviewUrl.trim()
-      ? publishPayload.reviewUrl.trim()
-      : `${getReviewAppBaseUrl()}/hook-review?${new URLSearchParams({
-          sessionId: credentials.sessionId,
-          reviewKey: credentials.reviewKey,
-          revisionId: args.revisionId,
-          mode: "plan-live-review",
-        }).toString()}`;
+  const reviewUrl = `${getReviewAppBaseUrl()}/hook-review?${new URLSearchParams({
+    sessionId: credentials.sessionId,
+    reviewKey: credentials.reviewKey,
+    revisionId: args.revisionId,
+    mode: "plan-live-review",
+  }).toString()}`;
 
-  if (
-    shouldOpenReviewBrowser({
-      lastOpenedAt: credentials.lastOpenedAt,
-      lastOpenedRevisionId: credentials.lastOpenedRevisionId,
-      lastOpenedReviewUrl: credentials.lastOpenedReviewUrl,
-      revisionId: args.revisionId,
-      reviewUrl,
-    })
-  ) {
-    await openBrowser(reviewUrl);
+  const shouldOpen = shouldOpenReviewBrowser({
+    lastOpenedAt: credentials.lastOpenedAt,
+    lastOpenedRevisionId: credentials.lastOpenedRevisionId,
+    lastOpenedReviewUrl: credentials.lastOpenedReviewUrl,
+    revisionId: args.revisionId,
+    reviewUrl,
+  });
+
+  if (shouldOpen) {
+    const browserResult = await openBrowser(reviewUrl);
+
+    if (log) {
+      await log("remote_browser_open", {
+        filePath: args.filePath,
+        sessionId: credentials.sessionId,
+        revisionId: args.revisionId,
+        decision: null,
+        latency_ms: 0,
+        timeout: false,
+        method: browserResult.method,
+        opened: browserResult.opened,
+        error: browserResult.error || null,
+        url: reviewUrl,
+      });
+    }
+
     await markBrowserOpened({
       revisionId: args.revisionId,
       reviewUrl,
     });
+  } else if (log) {
+    await log("remote_browser_open_skipped", {
+      filePath: args.filePath,
+      sessionId: credentials.sessionId,
+      revisionId: args.revisionId,
+      decision: null,
+      latency_ms: 0,
+      timeout: false,
+      reason: "recently_opened_same_revision_or_url",
+      url: reviewUrl,
+    });
   }
+
+  const nudgeTimer = shouldOpen
+    ? setTimeout(async () => {
+        try {
+          const nudgeResult = await openBrowser(reviewUrl);
+          if (log) {
+            await log("remote_browser_nudge", {
+              filePath: args.filePath,
+              sessionId: credentials.sessionId,
+              revisionId: args.revisionId,
+              decision: null,
+              latency_ms: 0,
+              timeout: false,
+              method: nudgeResult.method,
+              opened: nudgeResult.opened,
+              error: nudgeResult.error || null,
+              url: reviewUrl,
+            });
+          }
+        } catch (error) {
+          if (log) {
+            await log("remote_browser_nudge", {
+              filePath: args.filePath,
+              sessionId: credentials.sessionId,
+              revisionId: args.revisionId,
+              decision: null,
+              latency_ms: 0,
+              timeout: false,
+              method: "nudge_exception",
+              opened: false,
+              error: error instanceof Error ? error.message : String(error),
+              url: reviewUrl,
+            });
+          }
+        }
+      }, REMOTE_BROWSER_NUDGE_DELAY_MS)
+    : null;
 
   if (log) {
     await log("remote_revision_published", {
@@ -553,6 +714,7 @@ export async function runRemotePlanLiveReview(
       latency_ms: 0,
       timeout: false,
       reviewUrl,
+      apiReviewUrl: publishPayload.reviewUrl || null,
     });
   }
 
@@ -570,6 +732,10 @@ export async function runRemotePlanLiveReview(
       sessionId: credentials.sessionId,
       message: error instanceof Error ? error.message : String(error),
     });
+  } finally {
+    if (nudgeTimer) {
+      clearTimeout(nudgeTimer);
+    }
   }
 
   return {
