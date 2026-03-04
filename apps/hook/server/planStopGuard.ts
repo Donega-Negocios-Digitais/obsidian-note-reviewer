@@ -29,6 +29,7 @@ interface PlanGuardAnalysis {
   promptUuid: string | null;
   isPlanPrompt: boolean;
   hasPlanWrite: boolean;
+  hasBashPlanWrite: boolean;
 }
 
 const MAX_BLOCK_ATTEMPTS_PER_PROMPT = 2;
@@ -68,14 +69,24 @@ function extractPlanPathFromBashCommand(command: string): string {
     return "";
   }
 
-  const matches = command.match(
-    /[A-Za-z]:[\\/][^\s"'`<>|]+?\.claude[\\/]+plans[\\/][^\s"'`<>|]+?\.md|(?:^|[\s"'`])(?:\.[\\/])?\.claude[\\/]+plans[\\/][^\s"'`<>|]+?\.md/gi
+  const sanitizeCandidate = (value: string): string =>
+    value.trim().replace(/^["'`]/, "").replace(/["'`]$/, "");
+
+  const quotedMatches = command.match(
+    /["'`][^"'`]*?\.claude[\\/]+plans[\\/][^"'`]*?\.md["'`]/gi
   );
-  if (!matches || matches.length === 0) {
-    return "";
+  if (quotedMatches && quotedMatches.length > 0) {
+    return sanitizeCandidate(quotedMatches[0]);
   }
 
-  return matches[0].trim().replace(/^["'`]/, "").replace(/["'`]$/, "");
+  const unquotedMatches = command.match(
+    /[A-Za-z]:[\\/][^\s"'`<>|]+?\.claude[\\/]+plans[\\/][^\s"'`<>|]+?\.md|(?:^|[\s"'`])(?:\.[\\/])?\.claude[\\/]+plans[\\/][^\s"'`<>|]+?\.md/gi
+  );
+  if (unquotedMatches && unquotedMatches.length > 0) {
+    return sanitizeCandidate(unquotedMatches[0]);
+  }
+
+  return "";
 }
 
 function pickFirstString(...values: unknown[]): string {
@@ -106,8 +117,12 @@ function getPromptText(entry: TranscriptEntry): string {
   return "";
 }
 
-function hasPlanWriteBetween(entries: TranscriptEntry[], startIndex: number): boolean {
+function hasPlanWriteBetween(
+  entries: TranscriptEntry[],
+  startIndex: number
+): { hasPlanWrite: boolean; hasBashPlanWrite: boolean } {
   const pendingPlanToolUseIds = new Set<string>();
+  const bashToolUseIds = new Set<string>();
 
   for (let i = startIndex; i < entries.length; i += 1) {
     const entry = entries[i];
@@ -153,6 +168,9 @@ function hasPlanWriteBetween(entries: TranscriptEntry[], startIndex: number): bo
 
         if (filePath && isClaudePlanPath(filePath)) {
           pendingPlanToolUseIds.add(typedBlock.id);
+          if (typedBlock.name === "Bash") {
+            bashToolUseIds.add(typedBlock.id);
+          }
         }
       }
       continue;
@@ -175,13 +193,16 @@ function hasPlanWriteBetween(entries: TranscriptEntry[], startIndex: number): bo
         if (!pendingPlanToolUseIds.has(typedBlock.tool_use_id)) continue;
 
         if (typedBlock.is_error !== true) {
-          return true;
+          return {
+            hasPlanWrite: true,
+            hasBashPlanWrite: bashToolUseIds.has(typedBlock.tool_use_id),
+          };
         }
       }
     }
   }
 
-  return false;
+  return { hasPlanWrite: false, hasBashPlanWrite: false };
 }
 
 function findLastExternalUserPrompt(entries: TranscriptEntry[]): {
@@ -234,6 +255,7 @@ export function analyzeTranscriptForMissingPlanWrite(
       promptUuid: null,
       isPlanPrompt: false,
       hasPlanWrite: false,
+      hasBashPlanWrite: false,
     };
   }
 
@@ -245,10 +267,11 @@ export function analyzeTranscriptForMissingPlanWrite(
       promptUuid: prompt.uuid,
       isPlanPrompt,
       hasPlanWrite: false,
+      hasBashPlanWrite: false,
     };
   }
 
-  const hasPlanWrite = hasPlanWriteBetween(entries, prompt.index);
+  const { hasPlanWrite, hasBashPlanWrite } = hasPlanWriteBetween(entries, prompt.index);
   if (hasPlanWrite) {
     return {
       shouldBlock: false,
@@ -256,6 +279,7 @@ export function analyzeTranscriptForMissingPlanWrite(
       promptUuid: prompt.uuid,
       isPlanPrompt,
       hasPlanWrite,
+      hasBashPlanWrite,
     };
   }
 
@@ -265,6 +289,7 @@ export function analyzeTranscriptForMissingPlanWrite(
     promptUuid: prompt.uuid,
     isPlanPrompt,
     hasPlanWrite,
+    hasBashPlanWrite,
   };
 }
 
@@ -352,6 +377,7 @@ export async function runPlanStopGuard(): Promise<void> {
       reason: analysis.reason,
       plan_prompt_detected: analysis.isPlanPrompt,
       has_successful_write: analysis.hasPlanWrite,
+      has_successful_bash_plan_write: analysis.hasBashPlanWrite,
       blocked: false,
     });
     process.exit(0);
@@ -367,6 +393,7 @@ export async function runPlanStopGuard(): Promise<void> {
       stopHookActive: Boolean(event.stop_hook_active),
       plan_prompt_detected: analysis.isPlanPrompt,
       has_successful_write: analysis.hasPlanWrite,
+      has_successful_bash_plan_write: analysis.hasBashPlanWrite,
       blocked: false,
     });
     process.exit(0);
@@ -383,6 +410,7 @@ export async function runPlanStopGuard(): Promise<void> {
     stopHookActive: Boolean(event.stop_hook_active),
     plan_prompt_detected: analysis.isPlanPrompt,
     has_successful_write: analysis.hasPlanWrite,
+    has_successful_bash_plan_write: analysis.hasBashPlanWrite,
     blocked: true,
   });
 

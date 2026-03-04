@@ -144,6 +144,9 @@ const DECISION_MAX_CONSECUTIVE_TRANSPORT_ERRORS = 6;
 const REMOTE_HEALTH_TIMEOUT_DEFAULT_MS = 2_000;
 const REMOTE_HEALTH_TIMEOUT_MIN_MS = 300;
 const REMOTE_HEALTH_TIMEOUT_MAX_MS = 15_000;
+const REMOTE_REOPEN_IDLE_DEFAULT_MS = 60_000;
+const REMOTE_REOPEN_IDLE_MIN_MS = 10_000;
+const REMOTE_REOPEN_IDLE_MAX_MS = 15 * 60_000;
 
 export class RemotePlanLiveError extends Error {
   public readonly stage: "init" | "wait_decision";
@@ -167,6 +170,18 @@ export interface ReviewBrowserOpenDecisionArgs {
   lastOpenedReviewUrl?: string;
   revisionId: string;
   reviewUrl: string;
+}
+
+export type ReviewBrowserOpenReason =
+  | "first_open"
+  | "session_changed"
+  | "same_session_idle_reopen"
+  | "same_session_recently_opened_skip";
+
+export interface ReviewBrowserOpenDecision {
+  shouldOpen: boolean;
+  reason: ReviewBrowserOpenReason;
+  elapsedMs: number | null;
 }
 
 function normalizeUrl(url: string): string {
@@ -382,7 +397,9 @@ async function ensureRemoteSessionCredentials(): Promise<RemoteSessionCredential
   };
 }
 
-export function shouldOpenReviewBrowser(args: ReviewBrowserOpenDecisionArgs): boolean {
+export function shouldOpenReviewBrowser(
+  args: ReviewBrowserOpenDecisionArgs
+): ReviewBrowserOpenDecision {
   const normalizeSessionReviewUrl = (value: string): string => {
     try {
       const parsed = new URL(value);
@@ -394,12 +411,58 @@ export function shouldOpenReviewBrowser(args: ReviewBrowserOpenDecisionArgs): bo
   };
 
   if (!args.lastOpenedReviewUrl) {
-    return true;
+    return {
+      shouldOpen: true,
+      reason: "first_open",
+      elapsedMs: null,
+    };
   }
 
-  return (
+  if (
     normalizeSessionReviewUrl(args.lastOpenedReviewUrl) !==
     normalizeSessionReviewUrl(args.reviewUrl)
+  ) {
+    return {
+      shouldOpen: true,
+      reason: "session_changed",
+      elapsedMs: null,
+    };
+  }
+
+  const lastOpenedAtMs = args.lastOpenedAt ? Date.parse(args.lastOpenedAt) : NaN;
+  if (!Number.isFinite(lastOpenedAtMs)) {
+    return {
+      shouldOpen: true,
+      reason: "same_session_idle_reopen",
+      elapsedMs: null,
+    };
+  }
+
+  const elapsedMs = Date.now() - lastOpenedAtMs;
+  if (elapsedMs >= getRemoteReopenIdleMs()) {
+    return {
+      shouldOpen: true,
+      reason: "same_session_idle_reopen",
+      elapsedMs,
+    };
+  }
+
+  return {
+    shouldOpen: false,
+    reason: "same_session_recently_opened_skip",
+    elapsedMs,
+  };
+}
+
+function getRemoteReopenIdleMs(): number {
+  const raw = process.env.OBSREVIEW_REMOTE_REOPEN_IDLE_MS?.trim();
+  const parsed = raw ? Number.parseInt(raw, 10) : NaN;
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return REMOTE_REOPEN_IDLE_DEFAULT_MS;
+  }
+  return Math.min(
+    REMOTE_REOPEN_IDLE_MAX_MS,
+    Math.max(REMOTE_REOPEN_IDLE_MIN_MS, parsed)
   );
 }
 
@@ -625,7 +688,7 @@ export async function runRemotePlanLiveReview(
     mode: "plan-live-review",
   }).toString()}`;
 
-  const shouldOpen = shouldOpenReviewBrowser({
+  const openDecision = shouldOpenReviewBrowser({
     lastOpenedAt: credentials.lastOpenedAt,
     lastOpenedRevisionId: credentials.lastOpenedRevisionId,
     lastOpenedReviewUrl: credentials.lastOpenedReviewUrl,
@@ -633,7 +696,7 @@ export async function runRemotePlanLiveReview(
     reviewUrl,
   });
 
-  if (shouldOpen) {
+  if (openDecision.shouldOpen) {
     const browserResult = await openBrowser(reviewUrl);
 
     if (log) {
@@ -648,6 +711,8 @@ export async function runRemotePlanLiveReview(
         opened: browserResult.opened,
         error: browserResult.error || null,
         url: reviewUrl,
+        reason: openDecision.reason,
+        elapsedMs: openDecision.elapsedMs,
       });
     }
 
@@ -663,7 +728,8 @@ export async function runRemotePlanLiveReview(
       decision: null,
       latency_ms: 0,
       timeout: false,
-      reason: "same_session_already_opened",
+      reason: openDecision.reason,
+      elapsedMs: openDecision.elapsedMs,
       url: reviewUrl,
     });
   }

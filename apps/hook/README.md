@@ -185,6 +185,7 @@ Prefer modern format for new setups.
 - `OBSREVIEW_REVIEW_APP_URL=https://obsidian-note-reviewer-hook.vercel.app` (default)
 - `OBSREVIEW_REMOTE_FALLBACK_LOCAL=true` (default)
 - `OBSREVIEW_REMOTE_HEALTH_TIMEOUT_MS=2000` (default)
+- `OBSREVIEW_REMOTE_REOPEN_IDLE_MS=60000` (default; same-session browser reopen after idle)
 - `OBSREVIEW_PLAN_REVIEW_MODE=live` (default)
 - `OBSREVIEW_PLAN_REVIEW_MODE=exitplan` (rollback)
 

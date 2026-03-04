@@ -83,16 +83,24 @@ function extractPlanPathFromBashCommand(command: string): string {
     return "";
   }
 
-  const matches = command.match(
-    /[A-Za-z]:[\\/][^\s"'`<>|]+?\.claude[\\/]+plans[\\/][^\s"'`<>|]+?\.md|(?:^|[\s"'`])(?:\.[\\/])?\.claude[\\/]+plans[\\/][^\s"'`<>|]+?\.md/gi
-  );
+  const sanitizeCandidate = (value: string): string =>
+    value.trim().replace(/^["'`]/, "").replace(/["'`]$/, "");
 
-  if (!matches || matches.length === 0) {
-    return "";
+  const quotedMatches = command.match(
+    /["'`][^"'`]*?\.claude[\\/]+plans[\\/][^"'`]*?\.md["'`]/gi
+  );
+  if (quotedMatches && quotedMatches.length > 0) {
+    return sanitizeCandidate(quotedMatches[0]);
   }
 
-  const candidate = matches[0].trim().replace(/^["'`]/, "").replace(/["'`]$/, "");
-  return candidate;
+  const unquotedMatches = command.match(
+    /[A-Za-z]:[\\/][^\s"'`<>|]+?\.claude[\\/]+plans[\\/][^\s"'`<>|]+?\.md|(?:^|[\s"'`])(?:\.[\\/])?\.claude[\\/]+plans[\\/][^\s"'`<>|]+?\.md/gi
+  );
+  if (unquotedMatches && unquotedMatches.length > 0) {
+    return sanitizeCandidate(unquotedMatches[0]);
+  }
+
+  return "";
 }
 
 export function parsePlanLiveEvent(eventJson: string): ParsedPlanLiveEvent | null {

@@ -90,6 +90,7 @@ describe("planStopGuard", () => {
     const result = analyzeTranscriptForMissingPlanWrite(transcript);
     expect(result.isPlanPrompt).toBe(true);
     expect(result.hasPlanWrite).toBe(true);
+    expect(result.hasBashPlanWrite).toBe(false);
     expect(result.shouldBlock).toBe(false);
   });
 

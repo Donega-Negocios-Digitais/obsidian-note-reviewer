@@ -112,11 +112,15 @@ Se abrir a aplicacao sem esses parametros, ainda esta usando cache/versao antiga
   - se remoto indisponivel/timeout -> usa localhost automaticamente.
 - `OBSREVIEW_REVIEW_TARGET=remote`: forca app web de producao (login obrigatorio para enviar/aprovar).
 - `OBSREVIEW_REVIEW_TARGET=local`: forca comportamento legado em localhost (sem login por padrao).
+- reabertura de aba no remoto (mesma sessao):
+  - evita duplicacao em revisoes seguidas;
+  - reabre automaticamente apos inatividade.
 - no modo remoto (`/hook-review`):
   - `Aprovar nota` tenta salvar no app antes de aprovar no Claude;
   - se o save falhar, a aprovacao e bloqueada com erro claro para tentar novamente.
 - `OBSREVIEW_REMOTE_FALLBACK_LOCAL=true` (padrao): fallback local em falha de inicializacao remota.
 - `OBSREVIEW_REMOTE_HEALTH_TIMEOUT_MS=2000`: timeout do probe remoto em modo `auto`.
+- `OBSREVIEW_REMOTE_REOPEN_IDLE_MS=60000`: tempo de idle para reabrir aba da mesma sessao.
 
 ## Regras importantes
 
@@ -145,6 +149,11 @@ obsreview doctor
 - por padrao, o `obsreview` abre no navegador padrao do sistema;
 - ou seja, abre no navegador normal da pessoa (onde ela costuma estar logada);
 - nao precisa comando para isso.
+
+5. Erro interno do Claude em `Write`:
+- mensagem comum: `[Tool result missing due to internal error]`;
+- isso e falha da ferramenta, nao do filesystem;
+- repetir a tentativa normalmente resolve; se cair para `Bash` escrevendo em `/.claude/plans/*.md`, o hook tambem aceita.
 
 Opcional avancado (somente se quiser forcar executavel especifico):
 - `OBSREVIEW_BROWSER_EXE`

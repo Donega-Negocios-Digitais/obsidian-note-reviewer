@@ -12,6 +12,7 @@ const originalTarget = process.env.OBSREVIEW_REVIEW_TARGET;
 const originalFallback = process.env.OBSREVIEW_REMOTE_FALLBACK_LOCAL;
 const originalReviewUrl = process.env.OBSREVIEW_REVIEW_APP_URL;
 const originalHealthTimeout = process.env.OBSREVIEW_REMOTE_HEALTH_TIMEOUT_MS;
+const originalReopenIdle = process.env.OBSREVIEW_REMOTE_REOPEN_IDLE_MS;
 const originalFetch = globalThis.fetch;
 
 describe("remotePlanLive config", () => {
@@ -44,6 +45,12 @@ describe("remotePlanLive config", () => {
       process.env.OBSREVIEW_REMOTE_HEALTH_TIMEOUT_MS = originalHealthTimeout;
     } else {
       delete process.env.OBSREVIEW_REMOTE_HEALTH_TIMEOUT_MS;
+    }
+
+    if (typeof originalReopenIdle === "string") {
+      process.env.OBSREVIEW_REMOTE_REOPEN_IDLE_MS = originalReopenIdle;
+    } else {
+      delete process.env.OBSREVIEW_REMOTE_REOPEN_IDLE_MS;
     }
 
     globalThis.fetch = originalFetch;
@@ -140,7 +147,8 @@ describe("remotePlanLive config", () => {
       reviewUrl:
         "https://example.com/hook-review?sessionId=a&reviewKey=k1&revisionId=rev-2&mode=plan-live-review",
     });
-    expect(decision).toBe(false);
+    expect(decision.shouldOpen).toBe(false);
+    expect(decision.reason).toBe("same_session_recently_opened_skip");
   });
 
   test("opens browser when review URL changes", () => {
@@ -151,7 +159,8 @@ describe("remotePlanLive config", () => {
       lastOpenedReviewUrl: "https://example.com/hook-review?sessionId=a",
       reviewUrl: "https://example.com/hook-review?sessionId=b",
     });
-    expect(decision).toBe(true);
+    expect(decision.shouldOpen).toBe(true);
+    expect(decision.reason).toBe("session_changed");
   });
 
   test("can skip reopen when same revision/url and last open is fresh", () => {
@@ -162,10 +171,12 @@ describe("remotePlanLive config", () => {
       lastOpenedReviewUrl: "https://example.com/hook-review?sessionId=a",
       reviewUrl: "https://example.com/hook-review?sessionId=a",
     });
-    expect(decision).toBe(false);
+    expect(decision.shouldOpen).toBe(false);
+    expect(decision.reason).toBe("same_session_recently_opened_skip");
   });
 
-  test("keeps browser closed for same session even with stale lastOpenedAt", () => {
+  test("reopens browser for same session when last open is stale", () => {
+    process.env.OBSREVIEW_REMOTE_REOPEN_IDLE_MS = "60000";
     const stale = new Date(Date.now() - 60_000).toISOString();
     const decision = shouldOpenReviewBrowser({
       lastOpenedAt: stale,
@@ -176,7 +187,19 @@ describe("remotePlanLive config", () => {
       reviewUrl:
         "https://example.com/hook-review?sessionId=a&reviewKey=k1&revisionId=rev-2&mode=plan-live-review",
     });
-    expect(decision).toBe(false);
+    expect(decision.shouldOpen).toBe(true);
+    expect(decision.reason).toBe("same_session_idle_reopen");
+    expect(typeof decision.elapsedMs).toBe("number");
+  });
+
+  test("uses first_open when no previous URL exists", () => {
+    const decision = shouldOpenReviewBrowser({
+      revisionId: "rev-1",
+      reviewUrl:
+        "https://example.com/hook-review?sessionId=a&reviewKey=k1&revisionId=rev-1&mode=plan-live-review",
+    });
+    expect(decision.shouldOpen).toBe(true);
+    expect(decision.reason).toBe("first_open");
   });
 
   test("buildWindowsStartArgs keeps URL quoted to preserve query params", () => {

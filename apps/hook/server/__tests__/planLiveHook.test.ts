@@ -78,6 +78,21 @@ describe("planLiveHook", () => {
       expect(parsed?.content).toBe("");
     });
 
+    test("parses bash event with spaced windows path to .claude/plans", () => {
+      const parsed = parsePlanLiveEvent(
+        JSON.stringify({
+          tool_name: "Bash",
+          tool_input: {
+            command:
+              "echo \"# test\" > \"C:\\Users\\John Doe\\My Project\\.claude\\plans\\plano final.md\"",
+          },
+        })
+      );
+
+      expect(parsed).not.toBeNull();
+      expect(parsed?.filePath).toContain(".claude\\plans\\plano final.md");
+    });
+
     test("ignores bash event without .claude/plans path", () => {
       const parsed = parsePlanLiveEvent(
         JSON.stringify({

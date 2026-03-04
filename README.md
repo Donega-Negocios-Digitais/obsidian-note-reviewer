@@ -151,13 +151,19 @@ obsreview doctor
 - remoto pode exigir login;
 - local funciona sem login por padrao.
 
-5. Navegador:
+5. Fechei a aba de revisao e nao abriu de novo:
+- o hook evita duplicar abas em revisoes rapidas da mesma sessao;
+- se a aba foi fechada, ele reabre automaticamente na proxima revisao apos ~60s;
+- ajuste opcional: `OBSREVIEW_REMOTE_REOPEN_IDLE_MS` (ms).
+
+6. Navegador:
 - por padrao, o `obsreview` abre no navegador padrao do sistema;
 - isso significa: abre no navegador que a pessoa usa normalmente (e ja esta logada).
 - nao precisa rodar comando para isso.
 
 Opcional avancado (somente se quiser forcar um executavel especifico):
 - `OBSREVIEW_BROWSER_EXE`
+- `OBSREVIEW_REMOTE_REOPEN_IDLE_MS` (padrao: `60000`)
 
 ## Documentacao util
 
