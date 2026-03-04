@@ -53,7 +53,11 @@ describe("hook-review decision API", () => {
     };
     const handler = createDecisionHandler({
       purgeExpiredHookReviewSessions: async () => {},
-      resolveAuthenticatedUser: async () => ({ id: "user-1", email: "user@acme.com" }),
+      resolveAuthenticatedUser: async () => ({
+        id: "user-1",
+        email: "user@acme.com",
+        accessToken: "token-1",
+      }),
       getSessionBySessionIdAndKey: async () =>
         ({
           id: "session-ref-1",
@@ -113,7 +117,11 @@ describe("hook-review decision API", () => {
     };
     const handler = createDecisionHandler({
       purgeExpiredHookReviewSessions: async () => {},
-      resolveAuthenticatedUser: async () => ({ id: "user-1", email: "user@acme.com" }),
+      resolveAuthenticatedUser: async () => ({
+        id: "user-1",
+        email: "user@acme.com",
+        accessToken: "token-1",
+      }),
       getSessionBySessionIdAndKey: async () =>
         ({
           id: "session-ref-1",
@@ -164,7 +172,11 @@ describe("hook-review decision API", () => {
     };
     const handler = createDecisionHandler({
       purgeExpiredHookReviewSessions: async () => {},
-      resolveAuthenticatedUser: async () => ({ id: "user-1", email: "user@acme.com" }),
+      resolveAuthenticatedUser: async () => ({
+        id: "user-1",
+        email: "user@acme.com",
+        accessToken: "token-1",
+      }),
       getSessionBySessionIdAndKey: async () =>
         ({
           id: "session-ref-1",

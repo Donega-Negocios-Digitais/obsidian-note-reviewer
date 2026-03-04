@@ -42,7 +42,7 @@ interface HookReviewDecisionRow {
 interface SupabaseConfig {
   url: string;
   anonKey: string;
-  serviceRoleKey: string;
+  serviceRoleKey: string | null;
 }
 
 const SESSION_TTL_HOURS = Number(process.env.HOOK_REVIEW_SESSION_TTL_HOURS || "24");
@@ -100,35 +100,51 @@ function readSupabaseConfig(): SupabaseConfig {
     process.env.VITE_SUPABASE_ANON_KEY ||
     "";
   const serviceRoleKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    "";
+    process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
-  if (!url || !anonKey || !serviceRoleKey) {
+  if (!url || !anonKey) {
     throw new Error(
-      "Missing Supabase config for hook-review API (SUPABASE_URL/VITE_SUPABASE_URL, SUPABASE_ANON_KEY/VITE_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY)."
+      "Missing Supabase config for hook-review API (SUPABASE_URL/VITE_SUPABASE_URL, SUPABASE_ANON_KEY/VITE_SUPABASE_ANON_KEY)."
     );
   }
 
-  cachedConfig = { url, anonKey, serviceRoleKey };
+  cachedConfig = { url, anonKey, serviceRoleKey: serviceRoleKey || null };
   return cachedConfig;
 }
 
-function getClients() {
-  const cfg = readSupabaseConfig();
-  const service = createClient(cfg.url, cfg.serviceRoleKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  });
-  const anon = createClient(cfg.url, cfg.anonKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  });
+function createSupabaseClient(args: {
+  url: string;
+  apiKey: string;
+  accessToken?: string;
+}) {
+  const headers = args.accessToken
+    ? { Authorization: `Bearer ${args.accessToken}` }
+    : undefined;
 
-  return { service, anon };
+  return createClient(args.url, args.apiKey, {
+    global: headers ? { headers } : undefined,
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
+}
+
+function getPrivilegedClient(accessToken?: string) {
+  const cfg = readSupabaseConfig();
+  if (cfg.serviceRoleKey) {
+    return createSupabaseClient({
+      url: cfg.url,
+      apiKey: cfg.serviceRoleKey,
+    });
+  }
+
+  return createSupabaseClient({
+    url: cfg.url,
+    apiKey: cfg.anonKey,
+    accessToken,
+  });
 }
 
 function extractBearerToken(req: VercelRequest): string | null {
@@ -143,6 +159,7 @@ function extractBearerToken(req: VercelRequest): string | null {
 export async function resolveAuthenticatedUser(req: VercelRequest): Promise<{
   id: string;
   email: string | null;
+  accessToken: string;
 } | null> {
   const token = extractBearerToken(req);
   if (!token) return null;
@@ -168,6 +185,7 @@ export async function resolveAuthenticatedUser(req: VercelRequest): Promise<{
     return {
       id: user.id,
       email: typeof user.email === "string" ? user.email : null,
+      accessToken: token,
     };
   } catch {
     return null;
@@ -189,7 +207,7 @@ export function resolveReviewAppBaseUrl(req: VercelRequest): string {
 }
 
 export async function purgeExpiredHookReviewSessions(): Promise<void> {
-  const { service } = getClients();
+  const service = getPrivilegedClient();
   await service
     .from("hook_review_sessions")
     .delete()
@@ -201,7 +219,7 @@ async function upsertSession(args: {
   reviewKey: string;
   workspaceHash: string;
 }): Promise<HookReviewSessionRecord> {
-  const { service } = getClients();
+  const service = getPrivilegedClient();
   const record = {
     session_id: args.sessionId,
     review_key_hash: hashValue(args.reviewKey),
@@ -228,7 +246,7 @@ export async function getSessionBySessionIdAndKey(args: {
   sessionId: string;
   reviewKey: string;
 }): Promise<HookReviewSessionRecord | null> {
-  const { service } = getClients();
+  const service = getPrivilegedClient();
   const reviewKeyHash = hashValue(args.reviewKey);
 
   const { data, error } = await service
@@ -255,7 +273,7 @@ export async function upsertHookReviewRevision(
     reviewKey: payload.reviewKey,
     workspaceHash: payload.workspaceHash,
   });
-  const { service } = getClients();
+  const service = getPrivilegedClient();
   const now = nowIso();
 
   const revisionRecord = {
@@ -292,7 +310,7 @@ export async function upsertHookReviewRevision(
 export async function getLatestHookReviewRevision(args: {
   sessionRef: string;
 }): Promise<HookReviewRevisionRecord | null> {
-  const { service } = getClients();
+  const service = getPrivilegedClient();
   const { data, error } = await service
     .from("hook_review_revisions")
     .select("session_ref,revision_id,file_path,content,created_at")
@@ -309,7 +327,7 @@ export async function getHookReviewRevision(args: {
   sessionRef: string;
   revisionId: string;
 }): Promise<HookReviewRevisionRecord | null> {
-  const { service } = getClients();
+  const service = getPrivilegedClient();
   const { data, error } = await service
     .from("hook_review_revisions")
     .select("session_ref,revision_id,file_path,content,created_at")
@@ -324,8 +342,9 @@ export async function getHookReviewRevision(args: {
 export async function resolveHookReviewUserOrg(args: {
   userId: string;
   email: string | null;
+  accessToken?: string;
 }): Promise<string> {
-  const { service } = getClients();
+  const service = getPrivilegedClient(args.accessToken);
 
   const { data: byId, error: byIdError } = await service
     .from("users")
@@ -377,8 +396,9 @@ export async function upsertHookReviewApprovedNote(args: {
   revisionId: string;
   userId: string;
   orgId: string;
+  accessToken?: string;
 }): Promise<HookReviewApprovedNoteResult> {
-  const { service } = getClients();
+  const service = getPrivilegedClient(args.accessToken);
   const revision = await getHookReviewRevision({
     sessionRef: args.sessionRef,
     revisionId: args.revisionId,
@@ -464,7 +484,7 @@ export async function saveHookReviewDecision(args: {
   feedback: string;
   decidedBy: string;
 }): Promise<void> {
-  const { service } = getClients();
+  const service = getPrivilegedClient();
 
   const { data: revisionRow, error: revisionError } = await service
     .from("hook_review_revisions")
@@ -505,7 +525,7 @@ export async function getHookReviewDecision(args: {
   sessionRef: string;
   revisionId: string;
 }): Promise<HookReviewDecisionRow | null> {
-  const { service } = getClients();
+  const service = getPrivilegedClient();
   const { data, error } = await service
     .from("hook_review_decisions")
     .select("session_ref,revision_id,decision,feedback,decided_by,created_at")

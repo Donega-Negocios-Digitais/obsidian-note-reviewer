@@ -22,6 +22,7 @@ function isValidDecision(value: string): value is HookReviewDecision {
 type AuthenticatedUser = {
   id: string;
   email: string | null;
+  accessToken: string;
 };
 
 type HookReviewDecisionDeps = {
@@ -101,6 +102,7 @@ export function createDecisionHandler(deps: HookReviewDecisionDeps) {
           const orgId = await deps.resolveHookReviewUserOrg({
             userId: user.id,
             email: user.email,
+            accessToken: user.accessToken,
           });
 
           const revision = await deps.getHookReviewRevision({
@@ -121,6 +123,7 @@ export function createDecisionHandler(deps: HookReviewDecisionDeps) {
             revisionId,
             userId: user.id,
             orgId,
+            accessToken: user.accessToken,
           });
           console.info(
             "[HookReviewDecision] approve_save_succeeded",
