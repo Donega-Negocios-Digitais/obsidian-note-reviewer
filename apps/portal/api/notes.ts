@@ -4,7 +4,7 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { setCorsHeaders, handlePreflightRequest } from '../utils/cors';
+import { setCorsHeaders, handlePreflightRequest } from '../utils/cors.js';
 
 // Simulação de banco de dados em memória (em produção, usar DB real)
 const notes: Record<string, { title: string; content: string; createdAt: string }> = {};

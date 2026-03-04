@@ -1,11 +1,11 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { handlePreflightRequest, setCorsHeaders } from "../../utils/cors";
+import { handlePreflightRequest, setCorsHeaders } from "../../utils/cors.js";
 import {
   getLatestHookReviewRevision,
   getSessionBySessionIdAndKey,
   purgeExpiredHookReviewSessions,
   resolveAuthenticatedUser,
-} from "../_lib/hookReviewStore";
+} from "../_lib/hookReviewStore.js";
 
 function pickQueryString(value: string | string[] | undefined): string {
   if (typeof value === "string") return value.trim();

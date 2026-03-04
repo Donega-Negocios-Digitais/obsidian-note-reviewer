@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { handlePreflightRequest, setCorsHeaders } from "../../utils/cors";
+import { handlePreflightRequest, setCorsHeaders } from "../../utils/cors.js";
 import {
   getSessionBySessionIdAndKey,
   getHookReviewRevision,
@@ -9,7 +9,7 @@ import {
   saveHookReviewDecision,
   upsertHookReviewApprovedNote,
   type HookReviewDecision,
-} from "../_lib/hookReviewStore";
+} from "../_lib/hookReviewStore.js";
 
 function pickString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
