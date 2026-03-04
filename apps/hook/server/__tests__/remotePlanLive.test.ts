@@ -4,6 +4,7 @@ import {
   resolveReviewTarget,
   getReviewAppBaseUrl,
   shouldFallbackToLocalReviewTarget,
+  shouldOpenReviewBrowser,
 } from "../remotePlanLive";
 
 const originalTarget = process.env.OBSREVIEW_REVIEW_TARGET;
@@ -126,5 +127,38 @@ describe("remotePlanLive config", () => {
     expect(resolved.target).toBe("local");
     expect(resolved.reason).toBe("forced_local");
     expect(called).toBe(false);
+  });
+
+  test("opens browser when revision changes even if last open is recent", () => {
+    const decision = shouldOpenReviewBrowser({
+      lastOpenedAt: new Date().toISOString(),
+      lastOpenedRevisionId: "rev-1",
+      revisionId: "rev-2",
+      lastOpenedReviewUrl: "https://example.com/hook-review?sessionId=a",
+      reviewUrl: "https://example.com/hook-review?sessionId=a",
+    });
+    expect(decision).toBe(true);
+  });
+
+  test("opens browser when review URL changes", () => {
+    const decision = shouldOpenReviewBrowser({
+      lastOpenedAt: new Date().toISOString(),
+      lastOpenedRevisionId: "rev-1",
+      revisionId: "rev-1",
+      lastOpenedReviewUrl: "https://example.com/hook-review?sessionId=a",
+      reviewUrl: "https://example.com/hook-review?sessionId=b",
+    });
+    expect(decision).toBe(true);
+  });
+
+  test("can skip reopen when same revision/url and last open is fresh", () => {
+    const decision = shouldOpenReviewBrowser({
+      lastOpenedAt: new Date().toISOString(),
+      lastOpenedRevisionId: "rev-1",
+      revisionId: "rev-1",
+      lastOpenedReviewUrl: "https://example.com/hook-review?sessionId=a",
+      reviewUrl: "https://example.com/hook-review?sessionId=a",
+    });
+    expect(decision).toBe(false);
   });
 });
