@@ -10,6 +10,19 @@ Revisao interativa de planos e notas com UI visual, integrada ao Claude Code.
 
 Guia para usuario final instalar e usar.
 
+## Passo 0 - Se voce ja instalou antes, atualize tudo primeiro
+
+Se ja tinha versao antiga instalada, rode novamente:
+
+1. Atualize o binario `obsreview` com o mesmo instalador do seu sistema (Passo 1).
+2. No Claude Code, rode novamente:
+```text
+/plugin install obsreview@obsidian-note-reviewer
+```
+3. Reinicie o Claude Code.
+
+Objetivo: evitar cache antigo de plugin/hook.
+
 ## Passo 1 - Instalar o binario `obsreview` (terminal do sistema)
 
 Rode **apenas um** comando, de acordo com seu sistema:
@@ -89,6 +102,15 @@ Resultado esperado:
 3. `Enviar alteracoes` devolve feedback para o Claude;
 4. `Aprovar nota` conclui o fluxo (no modo remoto, salva em Meus Documentos).
 
+No fluxo remoto novo, a URL aberta deve conter:
+- `/hook-review`
+- `sessionId=...`
+- `reviewKey=...`
+- `revisionId=...`
+- `mode=plan-live-review`
+
+Se abrir a app sem esses parametros, voce ainda esta em versao antiga/cache antigo.
+
 ## Mensagens esperadas (guia rapido)
 
 | Comando | Sinal de sucesso | Proximo passo |
@@ -115,11 +137,17 @@ obsreview doctor
 - rode `obsreview doctor`;
 - confira se o plano foi salvo em `/.claude/plans/...`.
 
-2. Duvida sobre cache do plugin:
+2. Abre a app, mas sem o documento de revisao:
+- atualize binario + plugin (Passo 0);
+- reinicie o Claude Code;
+- rode o prompt de teste novamente;
+- confirme se a URL aberta tem `reviewKey` e `revisionId`.
+
+3. Duvida sobre cache do plugin:
 - nao rode `bun install` dentro de `~/.claude/plugins/cache/...`;
 - runtime oficial e o binario global `obsreview`.
 
-3. Login no modo hook:
+4. Login no modo hook:
 - remoto pode exigir login;
 - local funciona sem login por padrao.
 

@@ -2,6 +2,17 @@
 
 Guia para qualquer usuario instalar e testar.
 
+## Passo 0 - Se ja tinha instalado antes, atualize primeiro
+
+Para garantir que nao esta no fluxo antigo/cache antigo:
+
+1. Atualize o binario `obsreview` rodando novamente o instalador do seu sistema (Passo 1).
+2. No chat do Claude Code, rode novamente:
+```text
+/plugin install obsreview@obsidian-note-reviewer
+```
+3. Reinicie o Claude Code.
+
 ## Passo 1 - Instalar o binario `obsreview` (terminal do sistema)
 
 ### Windows (PowerShell)
@@ -75,6 +86,15 @@ Esperado:
 - `Enviar alteracoes` devolve feedback para o Claude;
 - `Aprovar nota` conclui fluxo (no remoto, salva em Meus Documentos).
 
+No fluxo remoto novo, a URL deve conter:
+- `/hook-review`
+- `sessionId=...`
+- `reviewKey=...`
+- `revisionId=...`
+- `mode=plan-live-review`
+
+Se abrir a aplicacao sem esses parametros, ainda esta usando cache/versao antiga.
+
 ## Mensagens esperadas (comando -> sinal -> proximo passo)
 
 | Comando | Sinal de sucesso | Proximo passo |
@@ -120,3 +140,16 @@ obsreview doctor
 - Claude reiniciado;
 - prompt realmente gerou `Write/Edit/MultiEdit` em `/.claude/plans/...`;
 - se `Write` falhar por politica da ferramenta, fallback via `Bash` tambem e aceito pelo hook.
+
+## Para quem usa repositorio local (desenvolvimento)
+
+Se seus hooks apontam para `apps/hook/dist/index.js` no disco local:
+
+1. Sempre rode build apos atualizar o projeto:
+```powershell
+cd apps/hook
+bun run build
+```
+2. Reinicie o Claude Code.
+
+Sem build novo, o hook pode continuar executando codigo antigo.
