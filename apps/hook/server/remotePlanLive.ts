@@ -34,6 +34,8 @@ interface RemoteSessionFileState {
   workspaceHash: string;
   updatedAt: string;
   lastOpenedAt?: string;
+  lastOpenedRevisionId?: string;
+  lastOpenedReviewUrl?: string;
 }
 
 interface RemoteRevisionPublishResponse {
@@ -46,6 +48,8 @@ interface RemoteSessionCredentials {
   reviewKey: string;
   workspaceHash: string;
   lastOpenedAt?: string;
+  lastOpenedRevisionId?: string;
+  lastOpenedReviewUrl?: string;
 }
 
 interface RunRemotePlanLiveReviewArgs {
@@ -85,6 +89,14 @@ export class RemotePlanLiveError extends Error {
     this.stage = args.stage;
     this.sessionId = args.sessionId;
   }
+}
+
+export interface ReviewBrowserOpenDecisionArgs {
+  lastOpenedAt?: string;
+  lastOpenedRevisionId?: string;
+  lastOpenedReviewUrl?: string;
+  revisionId: string;
+  reviewUrl: string;
 }
 
 function normalizeUrl(url: string): string {
@@ -280,6 +292,8 @@ async function ensureRemoteSessionCredentials(): Promise<RemoteSessionCredential
       reviewKey: existing.reviewKey,
       workspaceHash: existing.workspaceHash,
       lastOpenedAt: existing.lastOpenedAt,
+      lastOpenedRevisionId: existing.lastOpenedRevisionId,
+      lastOpenedReviewUrl: existing.lastOpenedReviewUrl,
     };
   }
 
@@ -298,18 +312,35 @@ async function ensureRemoteSessionCredentials(): Promise<RemoteSessionCredential
   };
 }
 
-function shouldOpenBrowser(lastOpenedAt?: string): boolean {
+export function shouldOpenReviewBrowser(args: ReviewBrowserOpenDecisionArgs): boolean {
+  if (
+    args.lastOpenedRevisionId &&
+    args.lastOpenedRevisionId !== args.revisionId
+  ) {
+    return true;
+  }
+
+  if (args.lastOpenedReviewUrl && args.lastOpenedReviewUrl !== args.reviewUrl) {
+    return true;
+  }
+
+  const { lastOpenedAt } = args;
   if (!lastOpenedAt) return true;
   const parsed = Date.parse(lastOpenedAt);
   if (!Number.isFinite(parsed)) return true;
   return Date.now() - parsed > REMOTE_BROWSER_REOPEN_STALE_MS;
 }
 
-async function markBrowserOpened(): Promise<void> {
+async function markBrowserOpened(args: {
+  revisionId: string;
+  reviewUrl: string;
+}): Promise<void> {
   const sessionFile = getRemoteSessionFilePath();
   const existing = await loadRemoteSessionState(sessionFile);
   if (!existing) return;
   existing.lastOpenedAt = new Date().toISOString();
+  existing.lastOpenedRevisionId = args.revisionId;
+  existing.lastOpenedReviewUrl = args.reviewUrl;
   existing.updatedAt = new Date().toISOString();
   await saveRemoteSessionState(sessionFile, existing);
 }
@@ -471,9 +502,20 @@ export async function runRemotePlanLiveReview(
           mode: "plan-live-review",
         }).toString()}`;
 
-  if (shouldOpenBrowser(credentials.lastOpenedAt)) {
+  if (
+    shouldOpenReviewBrowser({
+      lastOpenedAt: credentials.lastOpenedAt,
+      lastOpenedRevisionId: credentials.lastOpenedRevisionId,
+      lastOpenedReviewUrl: credentials.lastOpenedReviewUrl,
+      revisionId: args.revisionId,
+      reviewUrl,
+    })
+  ) {
     await openBrowser(reviewUrl);
-    await markBrowserOpened();
+    await markBrowserOpened({
+      revisionId: args.revisionId,
+      reviewUrl,
+    });
   }
 
   if (log) {
