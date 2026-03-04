@@ -151,13 +151,13 @@ obsreview doctor
 - remoto pode exigir login;
 - local funciona sem login por padrao.
 
-5. Abriu no navegador errado (ex.: Chrome em vez de Brave):
+5. Navegador:
 - por padrao, o `obsreview` abre no navegador padrao do sistema;
-- para forcar Brave, configure a variavel:
-```powershell
-$env:OBSREVIEW_BROWSER_EXE='C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe'
-```
-- depois reinicie o Claude Code.
+- isso significa: abre no navegador que a pessoa usa normalmente (e ja esta logada).
+- nao precisa rodar comando para isso.
+
+Opcional avancado (somente se quiser forcar um executavel especifico):
+- `OBSREVIEW_BROWSER_EXE`
 
 ## Documentacao util
 

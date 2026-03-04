@@ -141,13 +141,13 @@ obsreview doctor
 - prompt realmente gerou `Write/Edit/MultiEdit` em `/.claude/plans/...`;
 - se `Write` falhar por politica da ferramenta, fallback via `Bash` tambem e aceito pelo hook.
 
-4. Se abrir no navegador errado (Chrome em vez de Brave):
+4. Navegador:
 - por padrao, o `obsreview` abre no navegador padrao do sistema;
-- para forcar Brave no Windows:
-```powershell
-$env:OBSREVIEW_BROWSER_EXE='C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe'
-```
-- reinicie o Claude Code.
+- ou seja, abre no navegador normal da pessoa (onde ela costuma estar logada);
+- nao precisa comando para isso.
+
+Opcional avancado (somente se quiser forcar executavel especifico):
+- `OBSREVIEW_BROWSER_EXE`
 
 ## Para quem usa repositorio local (desenvolvimento)
 
