@@ -130,15 +130,17 @@ describe("remotePlanLive config", () => {
     expect(called).toBe(false);
   });
 
-  test("opens browser when revision changes even if last open is recent", () => {
+  test("does not reopen browser only because revision changed", () => {
     const decision = shouldOpenReviewBrowser({
       lastOpenedAt: new Date().toISOString(),
       lastOpenedRevisionId: "rev-1",
       revisionId: "rev-2",
-      lastOpenedReviewUrl: "https://example.com/hook-review?sessionId=a",
-      reviewUrl: "https://example.com/hook-review?sessionId=a",
+      lastOpenedReviewUrl:
+        "https://example.com/hook-review?sessionId=a&reviewKey=k1&revisionId=rev-1&mode=plan-live-review",
+      reviewUrl:
+        "https://example.com/hook-review?sessionId=a&reviewKey=k1&revisionId=rev-2&mode=plan-live-review",
     });
-    expect(decision).toBe(true);
+    expect(decision).toBe(false);
   });
 
   test("opens browser when review URL changes", () => {

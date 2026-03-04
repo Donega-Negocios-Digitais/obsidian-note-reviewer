@@ -75,6 +75,7 @@ import { isHookAuthRequiredForRuntime } from './hookAuth';
 import {
   canFallbackToLegacyDecision,
   resolvePlanLiveApproveNotice,
+  resolvePlanLiveApproveRedirect,
   shouldTrySessionDecision,
 } from './decisionRouting';
 
@@ -2089,6 +2090,16 @@ const App: React.FC<EditorAppProps> = ({
               response: remoteDecision,
             })
           );
+
+          const redirectTarget = resolvePlanLiveApproveRedirect({
+            isRemoteHookReview: true,
+            response: remoteDecision,
+          });
+          if (redirectTarget && typeof window !== 'undefined') {
+            setTimeout(() => {
+              window.location.assign(redirectTarget);
+            }, 500);
+          }
           return;
         }
 

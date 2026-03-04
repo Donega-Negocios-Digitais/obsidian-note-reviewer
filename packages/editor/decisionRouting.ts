@@ -12,6 +12,13 @@ export interface PlanLiveApproveNoticeArgs {
   } | null;
 }
 
+export interface PlanLiveApproveRedirectArgs {
+  isRemoteHookReview: boolean;
+  response: {
+    savedNoteId?: string;
+  } | null;
+}
+
 export function shouldTrySessionDecision(args: DecisionRoutingArgs): boolean {
   if (!args.isApiMode || args.isAnnotateMode) {
     return false;
@@ -33,4 +40,22 @@ export function resolvePlanLiveApproveNotice(
     return "Aprovação enviada e nota salva em Meus Documentos.";
   }
   return "Aprovação enviada para o Claude.";
+}
+
+export function resolvePlanLiveApproveRedirect(
+  args: PlanLiveApproveRedirectArgs
+): string | null {
+  if (!args.isRemoteHookReview) {
+    return null;
+  }
+
+  const noteId = typeof args.response?.savedNoteId === "string"
+    ? args.response.savedNoteId.trim()
+    : "";
+
+  if (noteId) {
+    return `/editor?document=${encodeURIComponent(noteId)}`;
+  }
+
+  return "/editor";
 }

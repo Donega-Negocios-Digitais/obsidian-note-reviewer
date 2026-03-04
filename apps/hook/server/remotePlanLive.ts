@@ -385,14 +385,21 @@ async function ensureRemoteSessionCredentials(): Promise<RemoteSessionCredential
 }
 
 export function shouldOpenReviewBrowser(args: ReviewBrowserOpenDecisionArgs): boolean {
-  if (
-    args.lastOpenedRevisionId &&
-    args.lastOpenedRevisionId !== args.revisionId
-  ) {
-    return true;
-  }
+  const normalizeSessionReviewUrl = (value: string): string => {
+    try {
+      const parsed = new URL(value);
+      parsed.searchParams.delete("revisionId");
+      return parsed.toString();
+    } catch {
+      return value;
+    }
+  };
 
-  if (args.lastOpenedReviewUrl && args.lastOpenedReviewUrl !== args.reviewUrl) {
+  if (
+    args.lastOpenedReviewUrl &&
+    normalizeSessionReviewUrl(args.lastOpenedReviewUrl) !==
+      normalizeSessionReviewUrl(args.reviewUrl)
+  ) {
     return true;
   }
 

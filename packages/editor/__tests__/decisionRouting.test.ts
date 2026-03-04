@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   canFallbackToLegacyDecision,
   resolvePlanLiveApproveNotice,
+  resolvePlanLiveApproveRedirect,
   shouldTrySessionDecision,
 } from "../decisionRouting";
 
@@ -62,5 +63,32 @@ describe("decision routing", () => {
         response: { savedToApp: true },
       })
     ).toBe("Aprovação enviada para o Claude.");
+  });
+
+  test("remote approve redirects to saved note when id exists", () => {
+    expect(
+      resolvePlanLiveApproveRedirect({
+        isRemoteHookReview: true,
+        response: { savedNoteId: "note-123" },
+      })
+    ).toBe("/editor?document=note-123");
+  });
+
+  test("remote approve redirects to editor when note id is missing", () => {
+    expect(
+      resolvePlanLiveApproveRedirect({
+        isRemoteHookReview: true,
+        response: null,
+      })
+    ).toBe("/editor");
+  });
+
+  test("local approve has no redirect", () => {
+    expect(
+      resolvePlanLiveApproveRedirect({
+        isRemoteHookReview: false,
+        response: { savedNoteId: "note-123" },
+      })
+    ).toBeNull();
   });
 });
