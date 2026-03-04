@@ -198,6 +198,11 @@ function getSessionFilePath(): string {
   return resolve(process.cwd(), ".temp", "plan-live-session.json");
 }
 
+function getConfiguredBrowserExecutable(): string | null {
+  const configured = process.env.OBSREVIEW_BROWSER_EXE?.trim();
+  return configured ? configured : null;
+}
+
 function getSessionLogPath(): string {
   return resolve(process.cwd(), ".logs", "plan-live-session.log");
 }
@@ -310,6 +315,17 @@ export function resolveBunExecutablePath(execPath: string = process.execPath): s
 
 async function openBrowser(url: string): Promise<void> {
   try {
+    const configuredBrowser = getConfiguredBrowserExecutable();
+    if (configuredBrowser) {
+      const child = spawn(configuredBrowser, [url], {
+        detached: true,
+        stdio: "ignore",
+        windowsHide: process.platform === "win32",
+      });
+      child.unref();
+      return;
+    }
+
     if (process.platform === "win32") {
       // Keep URL quoted so cmd.exe does not split query params on '&'.
       const safeUrl = `"${url.replace(/"/g, "")}"`;

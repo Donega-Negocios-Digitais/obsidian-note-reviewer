@@ -61,6 +61,11 @@ export function buildWindowsStartArgs(url: string): string[] {
   return ["/c", "start", "", quoteForWindowsStart(url)];
 }
 
+function getConfiguredBrowserExecutable(): string | null {
+  const configured = process.env.OBSREVIEW_BROWSER_EXE?.trim();
+  return configured ? configured : null;
+}
+
 interface RunRemotePlanLiveReviewArgs {
   revisionId: string;
   filePath: string;
@@ -356,6 +361,17 @@ async function markBrowserOpened(args: {
 
 async function openBrowser(url: string): Promise<void> {
   try {
+    const configuredBrowser = getConfiguredBrowserExecutable();
+    if (configuredBrowser) {
+      const child = spawn(configuredBrowser, [url], {
+        detached: true,
+        stdio: "ignore",
+        windowsHide: process.platform === "win32",
+      });
+      child.unref();
+      return;
+    }
+
     if (process.platform === "win32") {
       const child = spawn("cmd", buildWindowsStartArgs(url), {
         detached: true,
