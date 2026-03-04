@@ -8,18 +8,24 @@
 import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
 import { closeSync, existsSync, openSync } from "node:fs";
-import { appendFile, mkdir, readFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile, stat } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { $ } from "bun";
 import { validatePath } from "./pathValidation";
+import {
+  RemotePlanLiveError,
+  resolveReviewTarget,
+  runRemotePlanLiveReview,
+  shouldFallbackToLocalReviewTarget,
+} from "./remotePlanLive";
 
 const START_TIMEOUT_MS = 12_000;
 const DECISION_TIMEOUT_MS = 25 * 60 * 1000;
 const DECISION_POLL_INTERVAL_MS = 1_000;
 const DECISION_POLL_REQUEST_TIMEOUT_MS = 5_000;
 const DECISION_MAX_CONSECUTIVE_TRANSPORT_ERRORS = 6;
-const EXPECTED_SESSION_SERVER_VERSION = 2;
+const EXPECTED_SESSION_SERVER_VERSION = 3;
 const BROWSER_NUDGE_DELAY_MS = 4_000;
 
 export interface PlanLiveHookEvent {
@@ -28,6 +34,7 @@ export interface PlanLiveHookEvent {
     file_path?: string;
     filePath?: string;
     path?: string;
+    command?: string;
     content?: string;
     plan?: string;
     text?: string;
@@ -46,6 +53,7 @@ export interface SessionMetadata {
   url: string;
   pid: number;
   serverVersion?: number;
+  sessionScriptMtimeMs?: number;
   mode?: string;
 }
 
@@ -78,12 +86,35 @@ export function isClaudePlanPath(filePath: string): boolean {
   );
 }
 
+function extractPlanPathFromBashCommand(command: string): string {
+  if (!command.trim()) {
+    return "";
+  }
+
+  const matches = command.match(
+    /[A-Za-z]:[\\/][^\s"'`<>|]+?\.claude[\\/]+plans[\\/][^\s"'`<>|]+?\.md|(?:^|[\s"'`])(?:\.[\\/])?\.claude[\\/]+plans[\\/][^\s"'`<>|]+?\.md/gi
+  );
+
+  if (!matches || matches.length === 0) {
+    return "";
+  }
+
+  const candidate = matches[0].trim().replace(/^["'`]/, "").replace(/["'`]$/, "");
+  return candidate;
+}
+
 export function parsePlanLiveEvent(eventJson: string): ParsedPlanLiveEvent | null {
   try {
     const parsed = JSON.parse(eventJson) as PlanLiveHookEvent;
     const input = parsed.tool_input || {};
+    const toolName = pickFirstString(parsed.tool_name);
+    const fromWriteTool = pickFirstString(input.file_path, input.filePath, input.path);
+    const fromBashTool =
+      toolName.toLowerCase() === "bash"
+        ? extractPlanPathFromBashCommand(pickFirstString(input.command))
+        : "";
 
-    const filePath = pickFirstString(input.file_path, input.filePath, input.path);
+    const filePath = pickFirstString(fromWriteTool, fromBashTool);
     if (!filePath || !isClaudePlanPath(filePath)) {
       return null;
     }
@@ -220,8 +251,32 @@ async function isSessionHealthy(metadata: SessionMetadata): Promise<boolean> {
   }
 }
 
-function isCompatibleSessionVersion(metadata: SessionMetadata): boolean {
-  return metadata.serverVersion === EXPECTED_SESSION_SERVER_VERSION;
+async function getScriptMtimeMs(scriptPath: string): Promise<number | null> {
+  try {
+    const fileStat = await stat(scriptPath);
+    return Math.trunc(fileStat.mtimeMs);
+  } catch {
+    return null;
+  }
+}
+
+export function isCompatibleSessionMetadata(
+  metadata: SessionMetadata,
+  expectedScriptMtimeMs: number | null
+): boolean {
+  if (metadata.serverVersion !== EXPECTED_SESSION_SERVER_VERSION) {
+    return false;
+  }
+
+  if (expectedScriptMtimeMs === null) {
+    return true;
+  }
+
+  if (typeof metadata.sessionScriptMtimeMs !== "number") {
+    return false;
+  }
+
+  return metadata.sessionScriptMtimeMs === expectedScriptMtimeMs;
 }
 
 async function stopSessionDaemon(metadata: SessionMetadata): Promise<void> {
@@ -329,8 +384,10 @@ function scheduleBrowserNudge(args: {
   return () => clearTimeout(timer);
 }
 
-async function startSessionDaemon(sessionFile: string): Promise<void> {
-  const sessionScriptPath = resolveSessionScriptPath();
+async function startSessionDaemon(
+  sessionFile: string,
+  sessionScriptPath: string
+): Promise<void> {
   const bunExecutable = resolveBunExecutablePath();
   const logFile = getSessionLogPath();
   await mkdir(dirname(logFile), { recursive: true });
@@ -354,21 +411,28 @@ async function startSessionDaemon(sessionFile: string): Promise<void> {
 }
 
 async function ensureSessionServer(sessionFile: string): Promise<SessionMetadata> {
+  const sessionScriptPath = resolveSessionScriptPath();
+  const expectedScriptMtimeMs = await getScriptMtimeMs(sessionScriptPath);
+
   const existing = await readSessionMetadata(sessionFile);
   if (existing) {
     const healthy = await isSessionHealthy(existing);
-    if (healthy && isCompatibleSessionVersion(existing)) {
+    if (healthy && isCompatibleSessionMetadata(existing, expectedScriptMtimeMs)) {
       return existing;
     }
     await stopSessionDaemon(existing);
   }
 
-  await startSessionDaemon(sessionFile);
+  await startSessionDaemon(sessionFile, sessionScriptPath);
   const deadline = Date.now() + START_TIMEOUT_MS;
 
   while (Date.now() < deadline) {
     const metadata = await readSessionMetadata(sessionFile);
-    if (metadata && (await isSessionHealthy(metadata))) {
+    if (
+      metadata &&
+      (await isSessionHealthy(metadata)) &&
+      isCompatibleSessionMetadata(metadata, expectedScriptMtimeMs)
+    ) {
       return metadata;
     }
     await Bun.sleep(250);
@@ -504,6 +568,151 @@ export async function runPlanLiveHook(): Promise<void> {
   }
 
   const revisionId = randomUUID();
+  const localFallbackEnabled = shouldFallbackToLocalReviewTarget();
+  const resolvedTarget = await resolveReviewTarget();
+  let reviewTarget = resolvedTarget.target;
+  let fallbackUsed = false;
+
+  await logHookEvent("target_selected", {
+    filePath: safePath,
+    sessionId: null,
+    revisionId,
+    decision: null,
+    latency_ms: 0,
+    timeout: false,
+    target: reviewTarget,
+    configured_target: resolvedTarget.configuredTarget,
+    reason: resolvedTarget.reason,
+    remote_status: resolvedTarget.remoteStatus,
+    remote_error: resolvedTarget.remoteError,
+    fallback_enabled: localFallbackEnabled,
+    fallback_used: false,
+  });
+
+  if (reviewTarget === "remote") {
+    try {
+      const remoteResult = await runRemotePlanLiveReview({
+        revisionId,
+        filePath: safePath,
+        content,
+        logEvent: logHookEvent,
+      });
+      const waitStart = Date.now();
+
+      if (remoteResult.decision.ok && remoteResult.decision.decision === "approve") {
+      await logHookEvent("remote_decision_approved", {
+        filePath: safePath,
+        sessionId: remoteResult.sessionId,
+        revisionId,
+        decision: "approve",
+        latency_ms: Date.now() - waitStart,
+        timeout: false,
+        reviewUrl: remoteResult.reviewUrl,
+        target: reviewTarget,
+        configured_target: resolvedTarget.configuredTarget,
+        reason: resolvedTarget.reason,
+        remote_status: resolvedTarget.remoteStatus,
+        fallback_used: fallbackUsed,
+      });
+      console.log(
+        buildApprovedHookOutput({
+            filePath: safePath,
+            sessionId: remoteResult.sessionId,
+            revisionId,
+          })
+        );
+        process.exit(0);
+      }
+
+      const remoteFeedback =
+        typeof remoteResult.decision.feedback === "string" && remoteResult.decision.feedback.trim()
+          ? remoteResult.decision.feedback.trim()
+          : remoteResult.decision.timeout
+          ? "Plan review in production app timed out without approval."
+          : "Changes requested in plan review.";
+
+      await logHookEvent("remote_decision_blocked", {
+        filePath: safePath,
+        sessionId: remoteResult.sessionId,
+        revisionId,
+        decision: remoteResult.decision.timeout ? "timeout" : "request_changes",
+        latency_ms: Date.now() - waitStart,
+        timeout: Boolean(remoteResult.decision.timeout),
+        reviewUrl: remoteResult.reviewUrl,
+        target: reviewTarget,
+        configured_target: resolvedTarget.configuredTarget,
+        reason: resolvedTarget.reason,
+        remote_status: resolvedTarget.remoteStatus,
+        fallback_used: fallbackUsed,
+      });
+      console.log(
+        buildBlockedHookOutput({
+          filePath: safePath,
+          sessionId: remoteResult.sessionId,
+          revisionId,
+          feedback: remoteFeedback,
+          timeout: Boolean(remoteResult.decision.timeout),
+        })
+      );
+      process.exit(0);
+    } catch (error) {
+      const isRemoteError = error instanceof RemotePlanLiveError;
+      const remoteStage = isRemoteError ? error.stage : "init";
+      const remoteSessionId = isRemoteError ? error.sessionId : "remote-unavailable";
+      const remoteMessage = error instanceof Error ? error.message : String(error);
+
+      await logHookEvent("remote_flow_error", {
+        filePath: safePath,
+        sessionId: remoteSessionId,
+        revisionId,
+        decision: null,
+        latency_ms: 0,
+        timeout: false,
+        stage: remoteStage,
+        error: remoteMessage,
+        target: reviewTarget,
+        configured_target: resolvedTarget.configuredTarget,
+        reason: resolvedTarget.reason,
+        remote_status: resolvedTarget.remoteStatus,
+        fallback_used: fallbackUsed,
+      });
+
+      // Fallback is allowed only for remote initialization failures.
+      if (remoteStage === "init" && localFallbackEnabled) {
+        reviewTarget = "local";
+        fallbackUsed = true;
+        await logHookEvent("remote_fallback_local_enabled", {
+          filePath: safePath,
+          sessionId: remoteSessionId,
+          revisionId,
+          decision: null,
+          latency_ms: 0,
+          timeout: false,
+          target: reviewTarget,
+          configured_target: resolvedTarget.configuredTarget,
+          reason: resolvedTarget.reason,
+          remote_status: resolvedTarget.remoteStatus,
+          fallback_used: fallbackUsed,
+        });
+      } else {
+        const blockedFeedback =
+          remoteStage === "wait_decision"
+            ? "Production review session lost connection while waiting for a decision."
+            : "Could not initialize production review session.";
+        console.log(
+          buildBlockedHookOutput({
+            filePath: safePath,
+            sessionId: remoteSessionId,
+            revisionId,
+            feedback: `${blockedFeedback} ${remoteMessage}`.trim(),
+          })
+        );
+        process.exit(0);
+        return;
+      }
+    }
+  }
+
   const sessionFile = getSessionFilePath();
   await mkdir(dirname(sessionFile), { recursive: true });
 
@@ -534,6 +743,11 @@ export async function runPlanLiveHook(): Promise<void> {
     decision: null,
     latency_ms: 0,
     timeout: false,
+    target: reviewTarget,
+    configured_target: resolvedTarget.configuredTarget,
+    reason: resolvedTarget.reason,
+    remote_status: resolvedTarget.remoteStatus,
+    fallback_used: fallbackUsed,
   });
 
   let publishResponse: Response;
@@ -557,6 +771,11 @@ export async function runPlanLiveHook(): Promise<void> {
       latency_ms: 0,
       timeout: false,
       error: error instanceof Error ? error.message : String(error),
+      target: reviewTarget,
+      configured_target: resolvedTarget.configuredTarget,
+      reason: resolvedTarget.reason,
+      remote_status: resolvedTarget.remoteStatus,
+      fallback_used: fallbackUsed,
     });
     console.log(
       buildBlockedHookOutput({
@@ -582,6 +801,11 @@ export async function runPlanLiveHook(): Promise<void> {
       latency_ms: 0,
       timeout: false,
       status: publishResponse.status,
+      target: reviewTarget,
+      configured_target: resolvedTarget.configuredTarget,
+      reason: resolvedTarget.reason,
+      remote_status: resolvedTarget.remoteStatus,
+      fallback_used: fallbackUsed,
     });
     console.log(
       buildBlockedHookOutput({
@@ -601,6 +825,11 @@ export async function runPlanLiveHook(): Promise<void> {
     decision: null,
     latency_ms: 0,
     timeout: false,
+    target: reviewTarget,
+    configured_target: resolvedTarget.configuredTarget,
+    reason: resolvedTarget.reason,
+    remote_status: resolvedTarget.remoteStatus,
+    fallback_used: fallbackUsed,
   });
   console.error(
     `[PlanLiveHook] Review session ready at ${metadata.url} (revision: ${revisionId})`
@@ -625,6 +854,11 @@ export async function runPlanLiveHook(): Promise<void> {
       latency_ms: Date.now() - waitStart,
       timeout: false,
       error: waitError,
+      target: reviewTarget,
+      configured_target: resolvedTarget.configuredTarget,
+      reason: resolvedTarget.reason,
+      remote_status: resolvedTarget.remoteStatus,
+      fallback_used: fallbackUsed,
     });
 
     // Recovery path: restart/reuse healthy session server and republish same revision.
@@ -638,6 +872,11 @@ export async function runPlanLiveHook(): Promise<void> {
         decision: null,
         latency_ms: Date.now() - waitStart,
         timeout: false,
+        target: reviewTarget,
+        configured_target: resolvedTarget.configuredTarget,
+        reason: resolvedTarget.reason,
+        remote_status: resolvedTarget.remoteStatus,
+        fallback_used: fallbackUsed,
       });
 
       const republish = await publishPlanLiveRevision(metadata, {
@@ -656,6 +895,11 @@ export async function runPlanLiveHook(): Promise<void> {
         decision: null,
         latency_ms: Date.now() - waitStart,
         timeout: false,
+        target: reviewTarget,
+        configured_target: resolvedTarget.configuredTarget,
+        reason: resolvedTarget.reason,
+        remote_status: resolvedTarget.remoteStatus,
+        fallback_used: fallbackUsed,
       });
 
       const cancelRecoveryBrowserNudge = scheduleBrowserNudge({
@@ -701,6 +945,11 @@ export async function runPlanLiveHook(): Promise<void> {
       decision: "approve",
       latency_ms: Date.now() - waitStart,
       timeout: false,
+      target: reviewTarget,
+      configured_target: resolvedTarget.configuredTarget,
+      reason: resolvedTarget.reason,
+      remote_status: resolvedTarget.remoteStatus,
+      fallback_used: fallbackUsed,
     });
     console.log(
       buildApprovedHookOutput({
@@ -726,6 +975,11 @@ export async function runPlanLiveHook(): Promise<void> {
     decision: decisionResult.timeout ? "timeout" : "request_changes",
     latency_ms: Date.now() - waitStart,
     timeout: Boolean(decisionResult.timeout),
+    target: reviewTarget,
+    configured_target: resolvedTarget.configuredTarget,
+    reason: resolvedTarget.reason,
+    remote_status: resolvedTarget.remoteStatus,
+    fallback_used: fallbackUsed,
   });
 
   console.log(

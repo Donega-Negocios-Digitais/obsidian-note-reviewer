@@ -1,7 +1,7 @@
 {
   "name": "@obsidian-note-reviewer/hooks",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.2.7",
   "type": "module",
   "bin": {
     "obsreview": "dist/index.js",

@@ -10,6 +10,50 @@ $ProgressPreference = 'SilentlyContinue'
 $REPO = if ($env:OBSREVIEW_RELEASE_REPO) { $env:OBSREVIEW_RELEASE_REPO } else { "Donega-Negocios-Digitais/obsidian-note-reviewer" }
 $INSTALL_DIR = "$env:USERPROFILE\.local\bin"
 
+function Get-Sha256Hash {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    $fileHashCmd = Get-Command Get-FileHash -ErrorAction SilentlyContinue
+    if ($fileHashCmd) {
+        return (Get-FileHash -Path $Path -Algorithm SHA256).Hash.ToLower()
+    }
+
+    $certutilCmd = Get-Command certutil.exe -ErrorAction SilentlyContinue
+    if ($certutilCmd) {
+        $certOutput = & certutil.exe -hashfile $Path SHA256 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            foreach ($line in $certOutput) {
+                if ($line -match "^[0-9a-fA-F ]{64,}$") {
+                    return ($line -replace '\s+', '').ToLower()
+                }
+            }
+        }
+    }
+
+    try {
+        $stream = [System.IO.File]::OpenRead($Path)
+        try {
+            $sha256 = [System.Security.Cryptography.SHA256]::Create()
+            try {
+                $hashBytes = $sha256.ComputeHash($stream)
+                return ([System.BitConverter]::ToString($hashBytes)).Replace("-", "").ToLower()
+            }
+            finally {
+                $sha256.Dispose()
+            }
+        }
+        finally {
+            $stream.Dispose()
+        }
+    }
+    catch {
+        throw "Unable to compute SHA256 hash. Requires Get-FileHash, certutil, or .NET SHA256 support."
+    }
+}
+
 # Check for 32-bit Windows
 if (-not [Environment]::Is64BitProcess) {
     Write-Error "Obsidian Note Reviewer does not support 32-bit Windows."
@@ -70,7 +114,7 @@ catch {
     exit 1
 }
 
-$actualChecksum = (Get-FileHash -Path $tempFile -Algorithm SHA256).Hash.ToLower()
+$actualChecksum = Get-Sha256Hash -Path $tempFile
 
 if ($actualChecksum -ne $expectedChecksum) {
     Write-Error "Checksum verification failed"
@@ -84,6 +128,25 @@ Move-Item -Force $tempFile $installPath
 
 Write-Output ""
 Write-Output "obsreview $tag installed to $installPath"
+
+try {
+    $versionOutput = & $installPath --version 2>$null
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($versionOutput)) {
+        throw "no version output"
+    }
+
+    Write-Output "Binary self-check OK: $($versionOutput.Trim())"
+}
+catch {
+    Write-Error "Installed binary did not respond to '--version'."
+    Write-Output ""
+    Write-Output "Troubleshooting:"
+    Write-Output "1. Verify latest release assets are available for this repository."
+    Write-Output "2. Re-run installer after the next release is published."
+    Write-Output "3. If needed, run the installer with an explicit version:"
+    Write-Output "   .\install.ps1 -Version v0.2.7"
+    exit 1
+}
 
 # Check if install directory is in PATH
 $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
@@ -102,7 +165,9 @@ if ($userPath -notlike "*$INSTALL_DIR*") {
 
 Write-Output ""
 Write-Output "Test the install:"
-Write-Output '  echo ''{"tool_input":{"plan":"# Test Plan\\n\\nHello world"}}'' | obsreview'
+Write-Output "  obsreview --version"
+Write-Output "  obsreview --help"
+Write-Output "  obsreview doctor"
 Write-Output ""
 Write-Output "Then install the Claude Code plugin:"
 Write-Output "  /plugin marketplace add Donega-Negocios-Digitais/obsidian-note-reviewer"

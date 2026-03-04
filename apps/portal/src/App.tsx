@@ -140,6 +140,12 @@ export function App() {
             }
           />
           <Route
+            path="/hook-review"
+            element={
+              <EditorApp runtime="portal" />
+            }
+          />
+          <Route
             path="/welcome"
             element={
               <ProtectedRoute>

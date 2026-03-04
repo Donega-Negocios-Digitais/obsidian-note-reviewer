@@ -2,6 +2,7 @@ import { describe, test, expect } from "bun:test";
 import {
   buildApprovedHookOutput,
   buildBlockedHookOutput,
+  isCompatibleSessionMetadata,
   isClaudePlanPath,
   parsePlanLiveEvent,
   resolveBunExecutablePath,
@@ -54,6 +55,35 @@ describe("planLiveHook", () => {
           tool_input: {
             file_path: "/repo/Plans/feature.md",
             content: "# Plano",
+          },
+        })
+      );
+
+      expect(parsed).toBeNull();
+    });
+
+    test("parses bash event writing to .claude/plans", () => {
+      const parsed = parsePlanLiveEvent(
+        JSON.stringify({
+          tool_name: "Bash",
+          tool_input: {
+            command:
+              "cat > \"F:/Remotion/.claude/plans/apresentacao.md\" << 'EOF'\n# Plano\nEOF",
+          },
+        })
+      );
+
+      expect(parsed).not.toBeNull();
+      expect(parsed?.filePath).toContain(".claude/plans/apresentacao.md");
+      expect(parsed?.content).toBe("");
+    });
+
+    test("ignores bash event without .claude/plans path", () => {
+      const parsed = parsePlanLiveEvent(
+        JSON.stringify({
+          tool_name: "Bash",
+          tool_input: {
+            command: "mkdir -p /tmp && echo ok",
           },
         })
       );
@@ -116,6 +146,56 @@ describe("planLiveHook", () => {
       expect(resolveBunExecutablePath("C:\\Program Files\\nodejs\\node.exe")).toBe(
         "bun"
       );
+    });
+  });
+
+  describe("isCompatibleSessionMetadata", () => {
+    test("returns true when version and script signature match", () => {
+      expect(
+        isCompatibleSessionMetadata(
+          {
+            sessionId: "s1",
+            port: 3000,
+            url: "http://localhost:3000",
+            pid: 123,
+            serverVersion: 3,
+            sessionScriptMtimeMs: 1111,
+          },
+          1111
+        )
+      ).toBe(true);
+    });
+
+    test("returns false when server version differs", () => {
+      expect(
+        isCompatibleSessionMetadata(
+          {
+            sessionId: "s1",
+            port: 3000,
+            url: "http://localhost:3000",
+            pid: 123,
+            serverVersion: 2,
+            sessionScriptMtimeMs: 1111,
+          },
+          1111
+        )
+      ).toBe(false);
+    });
+
+    test("returns false when script signature differs", () => {
+      expect(
+        isCompatibleSessionMetadata(
+          {
+            sessionId: "s1",
+            port: 3000,
+            url: "http://localhost:3000",
+            pid: 123,
+            serverVersion: 3,
+            sessionScriptMtimeMs: 1111,
+          },
+          2222
+        )
+      ).toBe(false);
     });
   });
 });

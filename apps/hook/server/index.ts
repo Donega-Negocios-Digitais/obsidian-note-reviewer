@@ -4,9 +4,11 @@
  * Supports:
  * - `obsreview` / `obsreview plan`      -> ExitPlanMode hook flow (fallback)
  * - `obsreview plan-live`               -> Continuous pre-execution plan review flow
+ * - `obsreview plan-stop-guard`         -> Stop hook guard to enforce Write for plan prompts
  * - `obsreview obsidian`                -> PostToolUse/Write Obsidian flow
  * - `obsreview annotate <file.md>`      -> Open markdown in annotation UI
  * - `obsreview nota <file.md>`          -> Alias for annotate
+ * - `obsreview doctor [--json]`         -> Local diagnostics
  *
  * Legacy compatibility:
  * - `obsidian-note-reviewer`            -> Alias of `obsreview`
@@ -14,20 +16,29 @@
 
 import { $ } from "bun";
 import { spawn } from "node:child_process";
+import packageJson from "../package.json" with { type: "json" };
 import { getHookCSP } from "@obsidian-note-reviewer/security/csp";
+import {
+  getInteractivePayloadHint,
+  getUsageText,
+  normalizeCommand,
+  shouldRefuseInteractiveHookCommand,
+  type Command,
+} from "./cli";
+import { runDoctorCommand } from "./doctor";
 import { validatePath } from "./pathValidation";
 import { handleSaveEndpoint } from "./saveEndpoint";
 
 // Embed the built HTML at compile time
 import indexHtml from "../dist/index.html" with { type: "text" };
 
-type Command = "plan" | "plan-live" | "obsidian" | "annotate" | "nota";
-
 interface AnnotateResult {
   feedback: string;
 }
 
 const cspHeader = getHookCSP(false);
+const CLI_VERSION =
+  typeof packageJson.version === "string" ? packageJson.version : "0.0.0";
 
 function getSecurityHeaders(): Record<string, string> {
   return {
@@ -36,15 +47,6 @@ function getSecurityHeaders(): Record<string, string> {
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "strict-origin-when-cross-origin",
   };
-}
-
-function normalizeCommand(raw: string | undefined): Command | "unknown" {
-  if (!raw || raw === "plan") return "plan";
-  if (raw === "plan-live") return "plan-live";
-  if (raw === "obsidian") return "obsidian";
-  if (raw === "annotate") return "annotate";
-  if (raw === "nota") return "nota";
-  return "unknown";
 }
 
 function extractFeedbackFromBody(body: unknown): string {
@@ -215,32 +217,94 @@ async function runPlanLiveMode(): Promise<void> {
   process.exit(1);
 }
 
-if (!process.argv || process.argv.length < 2) {
-  console.error("Error: Invalid process arguments.");
+async function runPlanStopGuardMode(): Promise<void> {
+  const module = await import("./planStopGuard.js");
+  if (typeof module.runPlanStopGuard === "function") {
+    await module.runPlanStopGuard();
+    return;
+  }
+
+  console.error("Error: plan-stop-guard hook entrypoint not found.");
   process.exit(1);
 }
 
-const args = process.argv.slice(2);
-const command = normalizeCommand(args[0]);
+function isInteractiveStdin(): boolean {
+  return Boolean(process.stdin?.isTTY);
+}
 
-switch (command) {
-  case "plan":
-    await runPlanMode();
-    break;
-  case "plan-live":
-    await runPlanLiveMode();
-    break;
-  case "obsidian":
-    await runObsidianMode();
-    break;
-  case "annotate":
-  case "nota":
-    await runAnnotateMode(args[1]);
-    break;
-  default:
+function printHelp(): void {
+  console.log(getUsageText());
+}
+
+function printVersion(): void {
+  console.log(CLI_VERSION);
+}
+
+async function runHookCommand(command: Command): Promise<void> {
+  switch (command) {
+    case "plan":
+      await runPlanMode();
+      return;
+    case "plan-live":
+      await runPlanLiveMode();
+      return;
+    case "plan-stop-guard":
+      await runPlanStopGuardMode();
+      return;
+    case "obsidian":
+      await runObsidianMode();
+      return;
+    default:
+      return;
+  }
+}
+
+export async function main(
+  args: string[] = process.argv.slice(2),
+  stdinIsTTY: boolean = isInteractiveStdin()
+): Promise<number> {
+  const command = normalizeCommand(args[0]);
+
+  if (command === "help") {
+    printHelp();
+    return 0;
+  }
+
+  if (command === "version") {
+    printVersion();
+    return 0;
+  }
+
+  if (command === "unknown") {
     console.error(`Unknown subcommand: ${args[0]}`);
-    console.error(
-      "Usage: obsreview [plan|plan-live|obsidian|annotate|nota] [file.md]"
-    );
-    process.exit(1);
+    console.error(getUsageText());
+    return 1;
+  }
+
+  if (command === "doctor") {
+    return runDoctorCommand(args.slice(1), {
+      version: CLI_VERSION,
+      usage: getUsageText(),
+    });
+  }
+
+  if (shouldRefuseInteractiveHookCommand(command, stdinIsTTY)) {
+    console.error(getInteractivePayloadHint(command));
+    console.error("");
+    console.error(getUsageText());
+    return 1;
+  }
+
+  if (command === "annotate" || command === "nota") {
+    await runAnnotateMode(args[1]);
+    return 0;
+  }
+
+  await runHookCommand(command);
+  return 0;
+}
+
+if (import.meta.main) {
+  const exitCode = await main();
+  process.exit(exitCode);
 }

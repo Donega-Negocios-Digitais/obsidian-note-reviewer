@@ -130,7 +130,9 @@ if !ERRORLEVEL! neq 0 (
 
 echo.
 echo Test the install:
-echo   echo {"tool_input":{"plan":"# Test Plan\\n\\nHello world"}} ^| obsreview
+echo   obsreview --version
+echo   obsreview --help
+echo   obsreview doctor
 echo.
 echo Then install the Claude Code plugin:
 echo   /plugin marketplace add Donega-Negocios-Digitais/obsidian-note-reviewer

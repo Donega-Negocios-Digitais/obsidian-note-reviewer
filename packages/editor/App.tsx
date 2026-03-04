@@ -71,6 +71,12 @@ import { RaycastDocumentsModal } from './components/RaycastDocumentsModal';
 import { ReceivedInvitesModal } from './components/ReceivedInvitesModal';
 import { TrashDocumentsModal } from './components/TrashDocumentsModal';
 import { HookAuthGate } from './components/HookAuthGate';
+import { isHookAuthRequiredForRuntime } from './hookAuth';
+import {
+  canFallbackToLegacyDecision,
+  resolvePlanLiveApproveNotice,
+  shouldTrySessionDecision,
+} from './decisionRouting';
 
 const PLAN_CONTENT = `---
 title: Nota de Exemplo - Teste Completo
@@ -648,18 +654,55 @@ interface WaitForPlanRevisionResult {
   revision?: ResolvedApiPlan;
 }
 
+interface PlanLiveDecisionResponse {
+  ok?: boolean;
+  sessionId?: string;
+  revisionId?: string;
+  decision?: 'approve' | 'request_changes';
+  savedToApp?: boolean;
+  savedNoteId?: string;
+  savedNoteTitle?: string;
+  savedAt?: string;
+  error?: string;
+}
+
 const App: React.FC<EditorAppProps> = ({
   runtime = 'hook',
   initialDocumentId,
 }) => {
   const { t } = useTranslation();
   const auth = useOptionalAuth();
+  const currentUrlParams = useMemo(() => {
+    if (typeof window === 'undefined') {
+      return new URLSearchParams();
+    }
+    return new URLSearchParams(window.location.search);
+  }, []);
   const isHookRuntime = runtime === 'hook';
-  const hookAuthRequired = runtime === 'hook' && import.meta.env.VITE_HOOK_REQUIRE_AUTH !== 'false';
   const isPortalRuntime = runtime === 'portal';
+  const remoteHookSessionId = currentUrlParams.get('sessionId')?.trim() || '';
+  const remoteHookReviewKey = currentUrlParams.get('reviewKey')?.trim() || '';
+  const isRemoteHookReview = isPortalRuntime && Boolean(remoteHookSessionId && remoteHookReviewKey);
+  // Local hook runtime (localhost fallback) must stay usable without auth.
+  // Auth is enforced only for remote hook-review sessions in the production app.
+  const hookAuthRequired = isHookAuthRequiredForRuntime({
+    runtime,
+    sessionId: remoteHookSessionId,
+    reviewKey: remoteHookReviewKey,
+  });
   const cloudWorkspaceBaseEnabled = import.meta.env.VITE_FEATURE_CLOUD_WORKSPACE !== 'false';
   const hookCloudWorkspaceEnabled = isHookRuntime && hookAuthRequired && Boolean(auth?.user);
-  const cloudWorkspaceEnabled = cloudWorkspaceBaseEnabled && (isPortalRuntime || hookCloudWorkspaceEnabled);
+  const cloudWorkspaceEnabled =
+    cloudWorkspaceBaseEnabled &&
+    !isRemoteHookReview &&
+    (isPortalRuntime || hookCloudWorkspaceEnabled);
+  const remoteHookAuthHeader = useMemo<Record<string, string>>(
+    () =>
+      auth?.session?.access_token
+        ? { Authorization: `Bearer ${auth.session.access_token}` }
+        : {},
+    [auth?.session?.access_token]
+  );
   const raycastDocumentsEnabled = cloudWorkspaceEnabled && import.meta.env.VITE_FEATURE_RAYCAST_DOCUMENTS !== 'false';
   const livePresenceEnabled = cloudWorkspaceEnabled && import.meta.env.VITE_FEATURE_LIVE_PRESENCE !== 'false';
   const legacyShareReadOnlyEnabled = import.meta.env.VITE_FEATURE_LEGACY_SHARE_READONLY !== 'false';
@@ -791,6 +834,12 @@ const App: React.FC<EditorAppProps> = ({
     ),
     [isApiMode, hookMode, planRevisionId, activeReviewFilePath]
   );
+  const shouldTryPlanLiveDecision = shouldTrySessionDecision({
+    isApiMode,
+    isAnnotateMode,
+    isPlanLiveMode,
+    revisionId: planRevisionId,
+  });
   const activeDocumentTitle = activeDocument?.title || 'Documento';
   const canEditActiveDocument =
     isApiMode ||
@@ -883,6 +932,44 @@ const App: React.FC<EditorAppProps> = ({
     []
   );
 
+  const buildPlanEndpointUrl = useCallback((sinceRevision?: string | null): string => {
+    if (isRemoteHookReview) {
+      const params = new URLSearchParams({
+        sessionId: remoteHookSessionId,
+        reviewKey: remoteHookReviewKey,
+      });
+      if (sinceRevision) {
+        params.set('sinceRevision', sinceRevision);
+      }
+      return `/api/hook-review/plan?${params.toString()}`;
+    }
+
+    if (sinceRevision) {
+      return `/api/plan?sinceRevision=${encodeURIComponent(sinceRevision)}`;
+    }
+    return '/api/plan';
+  }, [isRemoteHookReview, remoteHookReviewKey, remoteHookSessionId]);
+
+  const fetchPlanEndpoint = useCallback(
+    (args: { sinceRevision?: string | null; timeoutMs?: number } = {}): Promise<Response> => {
+      const headers = isRemoteHookReview
+        ? remoteHookAuthHeader
+        : undefined;
+      const init: RequestInit = {
+        cache: 'no-store',
+      };
+      if (headers && Object.keys(headers).length > 0) {
+        init.headers = headers;
+      }
+      if (typeof args.timeoutMs === 'number' && Number.isFinite(args.timeoutMs)) {
+        init.signal = AbortSignal.timeout(args.timeoutMs);
+      }
+
+      return fetch(buildPlanEndpointUrl(args.sinceRevision), init);
+    },
+    [buildPlanEndpointUrl, isRemoteHookReview, remoteHookAuthHeader]
+  );
+
   const waitForUpdatedPlanRevision = useCallback(
     async (
       sinceRevision: string | null,
@@ -895,14 +982,10 @@ const App: React.FC<EditorAppProps> = ({
       let consecutiveTransportErrors = 0;
 
       while (Date.now() - startedAt < timeoutMs) {
-        const query = sinceRevision
-          ? `?sinceRevision=${encodeURIComponent(sinceRevision)}`
-          : '';
-
         try {
-          const response = await fetch(`/api/plan${query}`, {
-            cache: 'no-store',
-            signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+          const response = await fetchPlanEndpoint({
+            sinceRevision,
+            timeoutMs: REQUEST_TIMEOUT_MS,
           });
           if (response.status === 204) {
             consecutiveTransportErrors = 0;
@@ -941,7 +1024,7 @@ const App: React.FC<EditorAppProps> = ({
 
       return { status: 'timeout' };
     },
-    [resolveApiPlanPayload]
+    [fetchPlanEndpoint, resolveApiPlanPayload]
   );
 
   useEffect(() => {
@@ -1409,6 +1492,7 @@ const App: React.FC<EditorAppProps> = ({
 
   useEffect(() => {
     if (isPortalRuntime) return;
+    if (isHookRuntime && !hookAuthRequired) return;
     if (!cloudClient || isLoading || isLoadingShared || isSharedSession) return;
     if (hookAuthRequired && !auth?.user) return;
     if (!hasInitializedLocalAnnotations) return;
@@ -1547,15 +1631,20 @@ const App: React.FC<EditorAppProps> = ({
   // Check if we're in API mode (served from Bun hook server)
   // Skip if we loaded from a shared URL
   useEffect(() => {
-    if (isPortalRuntime && cloudWorkspaceEnabled) {
+    if (isPortalRuntime && cloudWorkspaceEnabled && !isRemoteHookReview) {
       setIsApiMode(false);
+      return;
+    }
+
+    if (isRemoteHookReview && (!auth?.user || !auth?.session?.access_token)) {
+      setIsLoading(false);
       return;
     }
 
     if (isLoadingShared) return; // Wait for share check to complete
     if (isSharedSession) return; // Already loaded from share
 
-    fetch('/api/plan', { cache: 'no-store' })
+    fetchPlanEndpoint({ timeoutMs: 8_000 })
       .then(res => {
         if (!res.ok) throw new Error('Not in API mode');
         return res.json();
@@ -1574,7 +1663,18 @@ const App: React.FC<EditorAppProps> = ({
         setActiveReviewFilePath('');
       })
       .finally(() => setIsLoading(false));
-  }, [isLoadingShared, isSharedSession, cloudWorkspaceEnabled, isPortalRuntime, resolveApiPlanPayload, applyServerRevision]);
+  }, [
+    isLoadingShared,
+    isSharedSession,
+    cloudWorkspaceEnabled,
+    isPortalRuntime,
+    isRemoteHookReview,
+    auth?.user,
+    auth?.session?.access_token,
+    resolveApiPlanPayload,
+    applyServerRevision,
+    fetchPlanEndpoint,
+  ]);
 
   useEffect(() => {
     planRevisionRef.current = planRevisionId;
@@ -1605,11 +1705,10 @@ const App: React.FC<EditorAppProps> = ({
     const pollPlanRevision = async () => {
       try {
         const currentRevision = planRevisionRef.current;
-        const query = currentRevision
-          ? `?sinceRevision=${encodeURIComponent(currentRevision)}`
-          : '';
-
-        const response = await fetch(`/api/plan${query}`, { cache: 'no-store' });
+        const response = await fetchPlanEndpoint({
+          sinceRevision: currentRevision,
+          timeoutMs: 8_000,
+        });
         if (cancelled || response.status === 204) {
           consecutivePollErrors = 0;
           return;
@@ -1676,7 +1775,14 @@ const App: React.FC<EditorAppProps> = ({
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [isPlanLiveMode, resolveApiPlanPayload, applyServerRevision, planLiveSendState, logPlanLiveClientEvent]);
+  }, [
+    isPlanLiveMode,
+    resolveApiPlanPayload,
+    applyServerRevision,
+    planLiveSendState,
+    logPlanLiveClientEvent,
+    fetchPlanEndpoint,
+  ]);
 
   useEffect(() => {
     if (!isApiMode || isPortalRuntime) return;
@@ -1911,48 +2017,123 @@ const App: React.FC<EditorAppProps> = ({
   }, [isFullEditMode, fullEditContent, isSavingFullEdit]);
 
   const sendPlanLiveDecision = useCallback(
-    async (decision: 'approve' | 'request_changes', feedback?: string) => {
-      const response = await fetch('/api/session/decision', {
+    async (
+      decision: 'approve' | 'request_changes',
+      feedback?: string
+    ): Promise<PlanLiveDecisionResponse | null> => {
+      const endpoint = isRemoteHookReview ? '/api/hook-review/decision' : '/api/session/decision';
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (isRemoteHookReview && auth?.session?.access_token) {
+        headers.Authorization = `Bearer ${auth.session.access_token}`;
+      }
+
+      const payload = isRemoteHookReview
+        ? {
+            sessionId: remoteHookSessionId,
+            reviewKey: remoteHookReviewKey,
+            revisionId: planRevisionRef.current,
+            decision,
+            feedback: feedback || '',
+          }
+        : {
+            revisionId: planRevisionRef.current,
+            decision,
+            feedback: feedback || '',
+          };
+
+      const response = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          revisionId: planRevisionRef.current,
-          decision,
-          feedback: feedback || '',
-        }),
+        headers,
+        body: JSON.stringify(payload),
       });
 
-      if (!response.ok) {
-        throw new Error(`Falha ao enviar decisão da revisão (${response.status})`);
+      let parsedBody: PlanLiveDecisionResponse | null = null;
+      try {
+        parsedBody = await response.json() as PlanLiveDecisionResponse;
+      } catch {
+        parsedBody = null;
       }
+
+      if (!response.ok) {
+        const details = typeof parsedBody?.error === 'string' ? parsedBody.error.trim() : '';
+        const error = new Error(
+          details
+            ? `Falha ao enviar decisão da revisão (${response.status}): ${details}`
+            : `Falha ao enviar decisão da revisão (${response.status})`
+        ) as Error & { status?: number };
+        error.status = response.status;
+        throw error;
+      }
+
+      return parsedBody;
     },
-    []
+    [auth?.session?.access_token, isRemoteHookReview, remoteHookReviewKey, remoteHookSessionId]
   );
 
   // API mode handlers
   const handleApprove = async () => {
     setIsSubmitting(true);
     try {
-      if (isPlanLiveMode) {
-        await sendPlanLiveDecision('approve');
-        clearReviewDraft({
-          revisionId: planRevisionRef.current,
-          filePath: planFilePathRef.current,
-        });
-        setPlanLiveNotice('Aprovação enviada para o Claude.');
-      } else {
-        await fetch('/api/approve', { method: 'POST' });
+      if (isApiMode && !isAnnotateMode) {
+        if (isRemoteHookReview) {
+          const remoteDecision = await sendPlanLiveDecision('approve');
+          clearReviewDraft({
+            revisionId: planRevisionRef.current,
+            filePath: planFilePathRef.current,
+          });
+          setPlanLiveNotice(
+            resolvePlanLiveApproveNotice({
+              isRemoteHookReview: true,
+              response: remoteDecision,
+            })
+          );
+          return;
+        }
+
+        let sessionDecisionError: (Error & { status?: number }) | null = null;
+        if (shouldTryPlanLiveDecision) {
+          try {
+            await sendPlanLiveDecision('approve');
+            clearReviewDraft({
+              revisionId: planRevisionRef.current,
+              filePath: planFilePathRef.current,
+            });
+            setPlanLiveNotice(
+              resolvePlanLiveApproveNotice({
+                isRemoteHookReview: false,
+                response: null,
+              })
+            );
+            return;
+          } catch (error) {
+            sessionDecisionError = error as Error & { status?: number };
+            if (!canFallbackToLegacyDecision(sessionDecisionError.status ?? null)) {
+              throw sessionDecisionError;
+            }
+          }
+        }
+
+        const response = await fetch('/api/approve', { method: 'POST' });
+        if (!response.ok) {
+          if (sessionDecisionError) throw sessionDecisionError;
+          throw new Error(`Falha ao aprovar revisão (${response.status})`);
+        }
         clearReviewDraft({
           revisionId: planRevisionRef.current,
           filePath: planFilePathRef.current,
         });
         setSubmitted('approved');
+        return;
       }
-    } catch {
-      setIsSubmitting(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Falha ao aprovar a nota. Tente novamente.';
+      setSaveError(message);
       return;
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsSubmitting(false);
   };
 
   const handleAddAnnotation = (ann: Annotation) => {
@@ -2052,7 +2233,7 @@ const App: React.FC<EditorAppProps> = ({
       type: AnnotationType.GLOBAL_COMMENT,
       text: comment,
       originalText: '', // No selected text
-      createdA: Date.now(),
+      createdAt: Date.now(),
       author: effectiveAuthor,
       authorEmail: effectiveAuthorEmail,
       isGlobal: true,
@@ -2472,7 +2653,8 @@ const App: React.FC<EditorAppProps> = ({
     setIsSaving(true);
     setSaveError(null);
     try {
-      if (isPlanLiveMode) {
+      if (shouldTryPlanLiveDecision) {
+        let fallbackToLegacyDeny = false;
         const previousRevision = planRevisionRef.current;
         const requestId = Date.now();
         waitForRevisionRequestRef.current = requestId;
@@ -2482,7 +2664,33 @@ const App: React.FC<EditorAppProps> = ({
           previousRevision,
           annotationCount: activeAnnotations.length,
         });
-        await sendPlanLiveDecision('request_changes', diffOutput);
+        try {
+          await sendPlanLiveDecision('request_changes', diffOutput);
+        } catch (error) {
+          const status = (error as { status?: number } | null)?.status ?? null;
+          if (!canFallbackToLegacyDecision(status)) {
+            throw error;
+          }
+          fallbackToLegacyDeny = true;
+        }
+
+        if (fallbackToLegacyDeny) {
+          const denyResponse = await fetch('/api/deny', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ feedback: diffOutput }),
+          });
+          if (!denyResponse.ok) {
+            throw new Error(`Falha ao enviar ajustes (${denyResponse.status})`);
+          }
+          clearReviewDraft({
+            revisionId: planRevisionRef.current,
+            filePath: planFilePathRef.current,
+          });
+          setSubmitted('denied');
+          return;
+        }
+
         clearReviewDraft({
           revisionId: previousRevision,
           filePath: planFilePathRef.current,
@@ -2568,6 +2776,11 @@ const App: React.FC<EditorAppProps> = ({
   };
 
   const handleSaveToObsidian = async () => {
+    if (isRemoteHookReview) {
+      setSaveError('Salvar no Obsidian não está disponível na revisão remota em produção.');
+      return;
+    }
+
     if (!savePath.trim()) {
       setSaveError(t('app.configurePath'));
       return;
@@ -2705,7 +2918,7 @@ const App: React.FC<EditorAppProps> = ({
       )
       : null;
 
-  if (runtime === 'hook' && hookAuthRequired) {
+  if (hookAuthRequired) {
     if (!isSupabaseConfigured) {
       return (
         <ThemeProvider defaultTheme="light">
@@ -2857,7 +3070,7 @@ const App: React.FC<EditorAppProps> = ({
               </button>
             )}
 
-            {isApiMode && (
+            {isApiMode && !isRemoteHookReview && (
               <button
                 onClick={handleSaveToObsidian}
                 disabled={isSaving || !savePath || !canEditActiveDocument}
@@ -3125,7 +3338,7 @@ const App: React.FC<EditorAppProps> = ({
                       )}
                     </button>
 
-                    {isApiMode && (
+                    {isApiMode && !isRemoteHookReview && (
                       <button
                         onClick={handleSaveToObsidian}
                         disabled={isSaving || !savePath || !canEditActiveDocument}

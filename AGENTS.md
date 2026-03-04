@@ -13,6 +13,7 @@ Padronizar o fluxo de revisao de planos/notas com UI interativa e hooks.
 2. `PostToolUse` + `Write` chama `obsreview obsidian` para notas de plano no vault (`Plans/`, `.obsidian/plans/`, `plan/`), com exclusao de `/.claude/plans/`.
 3. `PermissionRequest` + `ExitPlanMode` chama `obsreview plan` apenas como fallback.
 4. Revisao manual de markdown usa `obsreview annotate <arquivo.md>` (ou `obsreview nota <arquivo.md>`).
+5. `PostToolUse` + `Bash` tambem chama `obsreview plan-live` para cobrir fallback quando `Write` falha por politica da ferramenta.
 
 ## Regra obrigatoria para planos
 
@@ -35,7 +36,9 @@ Padronizar o fluxo de revisao de planos/notas com UI interativa e hooks.
 
 2. **Hook/CLI (`apps/hook`)**
 - Exige instalacao do binario `obsreview` + hooks no Claude Code.
-- Nao exige login para fluxo local.
+- `OBSREVIEW_REVIEW_TARGET=auto` (padrao): remoto quando saudavel, local quando remoto falhar/timeout.
+- `OBSREVIEW_REVIEW_TARGET=remote`: exige login na app web para revisar/aprovar.
+- `OBSREVIEW_REVIEW_TARGET=local`: nao exige login por padrao no fluxo local.
 - Acoes principais: `Enviar para Claude` (revisao) e `Salvar no Obsidian` (vault local).
 
 ## Contrato de salvamento de notas (3 niveis independentes)

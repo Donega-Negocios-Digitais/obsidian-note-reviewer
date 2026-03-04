@@ -8,8 +8,9 @@
 import { $ } from "bun";
 import { spawn } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
-import { appendFile, mkdir, rm, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { getHookCSP } from "@obsidian-note-reviewer/security/csp";
 import {
   PlanLiveState,
@@ -21,7 +22,7 @@ import indexHtml from "../dist/index.html" with { type: "text" };
 
 const DEFAULT_DECISION_TIMEOUT_MS = 25 * 60 * 1000;
 const CLIENT_ACTIVITY_STALE_MS = 5_000;
-const SESSION_SERVER_VERSION = 2;
+const SESSION_SERVER_VERSION = 3;
 const cspHeader = getHookCSP(false);
 
 function getSecurityHeaders(): Record<string, string> {
@@ -42,6 +43,23 @@ function parseArgs(): { sessionFile: string } {
       : resolve(process.cwd(), ".temp", "plan-live-session.json");
 
   return { sessionFile: resolve(sessionFile) };
+}
+
+function resolveCurrentScriptPath(): string {
+  const argvScript = process.argv[1];
+  if (typeof argvScript === "string" && argvScript.trim()) {
+    return resolve(argvScript);
+  }
+  return fileURLToPath(new URL(import.meta.url));
+}
+
+async function getScriptMtimeMs(scriptPath: string): Promise<number | null> {
+  try {
+    const scriptStat = await stat(scriptPath);
+    return Math.trunc(scriptStat.mtimeMs);
+  } catch {
+    return null;
+  }
 }
 
 async function openBrowser(url: string): Promise<void> {
@@ -482,6 +500,7 @@ export async function runPlanLiveSession(): Promise<void> {
     sessionId,
     pid: process.pid,
     serverVersion: SESSION_SERVER_VERSION,
+    sessionScriptMtimeMs: await getScriptMtimeMs(resolveCurrentScriptPath()),
     port: server.port,
     url: `http://localhost:${server.port}`,
     sessionFile,

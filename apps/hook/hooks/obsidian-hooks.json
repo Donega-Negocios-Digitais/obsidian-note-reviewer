@@ -45,6 +45,28 @@
             "timeout": 1800
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "obsreview plan-live",
+            "timeout": 1800
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "obsreview plan-stop-guard",
+            "timeout": 30
+          }
+        ]
       }
     ]
   }

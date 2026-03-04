@@ -1,8 +1,8 @@
-# Instalação do Plugin (Passo a Passo)
+# Instalacao do Plugin (passo a passo)
 
-Este guia mostra como qualquer usuário instala e ativa o plugin no Claude Code.
+Guia para qualquer usuario instalar e testar.
 
-## 1. Instalar o binário `obsreview`
+## Passo 1 - Instalar o binario `obsreview` (terminal do sistema)
 
 ### Windows (PowerShell)
 ```powershell
@@ -19,40 +19,104 @@ curl -fsSL https://raw.githubusercontent.com/Donega-Negocios-Digitais/obsidian-n
 curl -fsSL https://raw.githubusercontent.com/Donega-Negocios-Digitais/obsidian-note-reviewer/main/scripts/install.sh | bash
 ```
 
-## 2. Instalar o plugin no Claude Code
+## Passo 2 - Validar binario
 
-No Claude Code, execute:
+```powershell
+obsreview --version
+obsreview --help
+obsreview doctor
+```
+
+Sinal de sucesso:
+- `--version` mostra versao;
+- `--help` mostra os comandos;
+- `doctor` mostra checks locais.
+
+Se falhar, pare aqui e corrija antes de instalar plugin.
+
+## Passo 3 - Abrir Claude Code na pasta certa
+
+Abra uma pasta de projeto com escrita.
+
+Nao use pasta de sistema (exemplo: `System32`).
+
+## Passo 4 - Instalar plugin no chat do Claude Code (um comando por vez)
+
+Primeiro comando:
 
 ```text
 /plugin marketplace add Donega-Negocios-Digitais/obsidian-note-reviewer
+```
+
+Espere terminar, depois rode o segundo:
+
+```text
 /plugin install obsreview@obsidian-note-reviewer
 ```
 
-## 3. Reiniciar o Claude Code
+Se o Claude perguntar escopo, selecione:
+- **Global (Recommended)**.
 
-Feche e abra o Claude Code para carregar hooks e slash commands.
+## Passo 5 - Reiniciar Claude Code
 
-## 4. Validar se está funcionando
+Feche e abra o Claude Code para recarregar hooks e slash commands.
 
-Peça um plano para o agente que gere escrita em `/.claude/plans/...`.
+## Passo 6 - Testar abertura da UI
 
-Exemplo:
+Peça no chat:
 
 ```text
-Crie um plano de 3 passos para melhorar X, sem implementar.
+Crie um plano de 2 passos para criar uma mini apresentacao, sem implementar.
 ```
 
-Se estiver correto:
-- a UI de revisão abre automaticamente;
-- você consegue `Enviar alterações` e `Aprovar nota`.
+Esperado:
+- Claude escreve em `/.claude/plans/...`;
+- UI abre automaticamente para revisao;
+- `Enviar alteracoes` devolve feedback para o Claude;
+- `Aprovar nota` conclui fluxo (no remoto, salva em Meus Documentos).
 
-## 5. Solução rápida de problemas
+## Mensagens esperadas (comando -> sinal -> proximo passo)
 
-- Se o comando `obsreview` não for encontrado:
-  - reinicie o terminal;
-  - confirme se `~/.local/bin` (Linux/macOS) ou `%USERPROFILE%\\.local\\bin` (Windows) está no `PATH`.
-- Se o plugin não aparecer:
-  - rode novamente os dois comandos `/plugin ...`;
-  - reinicie o Claude Code.
-- Se a UI não abrir:
-  - confirme que houve `Write/Edit/MultiEdit` em arquivo de plano (`/.claude/plans/...`).
+| Comando | Sinal de sucesso | Proximo passo |
+|---|---|---|
+| `obsreview --version` | Mostra numero da versao | Rodar `obsreview --help` |
+| `/plugin marketplace add ...` | Marketplace adicionado | Rodar `/plugin install ...` |
+| `/plugin install ...` | Plugin instalado | Reiniciar Claude Code |
+| Prompt de teste | UI abriu para revisar plano | Testar enviar/aprovar |
+
+## Modo de revisao (novo padrao)
+
+- `OBSREVIEW_REVIEW_TARGET=auto` (padrao):
+  - testa `GET /api/hook-review/health` na app remota;
+  - se remoto saudavel -> abre revisao em producao;
+  - se remoto indisponivel/timeout -> usa localhost automaticamente.
+- `OBSREVIEW_REVIEW_TARGET=remote`: forca app web de producao (login obrigatorio para enviar/aprovar).
+- `OBSREVIEW_REVIEW_TARGET=local`: forca comportamento legado em localhost (sem login por padrao).
+- no modo remoto (`/hook-review`):
+  - `Aprovar nota` tenta salvar no app antes de aprovar no Claude;
+  - se o save falhar, a aprovacao e bloqueada com erro claro para tentar novamente.
+- `OBSREVIEW_REMOTE_FALLBACK_LOCAL=true` (padrao): fallback local em falha de inicializacao remota.
+- `OBSREVIEW_REMOTE_HEALTH_TIMEOUT_MS=2000`: timeout do probe remoto em modo `auto`.
+
+## Regras importantes
+
+1. Nao precisa clonar repositorio para uso normal.
+2. Nao rode `bun install` dentro de `~/.claude/plugins/cache/...`.
+3. Runtime oficial do plugin e o binario global `obsreview`.
+
+## Troubleshooting rapido
+
+1. Rode no terminal:
+```powershell
+obsreview doctor
+```
+
+2. Verifique logs:
+- `.logs/plan-live-hook.log`
+- `.logs/plan-live-session.log`
+
+3. Confirme:
+- plugin instalado;
+- Claude reiniciado;
+- prompt realmente gerou `Write/Edit/MultiEdit` em `/.claude/plans/...`;
+- se `Write` falhar por politica da ferramenta, fallback via `Bash` tambem e aceito pelo hook.
