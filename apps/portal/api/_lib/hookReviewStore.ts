@@ -146,15 +146,32 @@ export async function resolveAuthenticatedUser(req: VercelRequest): Promise<{
 } | null> {
   const token = extractBearerToken(req);
   if (!token) return null;
+  const cfg = readSupabaseConfig();
+  const authUrl = `${cfg.url.replace(/\/$/, "")}/auth/v1/user`;
 
-  const { anon } = getClients();
-  const { data, error } = await anon.auth.getUser(token);
-  if (error || !data.user) return null;
+  try {
+    const response = await fetch(authUrl, {
+      headers: {
+        apikey: cfg.anonKey,
+        authorization: `Bearer ${token}`,
+      },
+      cache: "no-store",
+    });
+    if (!response.ok) return null;
 
-  return {
-    id: data.user.id,
-    email: data.user.email || null,
-  };
+    const user = (await response.json()) as {
+      id?: unknown;
+      email?: unknown;
+    };
+    if (typeof user?.id !== "string" || !user.id.trim()) return null;
+
+    return {
+      id: user.id,
+      email: typeof user.email === "string" ? user.email : null,
+    };
+  } catch {
+    return null;
+  }
 }
 
 export function resolveReviewAppBaseUrl(req: VercelRequest): string {
@@ -168,7 +185,7 @@ export function resolveReviewAppBaseUrl(req: VercelRequest): string {
   if (typeof host === "string" && host.trim()) {
     return `${proto}://${host}`.replace(/\/$/, "");
   }
-  return "https://r.alexdonega.com.br";
+  return "https://obsidian-note-reviewer-hook.vercel.app";
 }
 
 export async function purgeExpiredHookReviewSessions(): Promise<void> {

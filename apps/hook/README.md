@@ -182,7 +182,7 @@ Prefer modern format for new setups.
 - `OBSREVIEW_REVIEW_TARGET=auto` (default, remote when healthy; local when remote fails)
 - `OBSREVIEW_REVIEW_TARGET=remote` (forces production app)
 - `OBSREVIEW_REVIEW_TARGET=local` (forces localhost legacy review)
-- `OBSREVIEW_REVIEW_APP_URL=https://r.alexdonega.com.br` (default)
+- `OBSREVIEW_REVIEW_APP_URL=https://obsidian-note-reviewer-hook.vercel.app` (default)
 - `OBSREVIEW_REMOTE_FALLBACK_LOCAL=true` (default)
 - `OBSREVIEW_REMOTE_HEALTH_TIMEOUT_MS=2000` (default)
 - `OBSREVIEW_PLAN_REVIEW_MODE=live` (default)

@@ -61,7 +61,7 @@ interface RunRemotePlanLiveReviewResult {
   decision: RemoteWaitDecisionResult;
 }
 
-const REVIEW_APP_DEFAULT_URL = "https://r.alexdonega.com.br";
+const REVIEW_APP_DEFAULT_URL = "https://obsidian-note-reviewer-hook.vercel.app";
 const DECISION_TIMEOUT_MS = 25 * 60 * 1000;
 const DECISION_POLL_INTERVAL_MS = 1_000;
 const DECISION_POLL_REQUEST_TIMEOUT_MS = 5_000;
