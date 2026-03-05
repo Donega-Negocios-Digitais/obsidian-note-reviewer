@@ -1,6 +1,6 @@
 {
   "name": "obsidian-note-reviewer",
-  "version": "0.2.7",
+  "version": "0.2.9",
   "private": true,
   "description": "Obsidian Note Reviewer - Create and review notes for Obsidian with Claude Code integration",
   "author": "Alex Donega",

@@ -1,7 +1,7 @@
 {
   "name": "obsreview",
   "description": "Interactive review UI for Claude Code hooks with plan review, Obsidian write interception, and markdown annotation.",
-  "version": "0.2.7",
+  "version": "0.2.9",
   "author": {
     "name": "Donega-Negocios-Digitais"
   },
