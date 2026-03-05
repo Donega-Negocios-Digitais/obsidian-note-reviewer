@@ -135,10 +135,15 @@ try {
         throw "no version output"
     }
 
+    $helpOutput = & $installPath --help 2>$null
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($helpOutput)) {
+        throw "no help output"
+    }
+
     Write-Output "Binary self-check OK: $($versionOutput.Trim())"
 }
 catch {
-    Write-Error "Installed binary did not respond to '--version'."
+    Write-Error "Installed binary did not respond to '--version/--help'."
     Write-Output ""
     Write-Output "Troubleshooting:"
     Write-Output "1. Verify latest release assets are available for this repository."

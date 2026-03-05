@@ -100,11 +100,16 @@ async function collectHookFiles(hooksDir: string): Promise<string[]> {
 async function checkBinaryVersion(version: string): Promise<DoctorCheck> {
   const result = runCommand("obsreview", ["--version"]);
   if (!result.ok) {
+    const emptyButZero = result.status === 0 && !result.output;
     return {
       name: "obsreview no PATH",
       ok: false,
-      details: result.output || "Command failed with no output.",
-      fix: "Reinstale o binario e confira se ~/.local/bin (ou %USERPROFILE%\\.local\\bin) esta no PATH.",
+      details: emptyButZero
+        ? "obsreview --version retornou sem saida (binario invalido/desatualizado)."
+        : result.output || "Command failed with no output.",
+      fix: emptyButZero
+        ? "Reinstale o binario oficial, reabra o terminal e rode obsreview --version novamente."
+        : "Reinstale o binario e confira se ~/.local/bin (ou %USERPROFILE%\\.local\\bin) esta no PATH.",
     };
   }
 

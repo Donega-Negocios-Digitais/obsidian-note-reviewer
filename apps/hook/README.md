@@ -39,6 +39,11 @@ obsreview --help
 obsreview doctor
 ```
 
+If `obsreview --version` returns no output:
+- reinstall using the official installer;
+- reopen terminal;
+- validate `--version` and `--help` again before plugin install.
+
 ---
 
 [Plugin Installation](#plugin-installation) · [Manual Installation (Hooks)](#manual-installation-hooks) · [Commands](#commands)

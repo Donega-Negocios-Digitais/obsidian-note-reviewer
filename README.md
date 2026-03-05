@@ -60,6 +60,12 @@ Sinal de sucesso:
 - `--help` mostra lista de comandos;
 - `doctor` mostra checks locais.
 
+Se `obsreview --version` nao mostrar nada:
+- o binario instalado esta invalido/desatualizado;
+- rode o instalador novamente para baixar a release mais nova;
+- feche e abra o terminal;
+- teste de novo `obsreview --version` antes de seguir.
+
 ## Passo 3 - Abrir Claude Code na pasta certa
 
 Abra o Claude Code em uma pasta de projeto com escrita.
@@ -136,6 +142,11 @@ obsreview doctor
 - reinicie o Claude Code;
 - rode `obsreview doctor`;
 - confira se o plano foi salvo em `/.claude/plans/...`.
+
+0. `obsreview --version` sem saida:
+- reinstale o binario com o instalador oficial do seu sistema;
+- reabra o terminal;
+- valide `obsreview --version` e `obsreview --help` antes de instalar/reinstalar plugin.
 
 2. Abre a app, mas sem o documento de revisao:
 - atualize binario + plugin (Passo 0);

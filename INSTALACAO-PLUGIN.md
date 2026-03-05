@@ -45,6 +45,11 @@ Sinal de sucesso:
 
 Se falhar, pare aqui e corrija antes de instalar plugin.
 
+Se `obsreview --version` nao mostrar nada:
+- reinstale o binario com o instalador oficial;
+- feche e abra o terminal;
+- valide novamente `obsreview --version` e `obsreview --help`.
+
 ## Passo 3 - Abrir Claude Code na pasta certa
 
 Abra uma pasta de projeto com escrita.
@@ -133,6 +138,10 @@ Se abrir a aplicacao sem esses parametros, ainda esta usando cache/versao antiga
 ```powershell
 obsreview doctor
 ```
+
+0. `obsreview --version` sem saida:
+- binario invalido/desatualizado;
+- reinstale com o instalador oficial e reabra o terminal.
 
 2. Verifique logs:
 - `.logs/plan-live-hook.log`

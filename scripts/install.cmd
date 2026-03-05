@@ -113,6 +113,37 @@ move /y "!TEMP_FILE!" "!INSTALL_PATH!" >nul
 echo.
 echo obsreview !TAG! installed to !INSTALL_PATH!
 
+REM Self-check installed binary (avoid silent broken binaries)
+set "VERSION_OUTPUT="
+for /f "usebackq delims=" %%i in (`"!INSTALL_PATH!" --version 2^>nul`) do (
+    if not defined VERSION_OUTPUT set "VERSION_OUTPUT=%%i"
+)
+
+if not defined VERSION_OUTPUT (
+    echo Installed binary did not respond to --version. >&2
+    echo. >&2
+    echo Troubleshooting: >&2
+    echo 1. Re-run installer after next release is published. >&2
+    echo 2. Try explicit version: install.cmd v0.2.8 >&2
+    exit /b 1
+)
+
+set "HELP_OUTPUT="
+for /f "usebackq delims=" %%i in (`"!INSTALL_PATH!" --help 2^>nul`) do (
+    if not defined HELP_OUTPUT set "HELP_OUTPUT=%%i"
+)
+
+if not defined HELP_OUTPUT (
+    echo Installed binary did not respond to --help. >&2
+    echo. >&2
+    echo Troubleshooting: >&2
+    echo 1. Re-run installer after next release is published. >&2
+    echo 2. Try explicit version: install.cmd v0.2.8 >&2
+    exit /b 1
+)
+
+echo Binary self-check OK: !VERSION_OUTPUT!
+
 REM Check if install directory is in PATH
 echo !PATH! | findstr /i /c:"!INSTALL_DIR!" >nul
 if !ERRORLEVEL! neq 0 (

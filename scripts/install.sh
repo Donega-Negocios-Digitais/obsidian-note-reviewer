@@ -57,6 +57,26 @@ chmod +x "$INSTALL_DIR/obsreview"
 echo ""
 echo "obsreview ${latest_tag} installed to ${INSTALL_DIR}/obsreview"
 
+version_output="$("$INSTALL_DIR/obsreview" --version 2>/dev/null || true)"
+if [ -z "$version_output" ]; then
+    echo "Installed binary did not respond to --version." >&2
+    echo "Troubleshooting:" >&2
+    echo "1. Re-run installer after next release is published." >&2
+    echo "2. Try explicit version with a known-good release tag." >&2
+    exit 1
+fi
+
+help_output="$("$INSTALL_DIR/obsreview" --help 2>/dev/null || true)"
+if [ -z "$help_output" ]; then
+    echo "Installed binary did not respond to --help." >&2
+    echo "Troubleshooting:" >&2
+    echo "1. Re-run installer after next release is published." >&2
+    echo "2. Try explicit version with a known-good release tag." >&2
+    exit 1
+fi
+
+echo "Binary self-check OK: ${version_output}"
+
 if ! echo "$PATH" | tr ':' '\n' | grep -qx "$INSTALL_DIR"; then
     echo ""
     echo "${INSTALL_DIR} is not in your PATH. Add it with:"
