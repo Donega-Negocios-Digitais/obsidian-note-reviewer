@@ -114,13 +114,12 @@ Se abrir a aplicacao sem esses parametros, ainda esta usando cache/versao antiga
 - `OBSREVIEW_REVIEW_TARGET=local`: forca comportamento legado em localhost (sem login por padrao).
 - reabertura de aba no remoto (mesma sessao):
   - evita duplicacao em revisoes seguidas;
-  - reabre automaticamente apos inatividade.
+  - nao reabre automaticamente na mesma sessao (se fechar, reabra manualmente).
 - no modo remoto (`/hook-review`):
   - `Aprovar nota` tenta salvar no app antes de aprovar no Claude;
   - se o save falhar, a aprovacao e bloqueada com erro claro para tentar novamente.
 - `OBSREVIEW_REMOTE_FALLBACK_LOCAL=true` (padrao): fallback local em falha de inicializacao remota.
 - `OBSREVIEW_REMOTE_HEALTH_TIMEOUT_MS=2000`: timeout do probe remoto em modo `auto`.
-- `OBSREVIEW_REMOTE_REOPEN_IDLE_MS=60000`: tempo de idle para reabrir aba da mesma sessao.
 
 ## Regras importantes
 

@@ -153,8 +153,8 @@ obsreview doctor
 
 5. Fechei a aba de revisao e nao abriu de novo:
 - o hook evita duplicar abas em revisoes rapidas da mesma sessao;
-- se a aba foi fechada, ele reabre automaticamente na proxima revisao apos ~60s;
-- ajuste opcional: `OBSREVIEW_REMOTE_REOPEN_IDLE_MS` (ms).
+- durante a mesma sessao de review remota, ele nao abre nova aba automaticamente;
+- abra manualmente a aba da sessao se voce a fechou.
 
 6. Navegador:
 - por padrao, o `obsreview` abre no navegador padrao do sistema;
@@ -163,7 +163,6 @@ obsreview doctor
 
 Opcional avancado (somente se quiser forcar um executavel especifico):
 - `OBSREVIEW_BROWSER_EXE`
-- `OBSREVIEW_REMOTE_REOPEN_IDLE_MS` (padrao: `60000`)
 
 ## Documentacao util
 

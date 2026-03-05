@@ -144,9 +144,6 @@ const DECISION_MAX_CONSECUTIVE_TRANSPORT_ERRORS = 6;
 const REMOTE_HEALTH_TIMEOUT_DEFAULT_MS = 2_000;
 const REMOTE_HEALTH_TIMEOUT_MIN_MS = 300;
 const REMOTE_HEALTH_TIMEOUT_MAX_MS = 15_000;
-const REMOTE_REOPEN_IDLE_DEFAULT_MS = 60_000;
-const REMOTE_REOPEN_IDLE_MIN_MS = 10_000;
-const REMOTE_REOPEN_IDLE_MAX_MS = 15 * 60_000;
 
 export class RemotePlanLiveError extends Error {
   public readonly stage: "init" | "wait_decision";
@@ -175,8 +172,7 @@ export interface ReviewBrowserOpenDecisionArgs {
 export type ReviewBrowserOpenReason =
   | "first_open"
   | "session_changed"
-  | "same_session_idle_reopen"
-  | "same_session_recently_opened_skip";
+  | "same_session_already_opened";
 
 export interface ReviewBrowserOpenDecision {
   shouldOpen: boolean;
@@ -429,41 +425,11 @@ export function shouldOpenReviewBrowser(
     };
   }
 
-  const lastOpenedAtMs = args.lastOpenedAt ? Date.parse(args.lastOpenedAt) : NaN;
-  if (!Number.isFinite(lastOpenedAtMs)) {
-    return {
-      shouldOpen: true,
-      reason: "same_session_idle_reopen",
-      elapsedMs: null,
-    };
-  }
-
-  const elapsedMs = Date.now() - lastOpenedAtMs;
-  if (elapsedMs >= getRemoteReopenIdleMs()) {
-    return {
-      shouldOpen: true,
-      reason: "same_session_idle_reopen",
-      elapsedMs,
-    };
-  }
-
   return {
     shouldOpen: false,
-    reason: "same_session_recently_opened_skip",
-    elapsedMs,
+    reason: "same_session_already_opened",
+    elapsedMs: null,
   };
-}
-
-function getRemoteReopenIdleMs(): number {
-  const raw = process.env.OBSREVIEW_REMOTE_REOPEN_IDLE_MS?.trim();
-  const parsed = raw ? Number.parseInt(raw, 10) : NaN;
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return REMOTE_REOPEN_IDLE_DEFAULT_MS;
-  }
-  return Math.min(
-    REMOTE_REOPEN_IDLE_MAX_MS,
-    Math.max(REMOTE_REOPEN_IDLE_MIN_MS, parsed)
-  );
 }
 
 async function markBrowserOpened(args: {

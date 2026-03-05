@@ -12,7 +12,6 @@ const originalTarget = process.env.OBSREVIEW_REVIEW_TARGET;
 const originalFallback = process.env.OBSREVIEW_REMOTE_FALLBACK_LOCAL;
 const originalReviewUrl = process.env.OBSREVIEW_REVIEW_APP_URL;
 const originalHealthTimeout = process.env.OBSREVIEW_REMOTE_HEALTH_TIMEOUT_MS;
-const originalReopenIdle = process.env.OBSREVIEW_REMOTE_REOPEN_IDLE_MS;
 const originalFetch = globalThis.fetch;
 
 describe("remotePlanLive config", () => {
@@ -45,12 +44,6 @@ describe("remotePlanLive config", () => {
       process.env.OBSREVIEW_REMOTE_HEALTH_TIMEOUT_MS = originalHealthTimeout;
     } else {
       delete process.env.OBSREVIEW_REMOTE_HEALTH_TIMEOUT_MS;
-    }
-
-    if (typeof originalReopenIdle === "string") {
-      process.env.OBSREVIEW_REMOTE_REOPEN_IDLE_MS = originalReopenIdle;
-    } else {
-      delete process.env.OBSREVIEW_REMOTE_REOPEN_IDLE_MS;
     }
 
     globalThis.fetch = originalFetch;
@@ -148,7 +141,7 @@ describe("remotePlanLive config", () => {
         "https://example.com/hook-review?sessionId=a&reviewKey=k1&revisionId=rev-2&mode=plan-live-review",
     });
     expect(decision.shouldOpen).toBe(false);
-    expect(decision.reason).toBe("same_session_recently_opened_skip");
+    expect(decision.reason).toBe("same_session_already_opened");
   });
 
   test("opens browser when review URL changes", () => {
@@ -172,11 +165,10 @@ describe("remotePlanLive config", () => {
       reviewUrl: "https://example.com/hook-review?sessionId=a",
     });
     expect(decision.shouldOpen).toBe(false);
-    expect(decision.reason).toBe("same_session_recently_opened_skip");
+    expect(decision.reason).toBe("same_session_already_opened");
   });
 
-  test("reopens browser for same session when last open is stale", () => {
-    process.env.OBSREVIEW_REMOTE_REOPEN_IDLE_MS = "60000";
+  test("keeps browser closed for same session even when last open is stale", () => {
     const stale = new Date(Date.now() - 60_000).toISOString();
     const decision = shouldOpenReviewBrowser({
       lastOpenedAt: stale,
@@ -187,9 +179,9 @@ describe("remotePlanLive config", () => {
       reviewUrl:
         "https://example.com/hook-review?sessionId=a&reviewKey=k1&revisionId=rev-2&mode=plan-live-review",
     });
-    expect(decision.shouldOpen).toBe(true);
-    expect(decision.reason).toBe("same_session_idle_reopen");
-    expect(typeof decision.elapsedMs).toBe("number");
+    expect(decision.shouldOpen).toBe(false);
+    expect(decision.reason).toBe("same_session_already_opened");
+    expect(decision.elapsedMs).toBeNull();
   });
 
   test("uses first_open when no previous URL exists", () => {
